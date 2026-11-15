@@ -619,8 +619,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | pets | List<CareRecruitmentPetRequestItem> | Y | 1개 이상. 강아지·고양이 동시 선택 허용 | RCRT_PET_KND, CMU-004-06 |
 | prtcShpCds | List<String> | Y | 1개 이상 복수 선택. 공통코드 PCAG03(방문돌봄·위탁돌봄·산책·놀이·훈련·그 외) | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-06 |
-| prtcBgngDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시간은 30분 단위 | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
-| prtcEndDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시작 일시보다 뒤, 30분 단위 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
+| prtcBgngDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시간은 30분 단위. 시작일은 오늘(KST)부터 90일 이내(오늘·90일째 포함), 어기면 `INVALID_INPUT_VALUE`(400) | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
+| prtcEndDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시작 일시보다 뒤, 30분 단위. 종료일은 시작일부터 30일 이내(30일째 포함), 어기면 `INVALID_INPUT_VALUE`(400) | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
 | schdlCnsltnPsbltyYn | Boolean | Y | true면 일정 미정 등록 허용, 입력한 일정은 희망 일정 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-07 |
 | cstUnitCd | String | Y | 공통코드 PCAG02(시급·건당) | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-08 |
 | cstAmt | Integer | Y | 원 단위 양의 정수. 시급이면 최저시급(설정값) 이상. 건당은 비교하지 않는다 | PET_PRTC_RCRT.CST_AMT, SYS_STNG.LOWST_HRWG_AMT, CMU-004-08 |
@@ -720,8 +720,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | pets | List<CareRecruitmentPetRequestItem> | N | 보내면 1개 이상. 목록 교체 방식(issues 2) | RCRT_PET_KND, CMU-004-06·11 |
 | prtcShpCds | List<String> | N | 보내면 1개 이상. 목록 교체 방식 | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-06·11 |
-| prtcBgngDt | LocalDateTime | N | 30분 단위 | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
-| prtcEndDt | LocalDateTime | N | 시작 일시보다 뒤, 30분 단위 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
+| prtcBgngDt | LocalDateTime | N | 30분 단위. 시작일은 오늘(KST)부터 90일 이내. 저장된 날짜와 같은 날짜는 검사하지 않는다(이미 지난 날짜여도 통과) | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
+| prtcEndDt | LocalDateTime | N | 시작 일시보다 뒤, 30분 단위. 종료일은 시작일부터 30일 이내. 저장된 날짜와 같은 날짜는 검사하지 않는다 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
 | schdlCnsltnPsbltyYn | Boolean | N | `true`이고 `prtcBgngDt`·`prtcEndDt`를 둘 다 보내지 않으면 기존 일정을 비운다(일정 미정). 일정을 보내면 희망 일정으로 저장한다. `false`인데 보낸 값과 저장된 값을 합친 일정이 없으면 400. 보내지 않으면 일정을 그대로 둔다 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-07 |
 | cstUnitCd | String | N | 공통코드 PCAG02 | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-08 |
 | cstAmt | Integer | N | 원 단위 양의 정수. 시급이면 최저시급 이상 | PET_PRTC_RCRT.CST_AMT, CMU-004-08 |

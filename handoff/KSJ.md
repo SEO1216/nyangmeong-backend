@@ -2,7 +2,17 @@
 
 ## 지금 하는 것
 
-끝남. SCR-CMU-005 펫돌봄 채팅 · 알림 이동 경로(2026-11-13, 커밋 5f152dd, 푸시함, PR 전)
+SCR-CMU-004 우리동네 펫돌봄 · 일정 기한 검증 — 구현 중 (승인 2026-11-15 23:43, 시작 2026-11-15 14:39)
+
+근거: 프론트 저장소 `docs/backend-request-care-chat.md` 1번(사람 요청 2026-11-15). 명세 기능 ID 추가 없음. 경계는 프론트 `CareForm.jsx` `whenError`와 같게(날짜 단위, 경계일 포함).
+
+- FN-CMU-004-07·11 등록 날짜 기한: `community/service/CareRecruitmentService.java` `create`에서 일정이 있으면 시작일(KST 날짜)이 오늘 전이거나 오늘+90일 뒤면, 종료일이 시작일+30일 뒤면 `INVALID_INPUT_VALUE`. 오늘은 `LocalDate.now(ZoneId.of("Asia/Seoul"))`(`ExpenseService`·`PointService`와 같은 방식), 시험할 수 있게 오늘을 인자로 받는 검사 메서드로 나눈다. API: `POST /care-recruitments`(KSJ, `CareRecruitmentCreateRequest` → `CareRecruitmentResponse`) 그대로. 완료 조건: `명령:` `./gradlew test --tests com.nyangmeong.community.service.CareRecruitmentServiceTest -q`(어제 시작·오늘+91일 시작·기간 31일은 거부, 오늘 시작·오늘+90일 시작·기간 30일은 통과). `화면:` Swagger로 시작일을 오늘+91일로 등록하면 400 `INVALID_INPUT_VALUE`.
+- FN-CMU-004-11 수정 날짜 기한: 같은 파일 `update`에서 합친 일정(`bgngDt`·`endDt`)에 같은 검사를 하되, 저장된 값과 날짜가 같은 쪽은 건너뛴다(시작일이 같으면 시작일 검사 생략, 종료일이 같으면 기간 검사 생략. 프론트와 같음). 일정 비우기(`clearSchedule`)는 검사 없음. API: `PATCH /care-recruitments/{petPrtcRcrtSn}`(KSJ, `CareRecruitmentUpdateRequest` → `CareRecruitmentResponse`) 그대로. 완료 조건: `명령:` 같은 테스트(지난 시작일이 저장된 글의 제목만 수정은 통과, 시작일을 어제로 바꾸면 거부). `화면:` Swagger로 일정 그대로 제목만 수정하면 200.
+- 문서: `docs/api/community.md` `CareRecruitmentCreateRequest`·`CareRecruitmentUpdateRequest`의 `prtcBgngDt`·`prtcEndDt` 설명에 「시작일은 오늘부터 90일 이내, 종료일은 시작일부터 30일 이내(날짜 기준), 수정에서 바꾸지 않은 날짜는 검사하지 않음」을 넣는다. 응답·경로는 바뀌지 않는다.
+- 프론트 연결: 없음(`CareForm.jsx`에 같은 규칙이 이미 있다).
+- 전체 검증: `./gradlew build -q`
+
+새 의존성: 없음
 
 ## 지난 작업
 

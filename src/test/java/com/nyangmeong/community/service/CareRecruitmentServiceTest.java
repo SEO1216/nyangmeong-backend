@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -67,8 +68,10 @@ class CareRecruitmentServiceTest {
     private static final String CAT = "PETC0002";
     private static final BigDecimal LAT = new BigDecimal("35.8242000000");
     private static final BigDecimal LOT = new BigDecimal("127.1480000000");
-    private static final LocalDateTime BGNG = LocalDateTime.of(2026, 11, 10, 19, 0);
-    private static final LocalDateTime END = LocalDateTime.of(2026, 11, 10, 19, 30);
+    /** 날짜 기한(오늘부터 90일, 기간 30일) 검증이 있어 오늘(KST) 기준으로 잡는다 */
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    private static final LocalDateTime BGNG = TODAY.plusDays(5).atTime(19, 0);
+    private static final LocalDateTime END = TODAY.plusDays(5).atTime(19, 30);
 
     private final CareRecruitmentMapper careRecruitmentMapper = mock(CareRecruitmentMapper.class);
     private final PostMapper postMapper = mock(PostMapper.class);
@@ -562,8 +565,8 @@ class CareRecruitmentServiceTest {
     @Test
     void 일정_협의_가능이면서_일정을_보내면_희망_일정으로_저장한다() {
         stubUpdate();
-        LocalDateTime newBgng = LocalDateTime.of(2026, 11, 12, 10, 0);
-        LocalDateTime newEnd = LocalDateTime.of(2026, 11, 12, 12, 0);
+        LocalDateTime newBgng = TODAY.plusDays(7).atTime(10, 0);
+        LocalDateTime newEnd = TODAY.plusDays(7).atTime(12, 0);
 
         service.update(MBR, RCRT, update(null, null, true, newBgng, newEnd));
 
@@ -630,6 +633,101 @@ class CareRecruitmentServiceTest {
                 null, null, null, LAT, null, null, null, null, null);
 
         assertError(() -> service.update(MBR, RCRT, onlyLat), ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    /** 일정 날짜 기한(시작일 오늘부터 90일, 종료일 시작일부터 30일) */
+
+    private LocalDateTime at(LocalDate date) {
+        return date.atTime(19, 0);
+    }
+
+    private void assertPeriodRejected(LocalDateTime bgng, LocalDateTime end, LocalDateTime savedBgng,
+            LocalDateTime savedEnd) {
+        assertError(() -> CareRecruitmentService.checkSchedule(false, bgng, end, savedBgng, savedEnd, TODAY),
+                ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    private void assertPeriodAllowed(LocalDateTime bgng, LocalDateTime end, LocalDateTime savedBgng,
+            LocalDateTime savedEnd) {
+        CareRecruitmentService.checkSchedule(false, bgng, end, savedBgng, savedEnd, TODAY);
+    }
+
+    @Test
+    void 시작일이_어제면_거부하고_오늘이면_통과한다() {
+        assertPeriodRejected(at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), null, null);
+        assertPeriodAllowed(at(TODAY), at(TODAY).plusHours(1), null, null);
+    }
+
+    @Test
+    void 시작일이_오늘_90일_뒤면_통과하고_91일_뒤면_거부한다() {
+        assertPeriodAllowed(at(TODAY.plusDays(90)), at(TODAY.plusDays(90)).plusHours(1), null, null);
+        assertPeriodRejected(at(TODAY.plusDays(91)), at(TODAY.plusDays(91)).plusHours(1), null, null);
+    }
+
+    @Test
+    void 기간이_30일이면_통과하고_31일이면_거부한다() {
+        LocalDate start = TODAY.plusDays(10);
+        assertPeriodAllowed(at(start), at(start.plusDays(30)), null, null);
+        assertPeriodRejected(at(start), at(start.plusDays(31)), null, null);
+    }
+
+    @Test
+    void 바뀌지_않은_날짜는_지난_날짜여도_통과한다() {
+        LocalDateTime pastBgng = at(TODAY.minusDays(3));
+        LocalDateTime pastEnd = at(TODAY.minusDays(2));
+
+        assertPeriodAllowed(pastBgng, pastEnd, pastBgng, pastEnd);
+        assertPeriodAllowed(pastBgng.withHour(10), pastEnd, pastBgng, pastEnd);
+    }
+
+    @Test
+    void 수정에서_시작일을_어제로_바꾸면_거부한다() {
+        assertPeriodRejected(at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), BGNG, END);
+    }
+
+    @Test
+    void 등록은_지난_일정이면_400이고_저장하지_않는다() {
+        stubSystemSetting();
+        CareRecruitmentCreateRequest past = create(List.of(dog(1L, null, "SMALL")), HOURLY, 10320, false,
+                at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), null, true);
+
+        assertError(() -> service.create(MBR, past), ErrorCode.INVALID_INPUT_VALUE);
+        verify(postMapper, never()).insertPost(any(Post.class));
+    }
+
+    @Test
+    void 등록은_시작일이_91일_뒤면_400이다() {
+        stubSystemSetting();
+        CareRecruitmentCreateRequest far = create(List.of(dog(1L, null, "SMALL")), HOURLY, 10320, false,
+                at(TODAY.plusDays(91)), at(TODAY.plusDays(91)).plusHours(1), null, true);
+
+        assertError(() -> service.create(MBR, far), ErrorCode.INVALID_INPUT_VALUE);
+        verify(postMapper, never()).insertPost(any(Post.class));
+    }
+
+    @Test
+    void 지난_일정이_저장된_글의_제목만_수정하면_통과한다() {
+        stubUpdate();
+        CareRecruitmentDetail pastDetail = detail(RECRUITING);
+        pastDetail.setPrtcBgngDt(at(TODAY.minusDays(3)));
+        pastDetail.setPrtcEndDt(at(TODAY.minusDays(2)));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(pastDetail);
+        CareRecruitmentUpdateRequest titleOnly = new CareRecruitmentUpdateRequest(null, null, null, null, null, null,
+                null, null, null, null, null, "제목만 수정", null, null, null);
+
+        service.update(MBR, RCRT, titleOnly);
+
+        assertThat(updatedRecruitment().getPrtcBgngDt()).isEqualTo(at(TODAY.minusDays(3)));
+    }
+
+    @Test
+    void 수정에서_시작일을_어제로_바꾸면_400이고_저장하지_않는다() {
+        stubUpdate();
+
+        assertError(() -> service.update(MBR, RCRT,
+                update(null, null, null, at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1))),
+                ErrorCode.INVALID_INPUT_VALUE);
+        verify(careRecruitmentMapper, never()).updateRecruitment(any(), anyString());
     }
 
     /** 삭제 */

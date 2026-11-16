@@ -1,6 +1,7 @@
 package com.nyangmeong.health.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import lombok.Data;
 
@@ -23,4 +24,6 @@ public class CareCompletionSummary {
     private LocalDate cmptnYmd;
     /** 완료회차 */
     private Integer cmptnCycl;
+    /** 완료 시각 : 마지막으로 체크한 시각(투약은 마지막 회차) */
+    private LocalDateTime cmptnDt;
 }

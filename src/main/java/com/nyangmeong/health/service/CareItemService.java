@@ -4,10 +4,14 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,12 +32,15 @@ import com.nyangmeong.health.dto.CareCompletionResponse;
 import com.nyangmeong.health.dto.CareCompletionSearchCond;
 import com.nyangmeong.health.dto.CareCompletionSummary;
 import com.nyangmeong.health.dto.CareItemCreateRequest;
+import com.nyangmeong.health.dto.CareItemIndicationSaveRequest;
 import com.nyangmeong.health.dto.CareItemResponse;
 import com.nyangmeong.health.dto.CareItemSearchCond;
 import com.nyangmeong.health.dto.CareItemSummary;
 import com.nyangmeong.health.dto.CareItemUpdateRequest;
+import com.nyangmeong.health.dto.CareMissionProgressResponse;
 import com.nyangmeong.health.mapper.CareItemMapper;
 import com.nyangmeong.pet.domain.CareMission;
+import com.nyangmeong.pet.dto.DailyMissionSummary;
 import com.nyangmeong.pet.service.CareMissionService;
 
 import lombok.RequiredArgsConstructor;
@@ -42,6 +49,7 @@ import lombok.RequiredArgsConstructor;
  * [토탈 케어리스트]
  * - 케어 항목 조회·추가·수정·삭제, 완료 체크·취소 (SCR-HLT-003, FN-HLT-003-12·21~24·38)
  * - 기본 항목은 반려동물의 첫 조회 때 만듦 : 기본 항목이 0건일 때만
+ * - 케어리스트 표시 항목은 반려동물 단위로 고름, 5개 이상 (※신규 정책)
  */
 @Service
 @RequiredArgsConstructor
@@ -52,6 +60,8 @@ public class CareItemService {
     private static final String MEDICATION_ICON = "medication";
     private static final String PREVENTION_ICON = "vaccines";
     private static final String SYSTEM_ID = "SYSTEM";
+    /** 케어리스트에 보일 최소 항목 수 (※신규 정책) */
+    private static final int MIN_INDICATION_CNT = 5;
 
     /** 기본 항목 완료 시 반영할 케어미션 */
     private static final Map<BasicCareItem, CareMission> MISSIONS = new EnumMap<>(BasicCareItem.class);
@@ -83,6 +93,7 @@ public class CareItemService {
 
     /**
      * 케어 항목 목록 조회
+     * - 숨긴 항목도 담음 : 행마다 표시여부, 오늘 케어미션 여부·포인트·완료 여부
      */
     @Transactional
     public List<CareItemSummary> search(Long mbrSn, Long petSn, CareItemSearchCond cond) {
@@ -90,7 +101,49 @@ public class CareItemService {
         if (!createBasicItems(petSn, String.valueOf(mbrSn))) {
             throw new CustomException(ErrorCode.PET_NOT_FOUND);
         }
-        return careItemMapper.selectList(petSn, cond, today(), CareZone.REGULAR.getCode());
+        return decorate(mbrSn, petSn, careItemMapper.selectList(petSn, cond, today(), CareZone.REGULAR.getCode()));
+    }
+
+    /**
+     * 케어리스트 표시 항목 저장 (※신규 정책)
+     * - 보낸 항목만 보이고 나머지는 숨김 : 처방·반복 예방 연동 항목은 빠져도 보임
+     * - 보일 항목이 5개 미만(연동 항목 포함)·남의 항목·중복이면 거절
+     */
+    @Transactional
+    public List<CareItemSummary> saveIndications(Long mbrSn, Long petSn, CareItemIndicationSaveRequest req) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        /** 같은 반려동물의 표시 저장·항목 삭제를 순서대로 처리 */
+        if (careItemMapper.selectPetForUpdate(petSn) == null || !createBasicItems(petSn, String.valueOf(mbrSn))) {
+            throw new CustomException(ErrorCode.PET_NOT_FOUND);
+        }
+
+        List<CareItemSummary> items = selectAll(petSn);
+        Set<Long> ownSns = items.stream().map(CareItemSummary::getCareArtclSn).collect(Collectors.toSet());
+        Set<Long> indctSns = new LinkedHashSet<>();
+        for (Long careArtclSn : req.careArtclSns()) {
+            if (!ownSns.contains(careArtclSn) || !indctSns.add(careArtclSn)) {
+                throw invalid("careArtclSns");
+            }
+        }
+        items.stream().filter(this::isLinked).map(CareItemSummary::getCareArtclSn).forEach(indctSns::add);
+        if (indctSns.size() < MIN_INDICATION_CNT) {
+            throw invalid("indctYn");
+        }
+
+        careItemMapper.updateIndications(petSn, indctSns, String.valueOf(mbrSn));
+        return decorate(mbrSn, petSn, selectAll(petSn));
+    }
+
+    /**
+     * 케어리스트 오늘 케어미션 진행 조회 (※신규 정책)
+     * - 공동양육자도 봄 : 포인트는 주양육자에게 적립되므로 담지 않음
+     */
+    @Transactional(readOnly = true)
+    public CareMissionProgressResponse searchMissionProgress(Long mbrSn, Long petSn) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        List<DailyMissionSummary> missions = careMissionService.searchByPet(petSn, today());
+        int cmptnCnt = (int) missions.stream().filter(DailyMissionSummary::isCmptnYn).count();
+        return new CareMissionProgressResponse(petAuthorizer.isPrimary(mbrSn, petSn), cmptnCnt, missions.size());
     }
 
     /**
@@ -212,11 +265,14 @@ public class CareItemService {
     @Transactional
     public void delete(Long mbrSn, Long petSn, Long careArtclSn) {
         petAuthorizer.checkCaregiver(mbrSn, petSn);
+        /** 표시 저장과 같은 순서로 반려동물 먼저 잠금 : 남은 표시 항목 수를 셀 때 겹치지 않게 */
+        careItemMapper.selectPetForUpdate(petSn);
         CareItem item = getOwnItem(petSn, careArtclSn);
         checkNotLinked(item);
         if (isBasic(item)) {
             throw new CustomException(ErrorCode.CARE_ITEM_DEFAULT_NOT_DELETABLE);
         }
+        checkIndicationsLeft(petSn, careArtclSn);
         careItemMapper.deleteItem(careArtclSn, String.valueOf(mbrSn));
     }
 
@@ -448,6 +504,73 @@ public class CareItemService {
         }
         BasicCareItem.of(item.getCareArtclNm()).map(MISSIONS::get)
                 .ifPresent(mission -> careMissionService.reflect(petSn, mission, mbrSn));
+    }
+
+    /**
+     * 보이는 항목 삭제 뒤 5개 이상 남는지 검사 (※신규 정책)
+     * - 숨긴 항목 삭제는 막지 않음
+     */
+    private void checkIndicationsLeft(Long petSn, Long careArtclSn) {
+        List<CareItemSummary> items = selectAll(petSn);
+        resolveIndications(items);
+        boolean isTargetShown = items.stream()
+                .anyMatch(item -> careArtclSn.equals(item.getCareArtclSn()) && item.getIndctYn());
+        long shownCnt = items.stream().filter(CareItemSummary::getIndctYn).count();
+        if (isTargetShown && shownCnt - 1 < MIN_INDICATION_CNT) {
+            throw invalid("indctYn");
+        }
+    }
+
+    /**
+     * 반려동물의 삭제되지 않은 항목 전체 (목록 행 형태)
+     */
+    private List<CareItemSummary> selectAll(Long petSn) {
+        return careItemMapper.selectList(petSn, new CareItemSearchCond(), today(), CareZone.REGULAR.getCode());
+    }
+
+    /**
+     * 목록 행에 표시여부·오늘 케어미션 채우기
+     * - 미션은 기본 항목만 : MISSIONS로 오늘 출제된 미션(DAY_MSN)과 미션명 대조
+     * - 포인트는 주양육자에게만 (※신규 정책)
+     */
+    private List<CareItemSummary> decorate(Long mbrSn, Long petSn, List<CareItemSummary> items) {
+        resolveIndications(items);
+        Map<String, DailyMissionSummary> missions = new HashMap<>();
+        for (DailyMissionSummary mission : careMissionService.searchByPet(petSn, today())) {
+            missions.putIfAbsent(mission.getMsnNm(), mission);
+        }
+        if (missions.isEmpty()) {
+            return items;
+        }
+        boolean isPrimary = petAuthorizer.isPrimary(mbrSn, petSn);
+        for (CareItemSummary item : items) {
+            if (!item.isBscArtclYn()) {
+                continue;
+            }
+            BasicCareItem.of(item.getCareArtclNm()).map(MISSIONS::get).map(mission -> missions.get(mission.getMsnNm()))
+                    .ifPresent(mission -> {
+                        item.setTodayMsnYn(true);
+                        item.setMsnCmptnYn(mission.isCmptnYn());
+                        item.setMsnPnt(isPrimary ? mission.getScorPnt() : null);
+                    });
+        }
+        return items;
+    }
+
+    /**
+     * 고른 적 없는 기본 항목의 표시여부 판단 (※신규 정책)
+     * - SQL이 NULL로 준 행만 : 추천 항목이면 보임
+     */
+    private void resolveIndications(List<CareItemSummary> items) {
+        for (CareItemSummary item : items) {
+            if (item.getIndctYn() == null) {
+                item.setIndctYn(BasicCareItem.of(item.getCareArtclNm()).map(BasicCareItem::isRecommended).orElse(true));
+            }
+        }
+    }
+
+    private boolean isLinked(CareItemSummary item) {
+        return item.getPrscSn() != null || item.getReptPrvntMngSn() != null;
     }
 
     /**

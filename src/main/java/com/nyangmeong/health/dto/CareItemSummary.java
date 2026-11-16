@@ -43,4 +43,12 @@ public class CareItemSummary {
     private Integer dayMdcnNmtm;
     /** 오늘 완료 건수 */
     private Integer todayCmptnCnt;
+    /** 케어리스트 표시여부 (※신규 정책) : 고른 적 없으면 추천 항목·직접 추가·연동 항목, 연동 항목은 항상 true */
+    private Boolean indctYn;
+    /** 오늘 케어미션 여부 */
+    private boolean todayMsnYn;
+    /** 오늘 케어미션 배점 포인트 : 주양육자에게만, 공동양육자는 null (※신규 정책) */
+    private Integer msnPnt;
+    /** 오늘 케어미션 완료 여부 */
+    private boolean msnCmptnYn;
 }

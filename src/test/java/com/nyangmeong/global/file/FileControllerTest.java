@@ -33,7 +33,7 @@ import com.nyangmeong.global.security.jwt.TokenCookies;
 /**
  * [검사 - 공통 파일 API]
  * - 로그인 회원 누구나 여는 파일만 연다 / 쿠키 없으면 401 / 도메인 API 전용이거나 없는 파일은 404
- * - 예전 주소 /api/files/public/{atchFileSn} 도 같은 동작
+ * - 예전 주소 /api/files/public/{atchFileSn} 는 지웠다(404)
  */
 @WebMvcTest(controllers = FileController.class)
 @Import({SecurityConfig.class, JwtTokenProvider.class, JwtProperties.class, TokenCookies.class,
@@ -68,19 +68,16 @@ class FileControllerTest {
 
     @Test
     @WithMockLoginMember
-    void 예전_주소도_로그인하면_같은_파일을_연다() throws Exception {
-        when(fileStore.loadShared(7L)).thenReturn(new StoredFile(new byte[] {1, 2, 3}, "image/png", "post.png"));
-
+    void 예전_주소는_없어져_404이다() throws Exception {
         mockMvc.perform(get(OLD_PATH, 7L))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("private")))
-                .andExpect(content().bytes(new byte[] {1, 2, 3}));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        verify(fileStore, never()).loadShared(7L);
     }
 
     @Test
     void 쿠키_없이_열면_401이다() throws Exception {
         mockMvc.perform(get(PATH, 7L)).andExpect(status().isUnauthorized());
-        mockMvc.perform(get(OLD_PATH, 7L)).andExpect(status().isUnauthorized());
         verify(fileStore, never()).loadShared(7L);
     }
 
@@ -90,9 +87,6 @@ class FileControllerTest {
         when(fileStore.loadShared(8L)).thenThrow(new CustomException(ErrorCode.FILE_NOT_FOUND));
 
         mockMvc.perform(get(PATH, 8L))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
-        mockMvc.perform(get(OLD_PATH, 8L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
     }

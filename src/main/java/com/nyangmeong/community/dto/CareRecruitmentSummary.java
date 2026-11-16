@@ -30,6 +30,8 @@ public class CareRecruitmentSummary {
     private LocalDateTime regDt;
     /** 내가 쓴 글인지 (프론트의 「내 글」 배지) */
     private Boolean owner;
+    /** 확정된 매칭이 있었는지 (매칭 없이 자동 마감된 거래완료 글은 false, 프론트의 「모집 종료」) */
+    private Boolean matched;
     private List<CareRecruitmentPetItem> pets;
     private List<String> prtcShpCds;
 }

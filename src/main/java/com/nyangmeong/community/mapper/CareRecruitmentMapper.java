@@ -107,6 +107,18 @@ public interface CareRecruitmentMapper {
     CareRecruitment selectForUpdate(Long petPrtcRcrtSn);
 
     /**
+     * 자동 마감 대상 모집 번호 (정상 게시글의 모집중 글 중 수락 대기 매칭이 없고 일정이 지났거나, 일정 없이 작성 후 days 일이 지난 글)
+     */
+    List<Long> selectCloseTargets(@Param("recruitingCd") String recruitingCd, @Param("pstSttsCd") String pstSttsCd,
+            @Param("requestedCd") String requestedCd, @Param("days") int days);
+
+    /**
+     * 이 모집이 지금도 자동 마감 대상인지 (잠근 뒤 다시 확인)
+     */
+    boolean existsCloseTarget(@Param("petPrtcRcrtSn") Long petPrtcRcrtSn, @Param("recruitingCd") String recruitingCd,
+            @Param("pstSttsCd") String pstSttsCd, @Param("requestedCd") String requestedCd, @Param("days") int days);
+
+    /**
      * 모집 상태 변경 (현재 상태가 bfrSttsCd 일 때만, 확정 매칭 번호는 함께 바꿈)
      */
     int updateStatus(@Param("petPrtcRcrtSn") Long petPrtcRcrtSn, @Param("bfrSttsCd") String bfrSttsCd,

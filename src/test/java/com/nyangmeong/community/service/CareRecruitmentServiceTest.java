@@ -62,6 +62,7 @@ class CareRecruitmentServiceTest {
     private static final String DELETED = "CMUC0005";
     private static final String RECRUITING = "PCAC0001";
     private static final String MATCHED = "PCAC0002";
+    private static final String COMPLETED = "PCAC0003";
     private static final String HOURLY = "PCAC0004";
     private static final String PER_CASE = "PCAC0005";
     private static final String DOG = "PETC0001";
@@ -169,14 +170,30 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 목록은_정상_글을_기본_10건으로_조회한다() {
+        stubSystemSetting();
         service.search(MBR, new CareRecruitmentSearchCond(), new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, false, null,
-                null);
+                null, COMPLETED, 7L);
+    }
+
+    @Test
+    void 숨김_일수는_운영_설정_값을_넘긴다() {
+        SystemSetting setting = new SystemSetting();
+        setting.setDlngCmptnHideCrtrDayCnt(3L);
+        when(systemSettingService.get()).thenReturn(setting);
+        CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
+        cond.setMineYn(true);
+
+        service.search(MBR, cond, new PageQuery(null, null, null));
+
+        verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, true, null, null, null, null, DOG, false, null,
+                null, COMPLETED, 3L);
     }
 
     @Test
     void 조건을_모두_넘기고_날짜_상한은_다음날_0시다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setRcrtSttsCd(RECRUITING);
         cond.setMineYn(true);
@@ -191,22 +208,24 @@ class CareRecruitmentServiceTest {
         verify(breedService).checkPetSe(DOG);
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, RECRUITING, true, 10L,
                 LocalDateTime.of(2026, 11, 10, 0, 0), LocalDateTime.of(2026, 11, 13, 0, 0), DOG, DOG, true,
-                new BigDecimal("10"), new BigDecimal("25"));
+                new BigDecimal("10"), new BigDecimal("25"), COMPLETED, 7L);
     }
 
     @Test
     void 대형은_상한_없이_하한만_넘긴다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setPetSizeCd("LARGE");
 
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, true,
-                new BigDecimal("25"), null);
+                new BigDecimal("25"), null, COMPLETED, 7L);
     }
 
     @Test
     void 고양이를_고르면_크기_조건은_무시한다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setPetSeCd(CAT);
         cond.setPetSizeCd("SMALL");
@@ -214,7 +233,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, CAT, DOG, false, null,
-                null);
+                null, COMPLETED, 7L);
     }
 
     @Test

@@ -24,13 +24,15 @@ public interface CareRecruitmentMapper {
 
     /**
      * 목록 조회 (정상 게시글, 최신순. bgngDt~endDt 는 일정이 겹치는 글, endDt 는 미포함 상한)
+     * - mineYn 이 아니면 거래완료(completedCd)가 된 지 hideDays 일이 지난 글은 뺀다
      */
     List<CareRecruitmentSummary> selectList(@Param("mbrSn") Long mbrSn, @Param("pstSttsCd") String pstSttsCd,
             @Param("rcrtSttsCd") String rcrtSttsCd, @Param("mineYn") boolean mineYn, @Param("rgnSn") Long rgnSn,
             @Param("bgngDt") LocalDateTime bgngDt, @Param("endDt") LocalDateTime endDt,
             @Param("petSeCd") String petSeCd, @Param("dogCd") String dogCd,
             @Param("sizeFilter") boolean sizeFilter, @Param("minBdwg") BigDecimal minBdwg,
-            @Param("maxBdwg") BigDecimal maxBdwg);
+            @Param("maxBdwg") BigDecimal maxBdwg, @Param("completedCd") String completedCd,
+            @Param("hideDays") long hideDays);
 
     /**
      * 상세 조회 (게시글 상태 조건)

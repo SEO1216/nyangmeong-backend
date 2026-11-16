@@ -708,7 +708,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | owner | Boolean | Y | 내 글 배지 | PST.MBR_SN, CMU-004-01 |
 | matched | Boolean | Y | 확정된 매칭이 있었으면 true. 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
-목록 검색 조건(`CareRecruitmentSearchCond`, 쿼리): `rcrtSttsCd`(없으면 전체, `PCAC0001`이면 모집중), `mineYn`, `rgnSn`(하위 지역 포함), `prtcBgngDe`~`prtcEndDe`(일정이 기간과 겹치는 글, 일정 없는 글은 제외), `petSeCd`, `petSizeCd`(고양이만 고르면 무시). 모두 AND, 10건. 기본 정렬은 모집 상태 코드 오름차순(PCAC0001 모집중 → 0002 매칭완료 → 0003 거래완료), 같은 상태 안에서는 최신순.
+목록 검색 조건(`CareRecruitmentSearchCond`, 쿼리): `rcrtSttsCd`(없으면 전체, `PCAC0001`이면 모집중), `mineYn`, `rgnSn`(하위 지역 포함), `prtcBgngDe`~`prtcEndDe`(일정이 기간과 겹치는 글, 일정 없는 글은 제외), `petSeCd`, `petSizeCd`(고양이만 고르면 무시). 모두 AND, 10건. 기본 정렬은 모집 상태 코드 오름차순(PCAC0001 모집중 → 0002 매칭완료 → 0003 거래완료), 같은 상태 안에서는 최신순. `mineYn`이 아니면 거래완료(PCAC0003)가 된 지 `SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT`(기본 7)일이 지난 글은 빠진다(상태 필터와 관계없이). `mineYn=true`면 기간과 관계없이 나온다. 상세 조회는 그대로.
 
 자동 마감: 매일 00:00 KST 배치(SYSC0033)가 수락 대기 매칭이 없는 모집중 글 중 일정 종료 일시가 지난 글과, 일정 없이 작성 후 30일이 지난 글을 거래완료(PCAC0003, `matched=false`)로 바꾸고 상태 이력을 남긴다.
 ### MinimumWageResponse

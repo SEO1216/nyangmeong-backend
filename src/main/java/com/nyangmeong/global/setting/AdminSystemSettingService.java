@@ -62,6 +62,8 @@ public class AdminSystemSettingService {
                 req.lostTpofExpryCrtrDayCnt(), current::setLostTpofExpryCrtrDayCnt);
         change(before, after, "mtchNoRspnsEndCrtrDayCnt", current.getMtchNoRspnsEndCrtrDayCnt(),
                 req.mtchNoRspnsEndCrtrDayCnt(), current::setMtchNoRspnsEndCrtrDayCnt);
+        change(before, after, "dlngCmptnHideCrtrDayCnt", current.getDlngCmptnHideCrtrDayCnt(),
+                req.dlngCmptnHideCrtrDayCnt(), current::setDlngCmptnHideCrtrDayCnt);
         change(before, after, "lowstHrwgAplcnYr", current.getLowstHrwgAplcnYr(), req.lowstHrwgAplcnYr(),
                 current::setLowstHrwgAplcnYr);
         change(before, after, "lowstHrwgAmt", current.getLowstHrwgAmt(), req.lowstHrwgAmt(),

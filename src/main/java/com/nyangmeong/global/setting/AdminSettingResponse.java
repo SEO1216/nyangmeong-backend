@@ -14,8 +14,8 @@ public record AdminSettingResponse(MemberPet memberPet, Community community, Not
     }
 
     public record Community(Long pstImgMaxCnt, Long blindDclrAcmlCnt, Long lostTpofExpryCrtrDayCnt,
-            Long mtchNoRspnsEndCrtrDayCnt, String lowstHrwgAplcnYr, Long lowstHrwgAmt, String dscvAutoCmntCn,
-            String aiCmtryBscCn) {
+            Long mtchNoRspnsEndCrtrDayCnt, Long dlngCmptnHideCrtrDayCnt, String lowstHrwgAplcnYr, Long lowstHrwgAmt,
+            String dscvAutoCmntCn, String aiCmtryBscCn) {
     }
 
     public record Notification(Long notiHideCrtrDayCnt) {
@@ -32,8 +32,8 @@ public record AdminSettingResponse(MemberPet memberPet, Community community, Not
                 new MemberPet(s.getPetMaxCnt(), s.getJntBrupMaxNope(), s.getInvtnVldDayCnt(),
                         s.getLgnFailLmtNmtm(), s.getWhdwlMbrKpngDayCnt()),
                 new Community(s.getPstImgMaxCnt(), s.getBlindDclrAcmlCnt(), s.getLostTpofExpryCrtrDayCnt(),
-                        s.getMtchNoRspnsEndCrtrDayCnt(), s.getLowstHrwgAplcnYr(), s.getLowstHrwgAmt(),
-                        s.getDscvAutoCmntCn(), s.getAiCmtryBscCn()),
+                        s.getMtchNoRspnsEndCrtrDayCnt(), s.getDlngCmptnHideCrtrDayCnt(), s.getLowstHrwgAplcnYr(),
+                        s.getLowstHrwgAmt(), s.getDscvAutoCmntCn(), s.getAiCmtryBscCn()),
                 new Notification(s.getNotiHideCrtrDayCnt()),
                 new Ai(s.getAiCnvrsTurnCnt(), s.getAiTknUplmtCnt()),
                 new File(s.getFileMaxSz()),

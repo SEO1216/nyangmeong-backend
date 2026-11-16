@@ -28,6 +28,7 @@ import com.nyangmeong.community.domain.CareMatch;
 import com.nyangmeong.community.domain.ChatMessage;
 import com.nyangmeong.community.domain.ChatMessagePhoto;
 import com.nyangmeong.community.domain.ChatParticipant;
+import com.nyangmeong.community.domain.ChatRoom;
 import com.nyangmeong.community.domain.ChatRoomDetail;
 import com.nyangmeong.community.dto.ChatMessageCreateRequest;
 import com.nyangmeong.community.dto.ChatMessageResponse;
@@ -298,5 +299,62 @@ class ChatMessageServiceTest {
         verify(chatMessageMapper).selectList(ROOM, null, 51);
 
         assertError(() -> service.search(99L, ROOM, null, null), ErrorCode.CHAT_ROOM_ACCESS_DENIED);
+    }
+
+    // 종료 방 차단
+
+    private void stubRoomStatus(String chatRoomSttsCd) {
+        ChatRoom locked = new ChatRoom();
+        locked.setChatRoomSttsCd(chatRoomSttsCd);
+        when(chatRoomMapper.selectRoomForUpdate(ROOM)).thenReturn(locked);
+    }
+
+    @Test
+    void 읽기_전용_방에는_텍스트_사진_주소를_보낼_수_없고_저장하지_않는다() {
+        /** 실제 읽기 전용 방은 다른 분 매칭으로 요청이 취소됐거나 매칭이 없다 */
+        stubRoomStatus("CHTC0002");
+        stubMatchStatus("PCAC0017");
+
+        assertError(() -> service.send(OWNER, ROOM, text("안녕하세요", "m-9")), ErrorCode.CHAT_ROOM_CLOSED);
+        assertError(() -> service.send(OWNER, ROOM, photos(1)), ErrorCode.CHAT_ROOM_CLOSED);
+        /** 주소는 기존 검사(매칭 확정 전 주소 공유 불가)가 먼저 막는다 (사람 결정 2026-11-16) */
+        assertError(() -> service.send(OWNER, ROOM, address("서곡공원", null)), ErrorCode.CHAT_ADDRESS_NOT_ALLOWED);
+        verify(chatMessageMapper, never()).insertMessage(any());
+    }
+
+    @Test
+    void 무응답_종료된_매칭_방에는_텍스트를_보낼_수_없다() {
+        stubRoomStatus("CHTC0001");
+        stubMatchStatus("PCAC0018");
+
+        assertError(() -> service.send(OWNER, ROOM, text("안녕하세요", "m-9")), ErrorCode.CHAT_ROOM_CLOSED);
+        verify(chatMessageMapper, never()).insertMessage(any());
+    }
+
+    @Test
+    void 활성_방은_매칭이_없거나_거래_완료여도_보낼_수_있다() {
+        stubRoomStatus("CHTC0001");
+        assertThat(service.send(OWNER, ROOM, text("안녕하세요", "m-1")).created()).isTrue();
+
+        stubMatchStatus("PCAC0016");
+        assertThat(service.send(OWNER, ROOM, text("고마워요", "m-2")).created()).isTrue();
+    }
+
+    @Test
+    void 읽기_전용_방이어도_이미_저장된_요청_ID_재전송은_기존_메시지를_돌려준다() {
+        stubRoomStatus("CHTC0002");
+        ChatMessage existing = new ChatMessage();
+        existing.setChatMsgSn(70L);
+        existing.setOtoChatRoomSn(ROOM);
+        existing.setMbrSn(OWNER);
+        existing.setMsgTypeCd("CHTC0005");
+        existing.setMsgSeq(4);
+        existing.setMsgCnEnc("ENC:처음 보낸 글");
+        when(chatMessageMapper.selectByIdmptDmndIdForShare("m-1")).thenReturn(existing);
+
+        ChatMessageResponse res = service.send(OWNER, ROOM, text("다시 보낸 글", "m-1"));
+
+        assertThat(res.created()).isFalse();
+        verify(chatMessageMapper, never()).insertMessage(any());
     }
 }

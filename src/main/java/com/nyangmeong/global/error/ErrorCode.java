@@ -97,7 +97,7 @@ public enum ErrorCode {
     PET_NOT_FOUND(HttpStatus.NOT_FOUND, "반려동물 정보를 찾을 수 없습니다."),
     PET_ACCESS_DENIED(HttpStatus.FORBIDDEN, "양육 중인 반려동물만 볼 수 있습니다."),
     PET_PRIMARY_ONLY(HttpStatus.FORBIDDEN, "주양육자만 할 수 있습니다."),
-    PET_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "반려동물은 계정당 10마리까지 등록할 수 있습니다."),
+    PET_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "반려동물은 공동양육을 포함해 계정당 10마리까지 함께할 수 있습니다."),
     PET_WEIGHT_LOCKED(HttpStatus.BAD_REQUEST, "건강 일지에 체중 기록이 있어 체중을 직접 수정할 수 없습니다."),
     BREED_NOT_FOUND(HttpStatus.NOT_FOUND, "품종을 찾을 수 없습니다."),
     CARE_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "케어미션을 찾을 수 없습니다."),

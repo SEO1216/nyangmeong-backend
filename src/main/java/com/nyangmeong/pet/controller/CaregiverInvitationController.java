@@ -18,6 +18,7 @@ import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationResponse;
@@ -71,9 +72,16 @@ public class CaregiverInvitationController {
 
     @Operation(summary = "공동양육 초대 수락")
     @PostMapping("/{jntBrupInvtnSn}/accept")
-    public ResponseEntity<ApiResponse<Void>> acceptInvitation(@AuthenticationPrincipal LoginMember me,
-            @PathVariable Long jntBrupInvtnSn, @Valid @RequestBody CaregiverInvitationAcceptRequest req) {
-        caregiverInvitationService.acceptInvitation(me.id(), jntBrupInvtnSn, req);
+    public ResponseEntity<ApiResponse<?>> acceptInvitation(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long jntBrupInvtnSn, @Valid @RequestBody CaregiverInvitationAcceptRequest req,
+            HttpServletRequest request) {
+        CaregiverInvitationAcceptResult result = caregiverInvitationService.acceptInvitation(me.id(), jntBrupInvtnSn,
+                req);
+        if (!result.succeeded()) {
+            return ResponseEntity.status(result.error().status())
+                    .<ApiResponse<?>>body(ApiResponse.errorWithData(result.error(), request.getRequestURI(),
+                            result.limit()));
+        }
         return ResponseEntity.ok(ApiResponse.success());
     }
 

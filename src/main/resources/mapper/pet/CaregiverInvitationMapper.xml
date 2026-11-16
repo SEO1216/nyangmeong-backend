@@ -12,6 +12,7 @@
         <result column="INVTN_EXPRY_DT"      property="invtnExpryDt" />
         <result column="ACPT_RFSL_RSPNS_DT"  property="acptRfslRspnsDt" />
         <result column="INVTN_TKN_HASH"      property="invtnTknHash" />
+        <result column="DEL_YN"              property="delYn" />
         <result column="REG_DT"              property="regDt" />
         <result column="MDFCN_DT"            property="mdfcnDt" />
         <result column="MDFR_ID"             property="mdfrId" />
@@ -61,11 +62,13 @@
              , INVTN_EXPRY_DT
              , ACPT_RFSL_RSPNS_DT
              , INVTN_TKN_HASH
+             , DEL_YN
              , REG_DT
              , MDFCN_DT
              , MDFR_ID
           FROM JNT_BRUP_INVTN
          WHERE JNT_BRUP_INVTN_SN = #{jntBrupInvtnSn}
+           AND DEL_YN = 'N'
     </select>
 
     <select id="selectSentList" resultMap="sentInvitationResultMap">
@@ -94,6 +97,7 @@
           LEFT JOIN MBR M
             ON M.MBR_SN = I.RCVR_MBR_SN
          WHERE I.SNDR_MBR_SN = #{sndrMbrSn}
+           AND I.DEL_YN = 'N'
          ORDER BY I.REG_DT DESC
                 , I.JNT_BRUP_INVTN_SN DESC
                 , T.INVTN_TRGT_PET_SN
@@ -137,6 +141,7 @@
             ON T.JNT_BRUP_INVTN_SN = I.JNT_BRUP_INVTN_SN
            AND T.DEL_YN = 'N'
          WHERE I.INVTN_TRGT_EML_HMAC = #{invtnTrgtEmlHmac}
+           AND I.DEL_YN = 'N'
            AND T.PET_SN = #{petSn}
            AND I.INVTN_STTS_CD = #{pendingCd}
            AND I.INVTN_EXPRY_DT &gt; #{now}
@@ -239,5 +244,29 @@
             </otherwise>
         </choose>
          WHERE JNT_BRUP_INVTN_SN = #{jntBrupInvtnSn}
+    </update>
+    <update id="updateCancel">
+        /* 대기 초대 취소 (만료 전, 발송자 본인) */
+        UPDATE JNT_BRUP_INVTN
+           SET INVTN_STTS_CD = #{canceledCd}
+             , MDFR_ID       = #{actorId}
+             , MDFCN_DT      = NOW()
+         WHERE JNT_BRUP_INVTN_SN = #{jntBrupInvtnSn}
+           AND SNDR_MBR_SN       = #{sndrMbrSn}
+           AND INVTN_STTS_CD     = #{pendingCd}
+           AND INVTN_EXPRY_DT    &gt; #{now}
+           AND DEL_YN            = 'N'
+    </update>
+
+    <update id="updateDelete">
+        /* 취소한 초대 삭제 처리 (숨김) */
+        UPDATE JNT_BRUP_INVTN
+           SET DEL_YN   = 'Y'
+             , MDFR_ID  = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE JNT_BRUP_INVTN_SN = #{jntBrupInvtnSn}
+           AND SNDR_MBR_SN       = #{sndrMbrSn}
+           AND INVTN_STTS_CD     = #{canceledCd}
+           AND DEL_YN            = 'N'
     </update>
 </mapper>

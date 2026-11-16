@@ -84,4 +84,17 @@ public interface CaregiverInvitationMapper {
      */
     int updateTargetPetsAcceptance(@Param("jntBrupInvtnSn") Long jntBrupInvtnSn,
             @Param("acceptedPetSns") List<Long> acceptedPetSns);
+
+    /**
+     * 대기 초대 취소 (만료 전 대기 상태일 때만, 없으면 0)
+     */
+    int updateCancel(@Param("jntBrupInvtnSn") Long jntBrupInvtnSn, @Param("sndrMbrSn") Long sndrMbrSn,
+            @Param("pendingCd") String pendingCd, @Param("canceledCd") String canceledCd,
+            @Param("now") LocalDateTime now, @Param("actorId") String actorId);
+
+    /**
+     * 취소한 초대 삭제 처리 (취소 상태일 때만, 없으면 0)
+     */
+    int updateDelete(@Param("jntBrupInvtnSn") Long jntBrupInvtnSn, @Param("sndrMbrSn") Long sndrMbrSn,
+            @Param("canceledCd") String canceledCd, @Param("actorId") String actorId);
 }

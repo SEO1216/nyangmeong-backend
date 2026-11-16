@@ -67,9 +67,6 @@ public class PetService {
     /** 케어미션 기준일 시간대 */
     private static final ZoneId MISSION_ZONE = ZoneId.of("Asia/Seoul");
 
-    /** 계정당 주양육 반려동물 상한 */
-    private static final int MAX_PET_COUNT = 10;
-
     /** 삭제 해제 알림 이동 경로 */
     private static final String PET_LIST_PATH = "/mypage/pets";
 
@@ -115,10 +112,13 @@ public class PetService {
      */
     @Transactional
     public PetResponse createPet(Long mbrSn, PetCreateRequest req) {
-        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
-        if (primaryCount >= MAX_PET_COUNT) {
+        /** 같은 회원의 동시 등록·수락이 한도를 넘지 않게 회원 행을 잠근 뒤 센다 */
+        petMapper.lockMemberForPetLimit(mbrSn);
+        if (petMapper.countLinkedPets(mbrSn) >= PetLimit.MAX_PET_COUNT) {
             throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
         }
+
+        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
 
         Pet pet = new Pet();
         pet.setPetNm(req.petNm());

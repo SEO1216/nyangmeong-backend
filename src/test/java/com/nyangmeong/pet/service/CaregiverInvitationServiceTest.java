@@ -40,6 +40,7 @@ import com.nyangmeong.pet.domain.JntBrupInvtn;
 import com.nyangmeong.pet.domain.JntBrupInvtnSttsHstry;
 import com.nyangmeong.pet.domain.Pet;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationLinkedPet;
@@ -378,6 +379,97 @@ class CaregiverInvitationServiceTest {
         verify(invitationMapper).insertStatusHistory(history.capture());
         assertThat(history.getValue().getBfrSttsCd()).isEqualTo(PENDING);
         assertThat(history.getValue().getAftrSttsCd()).isEqualTo(ACCEPTED);
+    }
+
+    @Test
+    void 합계와_고른_수가_10이면_수락된다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(8);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, times(2)).insertBrupRel(any());
+    }
+
+    @Test
+    void 합계와_고른_수가_10을_넘으면_아무것도_연동하지_않고_남은_자리를_돌려준다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(9);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isFalse();
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.limit().remainingPetCount()).isEqualTo(1);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(invitationMapper, never()).updateTargetPetsAcceptance(anyLong(), any());
+        verify(invitationMapper, never()).insertStatusHistory(any());
+        verify(petMapper, never()).insertBrupRel(any());
+        verify(petMapper, never()).insertLinkHistory(any());
+    }
+
+    @Test
+    void 이미_10마리를_넘은_회원의_수락은_남은_자리_0으로_막힌다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A)));
+
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.limit().remainingPetCount()).isZero();
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 같은_반려동물을_중복해서_골라도_한_마리로_센다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(9);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+    }
+
+    @Test
+    void 수락은_회원_행을_잠근_뒤_센다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+
+        service.acceptInvitation(RECEIVER, INVITATION, new CaregiverInvitationAcceptRequest(List.of(PET_A)));
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(petMapper);
+        order.verify(petMapper).lockMemberForPetLimit(RECEIVER);
+        order.verify(petMapper).countLinkedPets(RECEIVER);
+        order.verify(petMapper).insertBrupRel(any());
+    }
+
+    @Test
+    void 대기_초대_상세는_남은_자리_수를_내린다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(7);
+
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isEqualTo(3);
+    }
+
+    @Test
+    void 이미_10마리를_넘은_회원의_상세_남은_자리는_음수가_아니라_0이다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isZero();
+    }
+
+    @Test
+    void 이메일이_다르거나_대기가_아닌_초대_상세에는_남은_자리가_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        assertThat(service.getInvitation(OTHER, INVITATION).remainingPetCount()).isNull();
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(REJECTED, 3));
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isNull();
     }
 
     @Test

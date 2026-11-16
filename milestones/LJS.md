@@ -807,3 +807,11 @@
 - 완료 조건: `/api/admin/ai/keywords`·`/internal/ai/keywords` 코드와 `docs/api/ai.md` 행·DTO 절이 없어지고, `KWRD_DICT`를 쓰는 커뮤니티 뉴스 키워드(`/api/admin/news/keywords`)와 라우팅 매핑표(`/api/admin/ai/routes`)는 그대로 동작한다
 - 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 정한 것: AIMC0037·0038 공통코드와 그 `KWRD_DICT` 행은 DB에 남김(추천안대로, `db/` SQL 변경 없음). 기능명세서·화면설계서 반영은 사람
 - 연결 남음: 없음(프론트 화면 삭제는 프론트 저장소가 따로 진행)
+
+## SCR-ADM-051 약관 · 버전 이력 종류 키 누락 400 코드 맞추기 — 끝
+- 기능: 명세 기능 ID 추가 없음(핸드오프 판단 필요 항목, 사람 결정 2026-11-16: B 코드를 고친다), 걸치는 기능 FN-ADM-051-03
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `GET /api/admin/terms/history`에 `trmsFixIdntfKey`가 없거나 공백이면 400 `INVALID_INPUT_VALUE`(문서 `docs/api/member.md` 그대로), 키가 있으면 기존처럼 이력 목록
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 컨트롤러 `@RequestParam(required = false)`, 새 `AdminTermsControllerTest` 4건. `docs/api/member.md` 변경 없음
+- 연결 남음: 없음

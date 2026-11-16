@@ -44,7 +44,7 @@ public class AdminTermsController {
     @Operation(summary = "관리자 약관 버전 이력")
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<AdminTermsSummary>>> searchHistory(
-            @RequestParam String trmsFixIdntfKey) {
+            @RequestParam(required = false) String trmsFixIdntfKey) {
         return ResponseEntity.ok(ApiResponse.success(adminTermsService.searchHistory(trmsFixIdntfKey)));
     }
 

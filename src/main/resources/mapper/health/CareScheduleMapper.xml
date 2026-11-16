@@ -296,9 +296,10 @@
     </update>
 
     <update id="updateLinkedCareItemsPet">
-        /* 일정에 연결된 투약 항목의 반려동물 변경 */
+        /* 일정에 연결된 투약 항목의 반려동물 변경, 새 반려동물에서는 고른 적 없는 상태로 시작 (※신규 정책) */
         UPDATE CARE_ARTCL
            SET PET_SN        = #{petSn}
+             , INDCT_YN      = NULL
              , MDFR_ID       = #{actorId}
              , MDFCN_DT      = NOW()
          WHERE PRSC_SN IN ( SELECT P.PRSC_SN

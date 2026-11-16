@@ -40,6 +40,14 @@ public class PetAuthorizer {
     }
 
     /**
+     * 주양육자 여부
+     * - 양육자가 아니면 checkCaregiver와 같은 예외
+     */
+    public boolean isPrimary(Long mbrSn, Long petSn) {
+        return BrupRole.PRIMARY.is(roleOf(mbrSn, petSn));
+    }
+
+    /**
      * 양육 중인 반려동물 번호 목록 조회
      */
     public List<Long> searchCaregiverPetSns(Long mbrSn, List<Long> petSns) {

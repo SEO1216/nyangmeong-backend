@@ -29,8 +29,28 @@ class AdminSystemSettingServiceTest {
     private final LoginMember admin = new LoginMember(9L, "USRC0005");
 
     private AdminSettingUpdateRequest request(Long petMaxCnt, Long fileMaxSz, String aiCmtryBscCn) {
-        return new AdminSettingUpdateRequest(petMaxCnt, null, null, null, null, null, null, null, null, null, null,
+        return new AdminSettingUpdateRequest(petMaxCnt, null, null, null, null, null, null, null, null, null, null, null,
                 aiCmtryBscCn, null, null, null, fileMaxSz);
+    }
+
+    private AdminSettingUpdateRequest hideDaysRequest(Long hideDays) {
+        return new AdminSettingUpdateRequest(null, null, null, null, null, null, null, null, hideDays, null, null,
+                null, null, null, null, null, null);
+    }
+
+    @Test
+    void 거래완료_숨김_기준_일수는_기본_7일이고_수정하면_저장한다() {
+        SystemSetting current = new SystemSetting();
+        when(systemSettingMapper.selectCurrent()).thenReturn(current);
+        assertThat(current.getDlngCmptnHideCrtrDayCnt()).isEqualTo(7L);
+
+        service.update(admin, hideDaysRequest(3L));
+
+        ArgumentCaptor<SystemSetting> saved = ArgumentCaptor.forClass(SystemSetting.class);
+        verify(systemSettingMapper).upsert(saved.capture(), eq("9"));
+        assertThat(saved.getValue().getDlngCmptnHideCrtrDayCnt()).isEqualTo(3L);
+        verify(adminTaskLogService).record(eq(9L), eq(AdminTaskType.UPDATE), eq("SYS_STNG"), eq(1L),
+                eq("운영 설정 수정: dlngCmptnHideCrtrDayCnt"), any(), any());
     }
 
     @SuppressWarnings("unchecked")

@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | /common-codes | 공통코드 하위 목록 조회 `?prntComCd=PETG03` *통합 때 추가* | MYP-003-03 | LJS | - | List<CommonCodeSummary> |
 | GET | /regions | 하위 지역 목록(`?upRgnSn=`, 없으면 시도). 시도 → 시군구 → 읍면동 연동 콤보박스. 서비스 지역이 전북특별자치도뿐이라 행정구역코드가 52로 시작하는 지역만 준다(시도는 전북 1곳, 전북 밖 `upRgnSn`은 빈 목록) | CMU-002-03 (issues 14) | KSJ | - | List<RegionSummary> |
-| GET | /files/{atchFileSn} | 로그인 회원 누구나 여는 파일(프로필·게시글·돌봄 모집·실종 신고 사진, 캐릭터 결과·착용 이미지, 아이템, 공지 본문 이미지, 뉴스 썸네일). 로그인 필요(비로그인 401). 도메인 API 전용 파일(채팅·문의·영수증·검진·관찰·착용 시트)이거나 없는 번호는 404 `FILE_NOT_FOUND`. 응답의 `atchFileSn`을 그대로 `<img src="/api/files/{atchFileSn}">`에 쓴다(토큰이 쿠키라 `<img>`로 열린다). `Cache-Control: private, max-age=86400`. 예전 주소 `/files/public/{atchFileSn}`은 프론트가 옮길 때까지 같은 동작(로그인 필요) | 연결 작업(파일 저장 외부 디렉토리, 파일 저장 경로 재구성 2026-11-13) | LJS | - | 이미지 파일 |
+| GET | /files/{atchFileSn} | 로그인 회원 누구나 여는 파일(프로필·게시글·돌봄 모집·실종 신고 사진, 캐릭터 결과·착용 이미지, 아이템, 공지 본문 이미지, 뉴스 썸네일). 로그인 필요(비로그인 401). 도메인 API 전용 파일(채팅·문의·영수증·검진·관찰·착용 시트)이거나 없는 번호는 404 `FILE_NOT_FOUND`. 응답의 `atchFileSn`을 그대로 `<img src="/api/files/{atchFileSn}">`에 쓴다(토큰이 쿠키라 `<img>`로 열린다). `Cache-Control: private, max-age=86400`. 예전 주소 `/files/public/{atchFileSn}`은 지웠다(2026-11-16, 404) | 연결 작업(파일 저장 외부 디렉토리, 파일 저장 경로 재구성 2026-11-13) | LJS | - | 이미지 파일 |
 | GET | /admin/settings | 운영 설정 조회. 회원·반려동물, 커뮤니티, 알림, AI, 파일 다섯 묶음과 수정일시·수정자. 관리자만(일반 회원 403, 비로그인 401) | ADM-110-01 | LJS | - | AdminSettingResponse |
 | PATCH | /admin/settings | 운영 설정 수정. 보낸 필드만 바꾸고 바뀐 항목의 전·후 값을 감사 로그(`MNGR_TASK_LOG`)에 남긴다. 바뀐 게 없으면 저장·로그 없이 현재 값을 돌려준다. 범위 밖은 400 `INVALID_INPUT_VALUE` | ADM-110-02·03·04 | LJS | AdminSettingUpdateRequest | AdminSettingResponse |
 | GET | /admin/audit-logs | 감사 로그 목록. `?mbrSn=&taskTypeCd=&trgtTblNm=&bgngYmd=&endYmd=&page=&size=`, 조건은 모두 선택, 기본 20건, 최신순. `trgtTblNm`은 완전 일치, 기간은 끝 날짜 하루를 포함한다. `bgngYmd`가 `endYmd`보다 뒤면 400 `INVALID_INPUT_VALUE`. 작업 유형 목록은 `GET /common-codes?prntComCd=SYSG01`. 관리자만 | ADM-114-01 | LJS | - | PageResponse<AdminTaskLogSummary> |
@@ -59,6 +59,7 @@
 | community.blindDclrAcmlCnt | Long | Y | 블라인드 신고 누적 수 | SYS_STNG.BLIND_DCLR_ACML_CNT |
 | community.lostTpofExpryCrtrDayCnt | Long | Y | 실종 제보 만료 기준 일수 | SYS_STNG.LOST_TPOF_EXPRY_CRTR_DAY_CNT |
 | community.mtchNoRspnsEndCrtrDayCnt | Long | Y | 매칭 무응답 종료 기준 일수 | SYS_STNG.MTCH_NO_RSPNS_END_CRTR_DAY_CNT |
+| community.dlngCmptnHideCrtrDayCnt | Long | Y | 거래완료 글 숨김 기준 일수(기본 7). 거래완료가 된 지 이 일수가 지난 펫돌봄 글은 공개 목록에서 빠진다 | SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT |
 | community.lowstHrwgAplcnYr | String | Y | 최저시급 적용 연도 4자리 | SYS_STNG.LOWST_HRWG_APLCN_YR |
 | community.lowstHrwgAmt | Long | Y | 최저시급 금액 | SYS_STNG.LOWST_HRWG_AMT |
 | community.dscvAutoCmntCn | String | Y | 찾았어요 자동 댓글 내용 | SYS_STNG.DSCV_AUTO_CMNT_CN |
@@ -82,6 +83,7 @@
 | blindDclrAcmlCnt | Long | N | 1~100 | SYS_STNG.BLIND_DCLR_ACML_CNT |
 | lostTpofExpryCrtrDayCnt | Long | N | 1~99 | SYS_STNG.LOST_TPOF_EXPRY_CRTR_DAY_CNT |
 | mtchNoRspnsEndCrtrDayCnt | Long | N | 1~99 | SYS_STNG.MTCH_NO_RSPNS_END_CRTR_DAY_CNT |
+| dlngCmptnHideCrtrDayCnt | Long | N | 1~99 | SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT |
 | lowstHrwgAplcnYr | String | N | 2020~2100 (4자리 숫자) | SYS_STNG.LOWST_HRWG_APLCN_YR |
 | lowstHrwgAmt | Long | N | 0~1,000,000 | SYS_STNG.LOWST_HRWG_AMT |
 | dscvAutoCmntCn | String | N | 1~1000자, 공백만 불가 | SYS_STNG.DSCV_AUTO_CMNT_CN |

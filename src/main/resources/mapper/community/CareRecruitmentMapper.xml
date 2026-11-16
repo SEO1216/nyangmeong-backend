@@ -54,6 +54,7 @@
         <result column="SCHDL_CNSLTN_PSBLTY_YN"  property="schdlCnsltnPsbltyYn" />
         <result column="REG_DT"                  property="regDt" />
         <result column="OWNER_YN"                property="owner" />
+        <result column="MATCHED_YN"              property="matched" />
     </resultMap>
 
     <resultMap id="careRecruitmentPetResultMap" type="com.nyangmeong.community.domain.CareRecruitmentPet">
@@ -146,6 +147,7 @@
              , (R.SCHDL_CNSLTN_PSBLTY_YN = 'Y') AS SCHDL_CNSLTN_PSBLTY_YN
              , P.REG_DT
              , (P.MBR_SN = #{mbrSn}) AS OWNER_YN
+             , (R.CFMTN_PET_PRTC_MTCH_SN IS NOT NULL) AS MATCHED_YN
           FROM PET_PRTC_RCRT R
           JOIN PST P
             ON P.PST_SN = R.PST_SN
@@ -454,6 +456,36 @@
           FROM PET_PRTC_RCRT R
          WHERE R.PET_PRTC_RCRT_SN = #{petPrtcRcrtSn}
            FOR UPDATE
+    </select>
+
+    <!-- 자동 마감 대상 : 정상 게시글의 모집중 글, 수락 대기 매칭 없음, 일정이 있으면 종료 일시가 지났고 없으면 작성 후 기준 일수가 지남 -->
+    <sql id="closeTargetCond">
+               R.RCRT_STTS_CD = #{recruitingCd}
+           AND P.PST_STTS_CD = #{pstSttsCd}
+           AND NOT EXISTS ( SELECT 1
+                              FROM PET_PRTC_MTCH T
+                             WHERE T.PET_PRTC_RCRT_SN = R.PET_PRTC_RCRT_SN
+                               AND T.MTCH_DLNG_STTS_CD = #{requestedCd} )
+           AND ( ( R.PRTC_END_DT IS NOT NULL AND R.PRTC_END_DT <![CDATA[<]]> NOW() )
+              OR ( R.PRTC_END_DT IS NULL AND P.REG_DT <![CDATA[<=]]> NOW() - INTERVAL #{days} DAY ) )
+    </sql>
+
+    <select id="selectCloseTargets" resultType="long">
+        SELECT R.PET_PRTC_RCRT_SN
+          FROM PET_PRTC_RCRT R
+          JOIN PST P
+            ON P.PST_SN = R.PST_SN
+         WHERE <include refid="closeTargetCond" />
+         ORDER BY R.PET_PRTC_RCRT_SN
+    </select>
+
+    <select id="existsCloseTarget" resultType="boolean">
+        SELECT EXISTS ( SELECT 1
+                          FROM PET_PRTC_RCRT R
+                          JOIN PST P
+                            ON P.PST_SN = R.PST_SN
+                         WHERE R.PET_PRTC_RCRT_SN = #{petPrtcRcrtSn}
+                           AND <include refid="closeTargetCond" /> )
     </select>
 
     <update id="updateStatus">

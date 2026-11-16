@@ -32,7 +32,7 @@ public class PlaceController {
 
     private final PlaceService placeService;
 
-    @Operation(summary = "장소 검색 (카테고리·키워드·지도 범위, 추천·거리·이름순, 15건씩)")
+    @Operation(summary = "장소 검색 (카테고리·키워드·지도 범위, 추천·거리·이름순, 15건씩 또는 whole=true면 범위 전체를 한 번에)")
     @AiTool(name = "list_places", domain = "place", kind = AiToolKind.READ)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<PlaceSummary>>> search(@AuthenticationPrincipal LoginMember me,

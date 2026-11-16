@@ -19,6 +19,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.nyangmeong.community.domain.BoardType;
 import com.nyangmeong.community.domain.CareCostUnit;
+import com.nyangmeong.community.domain.CareMatchStatus;
 import com.nyangmeong.community.domain.CareRecruitment;
 import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentPet;
@@ -75,6 +76,9 @@ public class CareRecruitmentService {
     /** 돌봄 시작일은 오늘부터 90일 이내, 종료일은 시작일부터 30일 이내 */
     static final int START_LIMIT_DAYS = 90;
     static final int PERIOD_LIMIT_DAYS = 30;
+    /** 일정 없는 모집중 글은 작성 후 30일이 지나면 자동 마감 */
+    static final int CLOSE_NO_SCHEDULE_DAYS = 30;
+    static final String CLOSE_REASON = "모집 기간 종료 자동 마감";
 
     private final CareRecruitmentMapper careRecruitmentMapper;
     private final PostMapper postMapper;
@@ -305,6 +309,39 @@ public class CareRecruitmentService {
     }
 
     /**
+     * 자동 마감 대상 모집 번호 (배치)
+     * - 정상 게시글의 모집중 글 중 수락 대기 매칭이 없고, 일정이 있으면 종료 일시가 지났거나 일정이 없으면 작성 후 30일이 지난 글
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findCloseTargets() {
+        return careRecruitmentMapper.selectCloseTargets(CareRecruitmentStatus.RECRUITING.getCode(),
+                PostStatus.NORMAL.getCode(), CareMatchStatus.REQUESTED.getCode(), CLOSE_NO_SCHEDULE_DAYS);
+    }
+
+    /**
+     * 지난 모집 자동 마감 (배치, 처리자 없음) : 모집중 -> 거래완료, 확정 매칭 번호는 null 그대로
+     * - 모집 행을 잠근 뒤 대상 조건을 다시 확인해 그사이 매칭 요청·수정·삭제된 글은 건너뜀
+     *
+     * @return 마감했으면 true
+     */
+    @Transactional
+    public boolean closeExpired(Long petPrtcRcrtSn) {
+        CareRecruitment recruitment = careRecruitmentMapper.selectForUpdate(petPrtcRcrtSn);
+        if (recruitment == null || !careRecruitmentMapper.existsCloseTarget(petPrtcRcrtSn,
+                CareRecruitmentStatus.RECRUITING.getCode(), PostStatus.NORMAL.getCode(),
+                CareMatchStatus.REQUESTED.getCode(), CLOSE_NO_SCHEDULE_DAYS)) {
+            return false;
+        }
+        if (careRecruitmentMapper.updateStatus(petPrtcRcrtSn, CareRecruitmentStatus.RECRUITING.getCode(),
+                CareRecruitmentStatus.COMPLETED.getCode(), null) == 0) {
+            return false;
+        }
+        insertRecruitmentHistory(petPrtcRcrtSn, null, CareRecruitmentStatus.RECRUITING,
+                CareRecruitmentStatus.COMPLETED, CLOSE_REASON);
+        return true;
+    }
+
+    /**
      * 정상 게시글의 모집 조회
      */
     private CareRecruitmentDetail getDetailOrThrow(Long petPrtcRcrtSn) {
@@ -490,11 +527,17 @@ public class CareRecruitmentService {
 
     private void insertRecruitmentHistory(Long petPrtcRcrtSn, Long mbrSn, CareRecruitmentStatus before,
             CareRecruitmentStatus after) {
+        insertRecruitmentHistory(petPrtcRcrtSn, mbrSn, before, after, null);
+    }
+
+    private void insertRecruitmentHistory(Long petPrtcRcrtSn, Long mbrSn, CareRecruitmentStatus before,
+            CareRecruitmentStatus after, String chgRsn) {
         CareRecruitmentStatusHistory history = new CareRecruitmentStatusHistory();
         history.setPetPrtcRcrtSn(petPrtcRcrtSn);
         history.setMbrSn(mbrSn);
         history.setBfrSttsCd(before == null ? null : before.getCode());
         history.setAftrSttsCd(after.getCode());
+        history.setChgRsn(chgRsn);
         careRecruitmentMapper.insertStatusHistory(history);
     }
 

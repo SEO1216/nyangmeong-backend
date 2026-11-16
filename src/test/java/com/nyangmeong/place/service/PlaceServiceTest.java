@@ -6,11 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -338,5 +341,157 @@ class PlaceServiceTest {
 
         assertThat(lastQuery().hasArea()).isTrue();
         assertThat(res.content().get(0).getDistance()).isNotNull();
+    }
+
+    /** whole=true 조건 */
+    private PlaceSearchCond wholeCond() {
+        PlaceSearchCond cond = cond(HOSPITAL, null);
+        cond.setWhole(true);
+        return cond;
+    }
+
+    /** 저장 조회를 넘긴 카카오 번호대로 돌려준다 : 이름·위도는 번호별 값 */
+    private void savedByIds(Map<String, String> names, Map<String, String> lats) {
+        when(placeMapper.selectByKakaoPlcIds(any(), anyList())).thenAnswer(invocation -> {
+            List<String> ids = invocation.getArgument(1);
+            return ids.stream().map(id -> {
+                PlaceSummary summary = saved(id, Long.valueOf(id.hashCode()), names.get(id), null);
+                if (lats.containsKey(id)) {
+                    summary.setPlcLat(new BigDecimal(lats.get(id)));
+                }
+                return summary;
+            }).toList();
+        });
+    }
+
+    @Test
+    void whole이면_세_쪽을_한_응답으로_주고_다음_쪽이_없다() {
+        when(placeSearchClient.search(any())).thenAnswer(invocation -> {
+            PlaceSearchQuery query = invocation.getArgument(0);
+            return switch (query.page()) {
+                case 1 -> new PlaceSearchPage(List.of(item("1", "가병원", PET_HOSPITAL)), 40, false);
+                case 2 -> new PlaceSearchPage(List.of(item("2", "나병원", PET_HOSPITAL)), 40, false);
+                default -> new PlaceSearchPage(List.of(item("3", "다병원", PET_HOSPITAL)), 40, true);
+            };
+        });
+        savedByIds(Map.of("1", "가병원", "2", "나병원", "3", "다병원"), Map.of());
+
+        PageResponse<PlaceSummary> res = service.search(MBR, wholeCond(), new PageQuery(2, null, null));
+
+        assertThat(res.content()).extracting(PlaceSummary::getKakaoPlcId).containsExactly("1", "2", "3");
+        assertThat(res.page()).isEqualTo(1);
+        assertThat(res.size()).isEqualTo(45);
+        assertThat(res.totalElements()).isEqualTo(3);
+        assertThat(res.totalPages()).isEqualTo(1);
+        assertThat(res.hasNext()).isFalse();
+        verify(placeSearchClient, times(3)).search(any());
+    }
+
+    @Test
+    void whole_거리순이면_거리_오름차순이다() {
+        when(placeSearchClient.search(any())).thenReturn(new PlaceSearchPage(List.of(
+                item("1", "먼병원", PET_HOSPITAL), item("2", "가까운병원", PET_HOSPITAL),
+                item("3", "중간병원", PET_HOSPITAL)), 3, true));
+        savedByIds(Map.of("1", "먼병원", "2", "가까운병원", "3", "중간병원"),
+                Map.of("1", "35.9242", "2", "35.8252", "3", "35.8542"));
+
+        PageResponse<PlaceSummary> res = service.search(MBR, wholeCond(), new PageQuery(null, null, "DISTANCE"));
+
+        assertThat(res.content()).extracting(PlaceSummary::getPlcConm).containsExactly("가까운병원", "중간병원", "먼병원");
+        assertThat(res.content()).extracting(PlaceSummary::getDistance).isSorted();
+    }
+
+    @Test
+    void whole_이름순이면_가나다순이다() {
+        when(placeSearchClient.search(any())).thenReturn(new PlaceSearchPage(List.of(
+                item("1", "다병원", PET_HOSPITAL), item("2", "가병원", PET_HOSPITAL),
+                item("3", "나병원", PET_HOSPITAL)), 3, true));
+        savedByIds(Map.of("1", "다병원", "2", "가병원", "3", "나병원"), Map.of());
+
+        PageResponse<PlaceSummary> res = service.search(MBR, wholeCond(), new PageQuery(null, null, "NAME"));
+
+        assertThat(res.content()).extracting(PlaceSummary::getPlcConm).containsExactly("가병원", "나병원", "다병원");
+    }
+
+    @Test
+    void whole_결과가_15건_이하면_카카오를_한_번만_부른다() {
+        when(placeSearchClient.search(any()))
+                .thenReturn(new PlaceSearchPage(List.of(item("1", "가병원", PET_HOSPITAL)), 10, true));
+        savedByIds(Map.of("1", "가병원"), Map.of());
+
+        PageResponse<PlaceSummary> res = service.search(MBR, wholeCond(), new PageQuery(null, null, "NAME"));
+
+        assertThat(res.content()).hasSize(1);
+        verify(placeSearchClient, times(1)).search(any());
+    }
+
+    @Test
+    void whole_결과가_45건_이상이면_범위를_4등분해_모으고_겹치는_업체는_하나로_합친다() {
+        List<PlaceSearchQuery> calls = new CopyOnWriteArrayList<>();
+        when(placeSearchClient.search(any())).thenAnswer(invocation -> {
+            PlaceSearchQuery query = invocation.getArgument(0);
+            calls.add(query);
+            boolean whole = query.swLat().compareTo(new BigDecimal("35.70")) == 0
+                    && query.neLat().compareTo(new BigDecimal("35.95")) == 0
+                    && query.swLot().compareTo(new BigDecimal("127.00")) == 0
+                    && query.neLot().compareTo(new BigDecimal("127.25")) == 0;
+            if (whole) {
+                return new PlaceSearchPage(List.of(item("A", "전체병원", PET_HOSPITAL)), 45, false);
+            }
+            String id = query.swLat().toPlainString() + "/" + query.swLot().toPlainString();
+            return new PlaceSearchPage(List.of(item(id, "칸병원" + id, PET_HOSPITAL),
+                    item("A", "전체병원", PET_HOSPITAL)), 2, true);
+        });
+        when(placeMapper.selectByKakaoPlcIds(any(), anyList())).thenAnswer(invocation -> {
+            List<String> ids = invocation.getArgument(1);
+            return ids.stream().map(id -> saved(id, Long.valueOf(id.hashCode()), "병원" + id, null)).toList();
+        });
+
+        PageResponse<PlaceSummary> res = service.search(MBR, wholeCond(), new PageQuery(null, null, null));
+
+        assertThat(calls).hasSize(5);
+        assertThat(res.content()).extracting(PlaceSummary::getKakaoPlcId)
+                .containsExactly("A", "35.70/127.00", "35.70/127.125", "35.825/127.00", "35.825/127.125");
+        assertThat(res.totalElements()).isEqualTo(5);
+        assertThat(res.hasNext()).isFalse();
+        List<String> rects = calls.stream().skip(1)
+                .map(q -> q.swLat().toPlainString() + "," + q.swLot().toPlainString() + "," + q.neLat().toPlainString()
+                        + "," + q.neLot().toPlainString())
+                .sorted().toList();
+        assertThat(rects).containsExactly("35.70,127.00,35.825,127.125", "35.70,127.125,35.825,127.25",
+                "35.825,127.00,35.95,127.125", "35.825,127.125,35.95,127.25");
+        assertThat(calls).allSatisfy(q -> {
+            assertThat(q.cntrLat()).isEqualByComparingTo("35.8242");
+            assertThat(q.cntrLot()).isEqualByComparingTo("127.1480");
+        });
+    }
+
+    @Test
+    void whole_동시에_부른_쪽이_실패하면_502를_그대로_올린다() {
+        when(placeSearchClient.search(any())).thenAnswer(invocation -> {
+            PlaceSearchQuery query = invocation.getArgument(0);
+            if (query.page() == 1) {
+                return new PlaceSearchPage(List.of(item("1", "가병원", PET_HOSPITAL)), 30, false);
+            }
+            throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
+        });
+
+        assertError(() -> service.search(MBR, wholeCond(), new PageQuery(null, null, null)),
+                ErrorCode.EXTERNAL_API_ERROR);
+        verify(placeMapper, never()).upsertKakaoPlaces(anyList());
+    }
+
+    @Test
+    void whole을_생략하면_지금처럼_15건_한_쪽과_다음_쪽_여부를_준다() {
+        when(placeSearchClient.search(any()))
+                .thenReturn(new PlaceSearchPage(List.of(item("1", "가병원", PET_HOSPITAL)), 30, false));
+        savedByIds(Map.of("1", "가병원"), Map.of());
+
+        PageResponse<PlaceSummary> res = service.search(MBR, cond(HOSPITAL, null), new PageQuery(1, null, null));
+
+        assertThat(res.page()).isEqualTo(1);
+        assertThat(res.size()).isEqualTo(15);
+        assertThat(res.hasNext()).isTrue();
+        verify(placeSearchClient, times(1)).search(any());
     }
 }

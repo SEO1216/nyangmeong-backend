@@ -8,7 +8,7 @@ import lombok.Data;
 /**
  * [펫돌봄 모집 목록 항목]
  * - pets·prtcShpCds 는 목록 조회 뒤 서비스가 채운다
- * - aplcntCnt : 메시지가 1건 이상 오간 이 글의 채팅방 수(「채팅 n명」)
+ * - aplcntCnt : 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 남아 있는 이 글의 채팅방 수(「채팅 n명」)
  */
 @Data
 public class CareRecruitmentSummary {

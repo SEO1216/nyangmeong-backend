@@ -126,7 +126,7 @@ public class CareRecruitmentService {
                 rcrtSttsCd, cond.isMineYn(), cond.getRgnSn(), bgngDe == null ? null : bgngDe.atStartOfDay(),
                 endDe == null ? null : endDe.plusDays(1).atStartOfDay(), petSeCd, PetSe.DOG.getCode(), sizeFilter,
                 sizeFilter ? size.getMinBdwg() : null, sizeFilter ? size.getMaxBdwg() : null,
-                CareRecruitmentStatus.COMPLETED.getCode(), hideDays);
+                CareRecruitmentStatus.COMPLETED.getCode(), hideDays, ChatParticipantStatus.JOINED.getCode());
         PageInfo<CareRecruitmentSummary> pageInfo = new PageInfo<>(rows);
         fillChildren(rows);
         return PageResponse.of(pageInfo);
@@ -350,7 +350,7 @@ public class CareRecruitmentService {
      */
     private CareRecruitmentDetail getDetailOrThrow(Long petPrtcRcrtSn) {
         CareRecruitmentDetail detail = careRecruitmentMapper.selectDetail(petPrtcRcrtSn,
-                PostStatus.NORMAL.getCode());
+                PostStatus.NORMAL.getCode(), ChatParticipantStatus.JOINED.getCode());
         if (detail == null) {
             throw new CustomException(ErrorCode.CARE_RECRUITMENT_NOT_FOUND);
         }

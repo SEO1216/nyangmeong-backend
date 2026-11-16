@@ -10,7 +10,7 @@
 | GET | /care-recruitments | 펫돌봄 모집 목록(상태·지역·기간·동물 구분·크기 필터, 10건) | CMU-004-01·02 | KSJ | - | Page<CareRecruitmentSummary> |
 | GET | /care-recruitments/minimum-wage | 최저시급 조회(로그인 회원, 관리자 설정의 현재 값을 매번 읽는다. 등록·수정 화면의 시급 안내) | CMU-004-08 | KSJ | - | MinimumWageResponse |
 | GET | /care-recruitments/{petPrtcRcrtSn} | 펫돌봄 모집 상세(상세 주소·정확 좌표 제외, 내 채팅 여부·매칭 돌보미 포함) | CMU-004-04·05 | KSJ | - | CareRecruitmentResponse |
-| GET | /chat-rooms | 내 채팅 목록(`?tab=&unreadOnly=&pstSn=`. `tab`은 ALL(기본)·MINE(내 글)·APPLIED(지원한 글), 마지막 대화 최신순, 나간 방 제외) | CMU-005-02, COM-009 | KSJ | - | List<ChatRoomSummary> |
+| GET | /chat-rooms | 내 채팅 목록(`?tab=&unreadOnly=&pstSn=`. `tab`은 ALL(기본)·MINE(내 글)·APPLIED(지원한 글), 마지막 대화 최신순, 나간 방 제외. 내 글의 방은 사람이 보낸 메시지가 있는 방만) | CMU-005-02, COM-009 | KSJ | - | List<ChatRoomSummary> |
 | GET | /chat-rooms/unread-count | 읽지 않은 메시지 총수(채팅 메뉴·헤더 배지) | CMU-005-03, COM-009 | KSJ | - | ChatUnreadCountResponse |
 | GET | /chat-rooms/{otoChatRoomSn} | 채팅방 상단 게시글 카드·매칭 진행 상태·내 역할 조회(참여자만) | CMU-005-01·11, COM-009 | KSJ | - | ChatRoomResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/messages | 대화 메시지 조회(커서 방식, 최신순). `?beforeChatMsgSn=&size=30` — 처음은 `beforeChatMsgSn` 없이, 위로 스크롤하면 받은 것 중 가장 오래된 `chatMsgSn`을 넘긴다. `size` 최대 50 | CMU-005-04, COM-009 | KSJ | - | ChatMessageSliceResponse |
@@ -668,10 +668,10 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | rlsRgnNm | String | Y | 대략적인 장소. 상세 주소·정확 좌표는 넣지 않는다 | PET_PRTC_RCRT.RLS_RGN_NM, CMU-004-10 |
 | imgs | List<ImageItem> | Y | 없으면 빈 목록 | PST_IMG, CMU-004-04 |
 | rcmdtnCnt | Integer | Y | | PST.RCMDTN_CNT, CMU-004-12 |
-| aplcntCnt | Integer | N | 「지금 n명과 채팅 중」. 메시지가 1건 이상 오간 채팅방 수. 작성자에게만 주고 그 밖에는 null | OTO_CHAT_ROOM.PST_SN, CMU-004-05 |
+| aplcntCnt | Integer | N | 「지금 n명과 채팅 중」. 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 나가지 않은 채팅방 수. 작성자에게만 주고 그 밖에는 null | OTO_CHAT_ROOM.PST_SN, CMU-004-05 |
 | liked | Boolean | Y | 내가 좋아요했는지 | PST_RCMDTN.USE_YN, CMU-004-12 |
 | owner | Boolean | Y | 작성자 본인인지(수정·삭제 버튼) | PST.MBR_SN, CMU-004-11 |
-| chatting | Boolean | Y | 내가 이 글로 채팅 중인지. 나가지 않은 참여 방 중 메시지가 1건 이상 오간 방이 있으면 true(지원자 수 `aplcntCnt`와 같은 기준, 작성자도 같은 규칙). 목록 응답에는 없다 | OTO_CHAT_ROOM.PST_SN, CHAT_PRTPNT.PTCP_STTS_CD, CMU-004-05 |
+| chatting | Boolean | Y | 내가 이 글로 채팅 중인지. 내가 나가지 않은 방 중 사람이 보낸 메시지가 있는 방이 있으면 true(상대가 나갔는지는 보지 않는다. `aplcntCnt`는 둘 다 남은 방만 센다. 작성자도 같은 규칙). 목록 응답에는 없다 | OTO_CHAT_ROOM.PST_SN, CHAT_PRTPNT.PTCP_STTS_CD, CMU-004-05 |
 | mtchSitterNcnm | String | N | 매칭 완료·거래 완료일 때 확정된 매칭의 돌보미(채팅을 건 지원자) 닉네임. 모집중이거나 확정 매칭이 없으면 null. 돌보미가 파기된 회원(이메일 HMAC `PURGED`)이면 「탈퇴한 회원」. 상세를 보는 로그인 회원 모두에게 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, MBR.MBR_NCNM, CMU-004-05 |
 | matched | Boolean | Y | 확정된 매칭이 있었으면 true(매칭완료, 실제 거래로 끝난 거래완료). 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
@@ -697,7 +697,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | rlsRgnNm | String | Y | 지역 | PET_PRTC_RCRT.RLS_RGN_NM, CMU-004-01 |
 | cstUnitCd | String | Y | 공통코드 PCAG02 | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-01 |
 | cstAmt | Integer | Y | 보수 | PET_PRTC_RCRT.CST_AMT, CMU-004-01 |
-| aplcntCnt | Integer | Y | 「채팅 n명」. 메시지가 1건 이상 오간 이 게시글의 채팅방 수 | OTO_CHAT_ROOM.PST_SN, CMU-004-01 |
+| aplcntCnt | Integer | Y | 「채팅 n명」. 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 나가지 않은 이 게시글의 채팅방 수 | OTO_CHAT_ROOM.PST_SN, CMU-004-01 |
 | rcrtSttsCd | String | Y | 상태 배지. 공통코드 PCAG01 | PET_PRTC_RCRT.RCRT_STTS_CD, CMU-004-01 |
 | pets | List<CareRecruitmentPetItem> | Y | 반려동물 배지(구분·크기) | RCRT_PET_KND, CMU-004-01 |
 | prtcShpCds | List<String> | Y | 돌봄 형태 배지. 공통코드 PCAG03 | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-01 |

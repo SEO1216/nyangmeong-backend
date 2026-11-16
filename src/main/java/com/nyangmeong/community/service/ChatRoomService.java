@@ -35,7 +35,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * [펫돌봄 채팅방 서비스]
  * - SCR-CMU-004 채팅하기 : 게시글·보호자·지원자 조합에 방이 있으면 그 방, 없으면 새로 만든다
- * - 채팅 = 지원이라 별도 지원 절차가 없고, 지원자 수는 첫 메시지가 오간 방만 센다
+ * - 채팅 = 지원이라 별도 지원 절차가 없고, 지원자 수는 사람이 보낸 메시지가 있고 두 참여자가 남아 있는 방만 센다
  * - SCR-CMU-005 채팅 목록·읽음·나가기·사진 보기 : 읽음 위치는 CHAT_PRTPNT.LAST_PRSL_MSG_SEQ 에 두고 두 참여자 연결로 READ 전송
  * - 메시지는 ChatMessageService, 매칭은 CareMatchService
  */
@@ -46,11 +46,13 @@ public class ChatRoomService {
     private static final String TAB_ALL = "ALL";
     private static final String PHOTO_PREVIEW = "사진을 보냈어요.";
     private static final String ADDRESS_PREVIEW = "주소를 공유했어요.";
+    private static final String LEFT_MESSAGE = "상대가 채팅방을 나갔어요.";
 
     private final ChatRoomMapper chatRoomMapper;
     private final CareRecruitmentMapper careRecruitmentMapper;
     private final ChatRoomGuard chatRoomGuard;
     private final CareMatchService careMatchService;
+    private final ChatMessageService chatMessageService;
     private final ChatRealtimePublisher chatRealtimePublisher;
     private final FieldCryptoService fieldCryptoService;
     private final FileStore fileStore;
@@ -105,6 +107,7 @@ public class ChatRoomService {
 
     /**
      * 채팅방 나가기 (목록에서만 숨기고 기록은 유지, 진행 중 매칭은 취소)
+     * - 상대가 아직 방에 있으면 매칭 취소 안내가 없는 경우에도 나갔다는 시스템 메시지를 남긴다
      */
     @Transactional
     public void leave(Long mbrSn, Long otoChatRoomSn) {
@@ -113,11 +116,19 @@ public class ChatRoomService {
         if (participant == null || ChatParticipantStatus.LEFT.is(participant.getPtcpSttsCd())) {
             return;
         }
-        careMatchService.cancelOnLeave(mbrSn, room);
+        boolean notified = careMatchService.cancelOnLeave(mbrSn, room);
 
         chatRoomMapper.updateParticipantStatus(otoChatRoomSn, mbrSn, ChatParticipantStatus.LEFT.getCode());
         insertParticipantHistory(participant.getChatPrtpntSn(), mbrSn, ChatParticipantStatus.JOINED,
                 ChatParticipantStatus.LEFT);
+
+        if (!notified) {
+            Long counterpartMbrSn = mbrSn.equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn() : room.getOwnerMbrSn();
+            ChatParticipant counterpart = chatRoomMapper.selectParticipant(otoChatRoomSn, counterpartMbrSn);
+            if (counterpart != null && ChatParticipantStatus.JOINED.is(counterpart.getPtcpSttsCd())) {
+                chatMessageService.createSystemMessage(otoChatRoomSn, LEFT_MESSAGE);
+            }
+        }
     }
 
     /**
@@ -140,12 +151,13 @@ public class ChatRoomService {
         /** 기존 방은 글이 닫히거나 숨겨져도 계속 연다 */
         ChatRoom existing = chatRoomMapper.selectByPstSnAndCtptMbrSn(req.pstSn(), mbrSn);
         if (existing != null) {
+            /** 보호자가 나갔으면 지원자가 메시지를 보낼 때 되돌림 (ChatMessageService.send) */
             rejoin(existing.getOtoChatRoomSn(), mbrSn);
             return ChatRoomResponse.of(chatRoomMapper.selectDetail(existing.getOtoChatRoomSn()), mbrSn, false);
         }
 
         CareRecruitmentDetail recruitment = careRecruitmentMapper.selectDetailByPstSn(req.pstSn(),
-                PostStatus.NORMAL.getCode());
+                PostStatus.NORMAL.getCode(), ChatParticipantStatus.JOINED.getCode());
         if (recruitment == null) {
             throw new CustomException(ErrorCode.CARE_RECRUITMENT_NOT_FOUND);
         }

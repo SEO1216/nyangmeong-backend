@@ -2,12 +2,16 @@
 
 ## 지금 하는 것
 
-SCR-MYP-010 픽셀 캐릭터 관리 · 예전 공용 파일 주소 삭제 — 끝 (2026-11-16). 프론트 PR #383 병합을 확인하고 `FileController`의 `GET /api/files/public/{atchFileSn}`을 지웠다(이제 404 `NOT_FOUND`). `FileControllerTest`는 예전 주소 검사를 `예전_주소는_없어져_404이다`로 바꿨다(사람 승인). `docs/api/global.md` 행과 `issues.md` 10·15번에 반영. 검증 1회차 `통과`·사람 확인 (승인 2026-11-16 11:55, 시작 2026-11-16 11:54)
+SCR-MYP-010 픽셀 캐릭터 관리 · 무료 재생성 Python 연결 — 끝 (2026-11-16). 가짜 생성기(`CharacterCreationWorker`·`CharacterGenerator`·`FakeCharacterGenerator`·`CharacterProperties`·`CharacterGenerationRequest`·`app.character.generator`)를 지우고, 무료 재생성을 관리자 쿠키의 Python 호출로 바꿨다: 첫 생성 success의 `photo`를 원본(`PET_ORIGINAL`)으로 저장, 새 내부 API `POST /internal/ai/characters/jobs/{sn}/regen-start`·`GET .../original-photo`, success·failure·equipped-image 관리자 통과, REQUESTED 10분 시간 초과, 재생성 실패 뒤 관리자 다시 처리와 문의 상세 `regenJobSn`·`regenJobSttsCd`·`regenJobSttsCdNm`, 추가-1 멱등 ID `REGEN-{직전 작업 번호}`. 계약 `docs/api/pet.md`·`support.md`. 검증 2회차 `통과`·사람 확인 (승인 2026-11-16 12:46, 시작 2026-11-16 12:40)
 
 ## 다음에 할 것
 
-- SJM에게 알린다(PR 전, SCR-MYP-011 가짜 연결): 아이템 구매가 `PointService.use`·`getHldPnt`를 부르기 시작했다(`PointFake` 삭제). 구매 원장은 `ITEM_PURCHASE`(MYPC0008), 메모 `아이템 구매 · {아이템 이름들 ", "}`(1000자에서 자름). 케어 일정 사전 알림 배치는 `PetService.searchCaregiverMbrSns`를 부른다(`CaregiverFake` 삭제). `PointService`·`PetService` 코드는 바꾸지 않았다
-- SJM에게 알린다(PR 전, SCR-MYP-011 구매 멱등키): `PointService.use`가 `existsLedger` 대신 `PointMapper.selectLedgerByIdmptDmndId`(새 resultMap `pointLedgerResultMap`)로 원장을 읽는다. 같은 키에 회원·거래 종류(`ITEM_PURCHASE`)·금액·메모가 모두 같으면 지금처럼 건너뛰고, 하나라도 다르면 409 `IDEMPOTENCY_KEY_REUSED`(ErrorCode pet 구획 추가). `earnMission`·`earnCheckupPoint`·`record`·`existsLedger`는 그대로. `PointServiceTest` 기존 `같은_idmptDmndId로_두_번_쓰면_한_번만_차감한다`는 목만 새 조회로(기대값 그대로), 409 검사 4개 추가
+- 다음 작업(frontend-07 요청, 사람 합의 2026-11-16): /start에서 origin/develop 합치기(KSJ 13794f1 운영 설정 `dlngCmptnHideCrtrDayCnt`) → `global/setting` 담당 검토(1~99 검증, 400 `data[].field`가 `dlngCmptnHideCrtrDayCnt`인지, 감사 로그, null이면 7) → 백엔드 8081을 합친 코드로 다시 띄우고 frontend-07에 알림(8080은 건드리지 않음)
+- SCR-MYP-010 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-042 1:1 문의 · 캐릭터 무료 재생성 Python 호출 — 대기" 넣음)
+- SCR-MYP-010 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트(확장자 jpg·png·webp, 업로드 원본 그대로) 보내기와 사진 문제 failRsn `CHARACTER_INPUT_ERROR`, ai 저장소 다음 세션. 재생성 입구는 ai-39가 구현함). 백엔드 develop 병합 뒤 ai-39·frontend-07에 화면 확인해도 된다고 알린다
+- 팀에 알린다(SCR-MYP-010 무료 재생성): 새 시간 초과 규칙이 등록 뒤 10분 지난 REQUESTED 작업도 `CHARACTER_TIMEOUT`으로 실패 처리한다. 검증 서버 기동 때 공용 DB의 오래된 REQUESTED 작업 44건(2026-09~10월)이 실패로 바뀌었다. 공유 `application.properties`의 `app.character.generator` 줄은 이제 쓰지 않으니 지운다
+- 공용 DB 정리(사람, 선택): SCR-MYP-010 무료 재생성 검증으로 캐릭터 619(반려동물 1066 삭제됨), 작업 801~804, 그 사진·파일 행, 회원 1 알림 5500·5501이 남았다(문의 232·233은 DEL_YN='Y')
+
 - SCR-MYP-011 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx`가 `IDEMPOTENCY_KEY_REUSED`를 받으면 새 `idmptDmndId`를 만들고 상점을 다시 읽기, `PURCHASE_ERRORS` 문구, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 409 처리 — 대기" 넣음). 그 전까지는 이 오류를 받으면 모달을 닫았다 열어야 다시 살 수 있다
 - 공용 DB 정리(사람): SCR-MYP-011 가짜 연결 검증·사람 확인으로 회원 164 캐릭터 21에 보유 아이템 43·46(과 사람 확인 때 산 두 개), 포인트 원장 5734(−20)와 사람 확인분. `HLD_ITEM` 행 삭제와 관리자 `POST /api/admin/points/adjustments`로 되돌린다. 배치 수동 실행으로 생긴 오늘 케어 일정 알림·`NOTI_SNDNG_LOG`는 실제 사전 알림과 같아 두어도 된다
 - 팀에 알린다(SCR-AIM-006 사전 알림 실제 발송): 이제 09:00 배치가 실제 양육자에게 인앱 알림과 메일을 보낸다. 공유 `application.properties`가 `app.mail.client=smtp`라 각자 띄운 서버도 실제 메일을 보낸다(중복방지키로 한 번만). 메일을 보내지 않으려면 `--app.mail.client=log`로 띄운다

@@ -391,6 +391,16 @@
            AND DEL_YN = 'N'
     </update>
 
+    <update id="updateCharErrResultRetry">
+        /* 캐릭터 오류 다시 처리 결과 기록 */
+        UPDATE OTO_INQRY
+           SET CHAR_ERR_PRCS_RSLT_CD = #{charErrPrcsRsltCd}
+             , MDFCN_DT = NOW()
+         WHERE OTO_INQRY_SN = #{otoInqrySn}
+           AND CHAR_ERR_PRCS_RSLT_CD = #{bfrCd}
+           AND DEL_YN = 'N'
+    </update>
+
     <select id="countByStatus" resultType="long">
         /* 처리 상태별 문의 수 : 유형은 선택 */
         SELECT COUNT(*)

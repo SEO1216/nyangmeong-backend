@@ -15,6 +15,7 @@ import com.nyangmeong.global.log.AdminTaskLogService;
 import com.nyangmeong.global.log.AdminTaskType;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.pet.dto.CharacterRegenJobSummary;
 import com.nyangmeong.pet.service.PixelCharacterService;
 import com.nyangmeong.support.domain.CharacterErrorResult;
 import com.nyangmeong.support.domain.Inquiry;
@@ -160,9 +161,16 @@ public class AdminInquiryService {
                 || !InquiryType.PIXEL_CHARACTER.is(before.getInqryTypeCd())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        if (before.getCharErrPrcsRsltCd() != null
-                || inquiryMapper.updateCharErrResult(otoInqrySn, result.getCode()) == 0) {
-            throw new CustomException(ErrorCode.ALREADY_PROCESSED);
+        if (before.getCharErrPrcsRsltCd() == null) {
+            if (inquiryMapper.updateCharErrResult(otoInqrySn, result.getCode()) == 0) {
+                throw new CustomException(ErrorCode.ALREADY_PROCESSED);
+            }
+        } else {
+            checkRetryable(before);
+            if (inquiryMapper.updateCharErrResultRetry(otoInqrySn, before.getCharErrPrcsRsltCd(),
+                    result.getCode()) == 0) {
+                throw new CustomException(ErrorCode.ALREADY_PROCESSED);
+            }
         }
         pixelCharacterService.finishErrorCheck(before.getPixelCharSn(), result == CharacterErrorResult.REGENERATE);
 
@@ -170,6 +178,21 @@ public class AdminInquiryService {
         adminTaskLogService.record(actorSn, AdminTaskType.PROCESS, TARGET_TABLE, otoInqrySn, "캐릭터 오류 처리",
                 InquiryState.of(before), InquiryState.of(after));
         return toResponse(after);
+    }
+
+    /**
+     * 다시 처리 가능 검사 : 무료 재생성으로 처리했고 그 재생성이 실패로 끝났을 때만
+     */
+    private void checkRetryable(Inquiry before) {
+        CharacterRegenJobSummary regen = CharacterErrorResult.REGENERATE.is(before.getCharErrPrcsRsltCd())
+                ? pixelCharacterService.getRegenJob(before.getPixelCharSn())
+                : null;
+        if (regen != null && regen.inProgress()) {
+            throw new CustomException(ErrorCode.PIXEL_CHARACTER_CREATING);
+        }
+        if (regen == null || !regen.failed()) {
+            throw new CustomException(ErrorCode.ALREADY_PROCESSED);
+        }
     }
 
     private Inquiry getOrThrow(Long otoInqrySn) {
@@ -203,6 +226,10 @@ public class AdminInquiryService {
         boolean deleted = isDeleted(inquiry);
         List<InquiryImageSummary> imgs = deleted ? List.of() : inquiryMapper.selectImageSummaries(otoInqrySn);
         Long charImgAtchFileSn = deleted ? null : characterImage(inquiry);
+        CharacterRegenJobSummary regen = inquiry.getPixelCharSn() != null
+                && CharacterErrorResult.REGENERATE.is(inquiry.getCharErrPrcsRsltCd())
+                        ? pixelCharacterService.getRegenJob(inquiry.getPixelCharSn())
+                        : null;
         AdminInquiryResponse.Extra extra = new AdminInquiryResponse.Extra(
                 inquiryMapper.selectCodeName(inquiry.getInqryTypeCd()),
                 InquiryCategory.of(inquiry.getInqryTypeCd()).name(),
@@ -211,7 +238,9 @@ public class AdminInquiryService {
                 inquiry.getPrcsMbrSn() == null ? null : inquiryMapper.selectNickname(inquiry.getPrcsMbrSn()),
                 inquiry.getCharErrPrcsRsltCd() == null ? null
                         : inquiryMapper.selectCodeName(inquiry.getCharErrPrcsRsltCd()),
-                charImgAtchFileSn, imgs, inquiryMapper.selectStatusHistories(otoInqrySn));
+                charImgAtchFileSn, imgs, inquiryMapper.selectStatusHistories(otoInqrySn),
+                regen == null ? null : regen.charCrtJobSn(), regen == null ? null : regen.crtJobSttsCd(),
+                regen == null ? null : inquiryMapper.selectCodeName(regen.crtJobSttsCd()));
         return AdminInquiryResponse.from(inquiry, extra);
     }
 

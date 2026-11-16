@@ -2,7 +2,7 @@
 
 ## 지금 하는 것
 
-SCR-ADM-081 키워드 사전 · 관리자·내부 키워드 사전 API 삭제 — 끝 (2026-11-16). `/api/admin/ai/keywords`·`/internal/ai/keywords` 코드·테스트·`AI_KEYWORD_NOT_FOUND`·`docs/api/ai.md` 행과 DTO 절을 지웠다. `KWRD_DICT`·라우팅 매핑표·뉴스 키워드는 그대로. AIMC0037·0038 공통코드와 그 행은 DB에 남김(결정: 추천안대로, 읽는 코드 없음). 검증 `통과`(1회차), 사람 확인 2026-11-16, 시작 2026-11-16 15:27
+SCR-ADM-051 약관 · 버전 이력 종류 키 누락 400 코드 맞추기 — 끝 (2026-11-16). `GET /api/admin/terms/history`의 `trmsFixIdntfKey`를 `@RequestParam(required = false)`로 바꿔 키 없음·공백이 문서대로 400 `INVALID_INPUT_VALUE`(서비스 검사). `AdminTermsControllerTest` 4건 추가. 문서 변경 없음. 검증 `통과`(1회차), 사람 확인 2026-11-16, 시작 2026-11-16 15:51
 
 ## 다음에 할 것
 
@@ -22,7 +22,6 @@ SCR-ADM-081 키워드 사전 · 관리자·내부 키워드 사전 API 삭제 �
 - SCR-ADM-082 연결 남음: FN-ADM-082-03 (ai 연결 `app/checkup` PDF 분석 호출마다 `POST /internal/ai/external-api-calls` `{ extlApiSeCd: "SYSC0025", callRsltCd, rspnsMs, httpSttsVl, failRsn }` 통지, 검사결과지 아님 판정은 SYSC0021(성공), 시간초과 SYSC0023, API 오류 SYSC0022, ai 저장소에서 /start). 지금 ai 저장소는 이 통지를 보내지 않는다
 - 데이터 문제(SCR-ADM-071, SJM·팀과 정한다): 공용 DB `CARE_MSN`을 다시 넣어 번호가 22부터라 옛 `DAY_MSN` 22,772행이 없는 `CARE_MSN_SN`(1~21)을 가리킨다. 케어미션 배치는 11-10 이후 다시 성공한다(2026-11-16 확인, 실패는 11-11~13의 3건). 남은 것은 이 옛 행을 지울지 정하는 것
 - SCR-ADM-051 남김: FN-ADM-051-04 기능별 동의 2종(펫돌봄 이용수칙 `CARE_RULE`·실종 개인정보 공개 동의 `LOST_PRIVACY`). 커뮤니티가 동의 문구를 `TRMS`에서 읽게 될 때(KSJ) 넣는다. 그때 가입 쪽 쿼리 4개(`TermsMapper.xml` 가입 목록·가입 동의 검사·복구 빠진 필수 약관·관리자 회원 상세 약관 동의)가 섞이지 않게 가르는 방법(컬럼 추가 등)을 YAY와 정한다
-- 판단 필요(SCR-ADM-051): `GET /api/admin/terms/history`에 `trmsFixIdntfKey`를 빼면 문서(`docs/api/member.md`)는 400 `INVALID_INPUT_VALUE`인데 실제는 400 `BAD_REQUEST`(필수 파라미터 누락). 문서를 고치거나 `@RequestParam(required = false)`로 바꾼다
 - 정하기: 뉴스 제외 키워드(AIMC0040) 편집 화면. 기준 데이터 주석에 "관리자 SCR-ADM-050에서 편집"이라고 돼 있지만 기능명세서·화면설계서·프론트 가정에 없어 만들지 않았다. 넣는다면 명세에 기능 ID를 추가하고 같은 키워드 API에 용도 구분을 더한다
 - SCR-ADM-022 연결 남음: FN-ADM-022-02 완료 사진 보기. `/api/files/{atchFileSn}`은 로그인 회원 누구나 여는 분류(`FileCategory` SHARED)만 열어 지금 완료 사진(시드 3543·3544)은 404다. 완료 사진 업로드가 아직 없어(KSJ) 저장 경로를 정할 때 관리자가 볼 방법(공개 경로 또는 관리자 이미지 API)을 같이 정한다
 - SCR-MYP-031 연결 남음: FN-AIM-013-06 가계부 출처 영수증 다시 열기 (프론트 연결 가계부 화면의 영수증 다시 열기, 화면 SJM, 프론트 저장소에서 /start). SJM에게 알린다: `GET /api/receipts/{recptSn}`을 `petSn` 없이 부르면 된다(응답 `petSn` null, `docs/api/receipt.md`). 프론트 저장소 가계부 담당(SJM) 마일스톤 `## 제외` 앞에 넣을 절(사람): `## SCR-MYP-031 영수증 업로드 · 가계부 출처 영수증 다시 열기 연결 — 대기`(기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-AIM-013-06·FN-MYP-031-03 / 기다리는 것: 백엔드 SCR-MYP-031 가계부 출처 다시 열기(LJS, 끝) / 완료 조건: 가계부 화면에서 올린 영수증을 `petSn` 없이 다시 열어 인식 결과 확인 모달이 뜬다)

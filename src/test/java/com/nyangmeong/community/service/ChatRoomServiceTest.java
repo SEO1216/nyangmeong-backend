@@ -45,15 +45,17 @@ class ChatRoomServiceTest {
     private static final Long PST = 7L;
     private static final Long ROOM = 11L;
     private static final String NORMAL = "CMUC0003";
+    private static final String JOINED = "CHTC0003";
 
     private final ChatRoomMapper chatRoomMapper = mock(ChatRoomMapper.class);
     private final CareRecruitmentMapper careRecruitmentMapper = mock(CareRecruitmentMapper.class);
     private final CareMatchService careMatchService = mock(CareMatchService.class);
+    private final ChatMessageService chatMessageService = mock(ChatMessageService.class);
     private final ChatRealtimePublisher chatRealtimePublisher = mock(ChatRealtimePublisher.class);
     private final FieldCryptoService fieldCryptoService = mock(FieldCryptoService.class);
     private final FileStore fileStore = mock(FileStore.class);
     private final ChatRoomService service = new ChatRoomService(chatRoomMapper, careRecruitmentMapper,
-            new ChatRoomGuard(chatRoomMapper), careMatchService, chatRealtimePublisher, fieldCryptoService,
+            new ChatRoomGuard(chatRoomMapper), careMatchService, chatMessageService, chatRealtimePublisher, fieldCryptoService,
             fileStore);
 
     private CareRecruitmentDetail recruitment(String sttsCd) {
@@ -101,7 +103,7 @@ class ChatRoomServiceTest {
 
     /** 새 방 만들기에 필요한 준비 */
     private void stubNewRoom() {
-        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL)).thenReturn(recruitment("PCAC0001"));
+        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL, JOINED)).thenReturn(recruitment("PCAC0001"));
         doAnswer(inv -> {
             inv.<ChatRoom>getArgument(0).setOtoChatRoomSn(ROOM);
             return 1;
@@ -159,7 +161,7 @@ class ChatRoomServiceTest {
         ChatRoomResponse res = service.create(SITTER, req());
 
         assertThat(res.rcrtSttsCd()).isEqualTo("PCAC0002");
-        verify(careRecruitmentMapper, never()).selectDetailByPstSn(any(), any());
+        verify(careRecruitmentMapper, never()).selectDetailByPstSn(any(), any(), any());
     }
 
     @Test
@@ -176,7 +178,7 @@ class ChatRoomServiceTest {
 
     @Test
     void 내_글에는_채팅할_수_없다() {
-        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL)).thenReturn(recruitment("PCAC0001"));
+        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL, JOINED)).thenReturn(recruitment("PCAC0001"));
 
         assertError(() -> service.create(OWNER, req()), ErrorCode.CHAT_ROOM_OWN_POST);
         verify(chatRoomMapper, never()).insertRoom(any());
@@ -190,7 +192,7 @@ class ChatRoomServiceTest {
 
     @Test
     void 모집이_끝난_글에는_새_채팅을_시작할_수_없다() {
-        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL)).thenReturn(recruitment("PCAC0002"));
+        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL, JOINED)).thenReturn(recruitment("PCAC0002"));
 
         assertError(() -> service.create(SITTER, req()), ErrorCode.CHAT_ROOM_NOT_RECRUITING);
         verify(chatRoomMapper, never()).insertRoom(any());
@@ -324,6 +326,42 @@ class ChatRoomServiceTest {
     }
 
     @Test
+    void 나가면_매칭이_없어도_남은_상대에게_나갔다는_안내를_남긴다() {
+        ChatRoomDetail detail = roomDetail();
+        when(chatRoomMapper.selectDetail(ROOM)).thenReturn(detail);
+        when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0003", 0));
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(participant("CHTC0003", 0));
+
+        service.leave(SITTER, ROOM);
+
+        verify(chatMessageService).createSystemMessage(ROOM, "상대가 채팅방을 나갔어요.");
+    }
+
+    @Test
+    void 매칭_취소_안내를_이미_남겼으면_나감_안내를_또_남기지_않는다() {
+        ChatRoomDetail detail = roomDetail();
+        when(chatRoomMapper.selectDetail(ROOM)).thenReturn(detail);
+        when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0003", 0));
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(participant("CHTC0003", 0));
+        when(careMatchService.cancelOnLeave(SITTER, detail)).thenReturn(true);
+
+        service.leave(SITTER, ROOM);
+
+        verify(chatMessageService, never()).createSystemMessage(any(), any());
+    }
+
+    @Test
+    void 상대가_이미_나갔으면_나감_안내를_남기지_않는다() {
+        when(chatRoomMapper.selectDetail(ROOM)).thenReturn(roomDetail());
+        when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0003", 0));
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(participant("CHTC0004", 0));
+
+        service.leave(SITTER, ROOM);
+
+        verify(chatMessageService, never()).createSystemMessage(any(), any());
+    }
+
+    @Test
     void 이미_나간_방에서_다시_나가도_아무것도_바꾸지_않는다() {
         when(chatRoomMapper.selectDetail(ROOM)).thenReturn(roomDetail());
         when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0004", 0));
@@ -331,6 +369,7 @@ class ChatRoomServiceTest {
         service.leave(SITTER, ROOM);
 
         verify(careMatchService, never()).cancelOnLeave(any(), any());
+        verify(chatMessageService, never()).createSystemMessage(any(), any());
         verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
     }
 
@@ -344,6 +383,19 @@ class ChatRoomServiceTest {
 
         assertThat(res.created()).isFalse();
         verify(chatRoomMapper).updateParticipantStatus(ROOM, SITTER, "CHTC0003");
+    }
+
+    @Test
+    void 다시_채팅하기는_지원자만_되돌리고_나간_보호자는_메시지를_보낼_때까지_그대로_둔다() {
+        when(chatRoomMapper.selectByPstSnAndCtptMbrSn(PST, SITTER)).thenReturn(room());
+        when(chatRoomMapper.selectDetail(ROOM)).thenReturn(roomDetail());
+        when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0004", 0));
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(participant("CHTC0004", 0));
+
+        service.create(SITTER, req());
+
+        verify(chatRoomMapper).updateParticipantStatus(ROOM, SITTER, "CHTC0003");
+        verify(chatRoomMapper, never()).updateParticipantStatus(ROOM, OWNER, "CHTC0003");
     }
 
     @Test

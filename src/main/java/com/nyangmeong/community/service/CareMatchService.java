@@ -16,6 +16,7 @@ import com.nyangmeong.community.domain.CareRecruitment;
 import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentStatus;
 import com.nyangmeong.community.domain.CareRecruitmentStatusHistory;
+import com.nyangmeong.community.domain.ChatParticipantStatus;
 import com.nyangmeong.community.domain.ChatRoomDetail;
 import com.nyangmeong.community.domain.ChatRoomStatus;
 import com.nyangmeong.community.domain.ChatStatusHistory;
@@ -104,7 +105,7 @@ public class CareMatchService {
         }
 
         CareRecruitmentDetail post = careRecruitmentMapper.selectDetailByPstSn(room.getPstSn(),
-                PostStatus.NORMAL.getCode());
+                PostStatus.NORMAL.getCode(), ChatParticipantStatus.JOINED.getCode());
         if (post == null || !CareRecruitmentStatus.RECRUITING.is(recruitment.getRcrtSttsCd())) {
             throw new CustomException(ErrorCode.CARE_RECRUITMENT_CLOSED);
         }
@@ -248,17 +249,19 @@ public class CareMatchService {
 
     /**
      * 채팅방 나가기에 따른 진행 중 매칭 취소 (매칭 완료 이후였으면 모집글을 모집중으로 되돌림)
+     *
+     * @return 매칭을 취소하고 안내 메시지를 남겼으면 true
      */
     @Transactional
-    public void cancelOnLeave(Long mbrSn, ChatRoomDetail room) {
+    public boolean cancelOnLeave(Long mbrSn, ChatRoomDetail room) {
         if (room.getPetPrtcMtchSn() == null) {
-            return;
+            return false;
         }
         CareRecruitment recruitment = lockRecruitment(room.getPetPrtcRcrtSn());
         chatRoomMapper.selectRoomForUpdate(room.getOtoChatRoomSn());
         CareMatch match = careMatchMapper.selectByIdForUpdate(room.getPetPrtcMtchSn());
         if (match == null || !CareMatchStatus.isInProgress(match.getMtchDlngSttsCd())) {
-            return;
+            return false;
         }
 
         boolean confirmed = CareMatchStatus.isConfirmed(match.getMtchDlngSttsCd());
@@ -271,6 +274,7 @@ public class CareMatchService {
         chatMessageService.createSystemMessage(room.getOtoChatRoomSn(), "상대가 채팅방을 나가 매칭이 취소되었어요.");
         Long counterpartMbrSn = mbrSn.equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn() : room.getOwnerMbrSn();
         notifyReceiver(counterpartMbrSn, room.getOtoChatRoomSn(), "상대가 채팅방을 나가 매칭이 취소되었어요.");
+        return true;
     }
 
     /**

@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,6 +32,7 @@ import com.nyangmeong.community.domain.ChatMessagePhoto;
 import com.nyangmeong.community.domain.ChatParticipant;
 import com.nyangmeong.community.domain.ChatRoom;
 import com.nyangmeong.community.domain.ChatRoomDetail;
+import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.dto.ChatMessageCreateRequest;
 import com.nyangmeong.community.dto.ChatMessageResponse;
 import com.nyangmeong.community.dto.ChatMessageSliceResponse;
@@ -132,6 +135,47 @@ class ChatMessageServiceTest {
         ArgumentCaptor<ChatMessageSummary> pushed = ArgumentCaptor.forClass(ChatMessageSummary.class);
         verify(chatRealtimePublisher).publishMessage(eq(ROOM), eq(List.of(OWNER, SITTER)), pushed.capture());
         assertThat(pushed.getValue().getChatMsgSn()).isEqualTo(77L);
+    }
+
+    @Test
+    void 상대가_나간_방에_보내면_상대를_참여로_되돌리고_실시간으로_보낸다() {
+        ChatParticipant left = new ChatParticipant();
+        left.setChatPrtpntSn(101L);
+        left.setPtcpSttsCd("CHTC0004");
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(left);
+
+        service.send(SITTER, ROOM, text("다시 연락드려요", "m-9"));
+
+        InOrder order = inOrder(chatRoomMapper, chatRealtimePublisher);
+        order.verify(chatRoomMapper).updateParticipantStatus(ROOM, OWNER, "CHTC0003");
+        order.verify(chatRealtimePublisher).publishMessage(eq(ROOM), any(), any());
+        ArgumentCaptor<ChatStatusHistory> history = ArgumentCaptor.forClass(ChatStatusHistory.class);
+        verify(chatRoomMapper).insertParticipantStatusHistory(history.capture());
+        assertThat(history.getValue().getRefSn()).isEqualTo(101L);
+        assertThat(history.getValue().getMbrSn()).isEqualTo(SITTER);
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0004");
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0003");
+    }
+
+    @Test
+    void 상대가_참여_중이면_보내도_참여_상태를_바꾸지_않는다() {
+        service.send(SITTER, ROOM, text("안녕하세요", "m-10"));
+
+        verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
+        verify(chatRoomMapper, never()).insertParticipantStatusHistory(any());
+    }
+
+    @Test
+    void 닫힌_방에_보내면_상대를_되돌리지_않는다() {
+        ChatRoom readOnly = new ChatRoom();
+        readOnly.setChatRoomSttsCd("CHTC0002");
+        when(chatRoomMapper.selectRoomForUpdate(ROOM)).thenReturn(readOnly);
+        ChatParticipant left = new ChatParticipant();
+        left.setPtcpSttsCd("CHTC0004");
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(left);
+
+        assertError(() -> service.send(SITTER, ROOM, text("안녕하세요", "m-11")), ErrorCode.CHAT_ROOM_CLOSED);
+        verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
     }
 
     @Test

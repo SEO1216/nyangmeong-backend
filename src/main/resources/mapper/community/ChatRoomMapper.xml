@@ -290,6 +290,11 @@
                                 FROM CHAT_MSG M2
                                WHERE M2.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN )
          WHERE 1 = 1
+           AND ( C.CTPT_MBR_SN = #{mbrSn}
+              OR EXISTS ( SELECT 1
+                            FROM CHAT_MSG HM
+                           WHERE HM.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN
+                             AND HM.MBR_SN IS NOT NULL ) )
         <if test="cond.tab == 'MINE'">
            AND P.MBR_SN = #{mbrSn}
         </if>

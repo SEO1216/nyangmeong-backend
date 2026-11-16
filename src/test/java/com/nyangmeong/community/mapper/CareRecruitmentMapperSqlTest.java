@@ -105,11 +105,27 @@ class CareRecruitmentMapperSqlTest {
         Map<String, Object> param = new HashMap<>();
         param.put("petPrtcRcrtSn", 5L);
         param.put("pstSttsCd", "CMUC0003");
+        param.put("joinedCd", "CHTC0003");
         String detail = sql("CareRecruitmentMapper.selectDetail", param);
 
         for (String sql : List.of(list, detail)) {
             assertThat(sql).contains(PURGED_PHOTO + " AS MBR_ATCH_FILE_SN")
-                    .contains("EXISTS (SELECT 1 FROM CHAT_MSG G WHERE G.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN)");
+                    .contains("EXISTS (SELECT 1 FROM CHAT_MSG G WHERE G.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN"
+                            + " AND G.MBR_SN IS NOT NULL)");
+        }
+    }
+
+    @Test
+    void 채팅방_수는_보호자와_지원자가_둘_다_나가지_않은_방만_센다() {
+        Map<String, Object> param = new HashMap<>();
+        param.put("petPrtcRcrtSn", 5L);
+        param.put("pstSttsCd", "CMUC0003");
+        param.put("joinedCd", "CHTC0003");
+
+        for (String sql : List.of(sql("CareRecruitmentMapper.selectList", listParam()),
+                sql("CareRecruitmentMapper.selectDetail", param))) {
+            assertThat(sql).contains("(SELECT COUNT(*) FROM CHAT_PRTPNT T WHERE T.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN"
+                    + " AND T.PTCP_STTS_CD = ?) = 2");
         }
     }
 
@@ -161,7 +177,7 @@ class CareRecruitmentMapperSqlTest {
 
         assertThat(sql("CareRecruitmentMapper.existsChatting", param)).startsWith("SELECT EXISTS")
                 .contains("C.PST_SN = ?").contains("T.MBR_SN = ?").contains("T.PTCP_STTS_CD = ?")
-                .contains("FROM CHAT_MSG G WHERE G.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN");
+                .contains("FROM CHAT_MSG G WHERE G.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN AND G.MBR_SN IS NOT NULL");
     }
 
     @Test

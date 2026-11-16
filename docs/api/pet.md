@@ -57,8 +57,10 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | /internal/ai/characters/jobs | 생성 작업을 만든다. 주양육자만, 201. 이미 있음 `PIXEL_CHARACTER_ALREADY_EXISTS`, 생성 중 `PIXEL_CHARACTER_CREATING`(409). 실패로 끝나 결과가 없으면 다시 요청할 수 있다 | MYP-010-08·09 | LJS | CharacterJobCreateRequest | CharacterJobResponse |
-| POST | /internal/ai/characters/jobs/{charCrtJobSn}/success | 생성 성공 보고. 작업을 만든 회원만. 이미 완료면 같은 번호, 실패로 끝났으면 409 `ALREADY_PROCESSED`, 규격 밖 400 `FILE_TYPE_NOT_ALLOWED` | MYP-010-09·17 | LJS | CharacterSuccessRequest | CharacterSuccessResponse |
-| POST | /internal/ai/characters/jobs/{charCrtJobSn}/failure | 생성 실패 보고. 작업을 만든 회원만. 끝난 작업이면 바꾸지 않고 200. 시작 뒤 10분이 넘은 작업은 `CharacterJobTimeoutJob`이 `CHARACTER_TIMEOUT`으로 실패 처리한다 | MYP-010-12 | LJS | CharacterFailureRequest | - |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/success | 생성 성공 보고. 작업을 만든 회원만, 관리자 쿠키면 무료 재생성 작업도(결과는 작업의 캐릭터 주인 것으로 저장, FN-MYP-010-23). 첫 생성 보고에 `photo`가 있으면 원본 사진으로 남긴다(무료 재생성 입력). 이미 완료면 같은 번호, 실패로 끝났으면 409 `ALREADY_PROCESSED`, 규격 밖 400 `FILE_TYPE_NOT_ALLOWED` | MYP-010-09·17 | LJS | CharacterSuccessRequest | CharacterSuccessResponse |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/failure | 생성 실패 보고. 작업을 만든 회원만, 관리자 쿠키면 무료 재생성 작업도. 끝난 작업이면 바꾸지 않고 200. 시작 뒤 10분이 넘은 생성 중 작업과 등록 뒤 10분 동안 시작하지 않은 요청 작업(무료 재생성)은 `CharacterJobTimeoutJob`이 `CHARACTER_TIMEOUT`으로 실패 처리한다. 무료 재생성이 실패해도 "오류 확인 중"은 유지되고 관리자가 다시 처리한다 | MYP-010-12 | LJS | CharacterFailureRequest | - |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/regen-start | 무료 재생성 시작(관리자 쿠키만, 아니면 403 `FORBIDDEN`). Python 이 관리자 화면의 재생성 요청을 받아 부른다. 요청 상태인 재생성 작업만 생성 중으로 바꾸고 생성 입력을 준다. 이미 시작했거나 끝났으면 409 `ALREADY_PROCESSED`, 없거나 재생성 작업이 아니면 404 `PIXEL_CHARACTER_NOT_FOUND` | MYP-010-23, ADM-042-07 | LJS | - | CharacterJobResponse |
+| GET | /internal/ai/characters/jobs/{charCrtJobSn}/original-photo | 무료 재생성 원본 사진(관리자 쿠키만, 아니면 403 `FORBIDDEN`, 파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp, ApiResponse 아님). 생성 중인 재생성 작업이 아니거나 원본이 없으면 404 `FILE_NOT_FOUND`(이 기능 전에 만든 캐릭터는 원본이 없다) | MYP-010-23 | LJS | - | 이미지 파일 |
 | GET | /internal/ai/characters/bake-items | 굽기 대상(판매 중이고 굽기 지시 `BAKE_HINT`가 있거나 그림 참고 굽기 `BAKE_IMG_REF_YN`='Y', 신발은 사용 안 하는 부위). `bakeImgRefYn`이 true면 `bake-image`로 그림을 받아 참고로 굽는다 | MYP-011-01, ADM-070-02 | LJS | - | List<BakeItemSummary> |
 | GET | /internal/ai/items/{itemSn}/bake-targets?page= | 그 아이템을 아직 안 구운 캐릭터(맨몸 시트가 있고 그 아이템의 착용 시트·굽기 실패 표시가 없음). 관리자 쿠키만, 아니면 403 `ADMIN_ONLY`. `page`는 0부터(기본 0), 한 페이지 100개, 캐릭터 번호순. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, `page` 음수 400 | ADM-070-02 | LJS | - | BakeTargetPageResponse |
 | GET | /internal/ai/items/{itemSn}/bake-image | 굽기 참고용 아이템 그림(파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp). 회원·관리자 쿠키 모두. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, 파일이 없으면 404 `FILE_NOT_FOUND` | MYP-011-01, ADM-070-02 | LJS | - | 파일 |
@@ -66,7 +68,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | POST | /internal/ai/characters/{pixelCharSn}/item-sheets/{itemSn}/failure | 굽기 실패 표시(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02)). 구운 시트가 있으면 유지 | MYP-011-01 | LJS | - | - |
 | GET | /internal/ai/characters/{pixelCharSn}/sheets?itemSns= | 합성용 시트 정보(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), 안 산 아이템도 조회). 맨몸 시트가 없으면 404 `PIXEL_CHARACTER_NOT_FOUND` | MYP-010-13, MYP-011-01·06 | LJS | - | CharacterSheetsResponse |
 | GET | /internal/ai/characters/{pixelCharSn}/sheet-files/{atchFileSn} | 시트 파일 내려받기(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), `image/png`, ApiResponse 아님). 그 캐릭터의 시트가 아니면 404 `FILE_NOT_FOUND` | MYP-010-13, MYP-011-01 | LJS | - | 이미지 파일 |
-| PUT | /internal/ai/characters/{pixelCharSn}/equipped-image | 착용 모습 대표 이미지 저장(주양육자만). Python이 `PUT equipped-items` 뒤 합성해 보낸다. `itemSns`가 지금 착용 아이템과 같을 때만 저장하고 다르면 409 `EQUIPPED_ITEMS_CHANGED`(늦게 끝난 옛 합성 차단), 512×512 PNG가 아니면 400 `FILE_TYPE_NOT_ALLOWED`. 착용을 바꾸거나 캐릭터를 다시 만들면 지운다 | MYP-010-16, MYP-010-13 | LJS | EquippedImageSaveRequest | - |
+| PUT | /internal/ai/characters/{pixelCharSn}/equipped-image | 착용 모습 대표 이미지 저장(주양육자만, 관리자 쿠키면 남의 캐릭터도(무료 재생성 뒤 합성 FN-MYP-010-23)). Python이 `PUT equipped-items` 뒤 합성해 보낸다. `itemSns`가 지금 착용 아이템과 같을 때만 저장하고 다르면 409 `EQUIPPED_ITEMS_CHANGED`(늦게 끝난 옛 합성 차단), 512×512 PNG가 아니면 400 `FILE_TYPE_NOT_ALLOWED`. 착용을 바꾸거나 캐릭터를 다시 만들면 지운다 | MYP-010-16, MYP-010-13 | LJS | EquippedImageSaveRequest | - |
 
 ### CharacterJobCreateRequest
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -91,6 +93,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | scale | Double | Y | | PIXEL_CHAR.SHEET_SCALE |
 | originX | Double | Y | | PIXEL_CHAR.SHEET_ORIGIN_X |
 | originY | Double | Y | | PIXEL_CHAR.SHEET_ORIGIN_Y |
+| photo | MultipartFile | N | 생성에 쓴 원본 사진(jpg·png·webp, 파일 상한 이하, 파일 이름에 확장자). 첫 생성 보고에만 보낸다. 무료 재생성 작업이면 무시. 형식이 틀리면 400 `FILE_TYPE_NOT_ALLOWED`, 크면 `FILE_TOO_LARGE` | CHAR_PHOTO (원본, FN-MYP-010-23) |
 
 ### CharacterSuccessResponse
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |

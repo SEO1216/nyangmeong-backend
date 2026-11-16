@@ -142,7 +142,7 @@ class CharacterInternalControllerTest {
     @Test
     @WithMockLoginMember
     void 성공_보고는_폼의_배치값을_받아_캐릭터_번호를_준다() throws Exception {
-        when(characterCreationService.reportSuccess(eq(1L), eq(5L), any()))
+        when(characterCreationService.reportSuccess(eq(1L), eq(false), eq(5L), any()))
                 .thenReturn(new CharacterSuccessResponse(3L));
 
         mockMvc.perform(multipart(BASE + "/jobs/5/success").file(image).file(sheet)
@@ -166,7 +166,7 @@ class CharacterInternalControllerTest {
         mockMvc.perform(jsonPost("/jobs/5/failure", "{\"failRsn\":\"CHARACTER_SPEC_MISMATCH\"}"))
                 .andExpect(status().isOk());
 
-        verify(characterCreationService).reportFailure(1L, 5L, "CHARACTER_SPEC_MISMATCH");
+        verify(characterCreationService).reportFailure(1L, false, 5L, "CHARACTER_SPEC_MISMATCH");
     }
 
     @Test
@@ -267,7 +267,7 @@ class CharacterInternalControllerTest {
                 .param("itemSns", "7").param("itemSns", "8").header(REQUESTED_WITH, XHR))
                 .andExpect(status().isOk());
 
-        verify(pixelCharacterService).saveEquippedImage(eq(1L), eq(3L),
+        verify(pixelCharacterService).saveEquippedImage(eq(1L), eq(false), eq(3L),
                 argThat(req -> List.of(7L, 8L).equals(req.itemSns())));
     }
 
@@ -282,11 +282,110 @@ class CharacterInternalControllerTest {
     @WithMockLoginMember
     void 착용이_바뀌었으면_409_EQUIPPED_ITEMS_CHANGED() throws Exception {
         doThrow(new CustomException(ErrorCode.EQUIPPED_ITEMS_CHANGED)).when(pixelCharacterService)
-                .saveEquippedImage(eq(1L), eq(3L), any());
+                .saveEquippedImage(eq(1L), eq(false), eq(3L), any());
 
         mockMvc.perform(multipart(HttpMethod.PUT, BASE + "/3/equipped-image").file(image).header(REQUESTED_WITH, XHR))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("EQUIPPED_ITEMS_CHANGED"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 성공_보고는_원본_사진_파트를_받는다() throws Exception {
+        MockMultipartFile photo = new MockMultipartFile("photo", "kongi.jpg", "image/jpeg", new byte[] {9});
+        when(characterCreationService.reportSuccess(eq(1L), eq(false), eq(5L), any()))
+                .thenReturn(new CharacterSuccessResponse(3L));
+
+        mockMvc.perform(multipart(BASE + "/jobs/5/success").file(image).file(sheet).file(photo)
+                .param("scale", "1.5").param("originX", "2.0").param("originY", "3.0")
+                .header(REQUESTED_WITH, XHR))
+                .andExpect(status().isOk());
+
+        verify(characterCreationService).reportSuccess(eq(1L), eq(false), eq(5L),
+                argThat(req -> req.photo() != null && "kongi.jpg".equals(req.photo().getOriginalFilename())));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = "USRC0005")
+    void 관리자_쿠키면_보고와_대표_이미지도_관리자로_넘긴다() throws Exception {
+        when(characterCreationService.reportSuccess(eq(9L), eq(true), eq(5L), any()))
+                .thenReturn(new CharacterSuccessResponse(3L));
+
+        mockMvc.perform(multipart(BASE + "/jobs/5/success").file(image).file(sheet)
+                .param("scale", "1.5").param("originX", "2.0").param("originY", "3.0")
+                .header(REQUESTED_WITH, XHR))
+                .andExpect(status().isOk());
+        mockMvc.perform(jsonPost("/jobs/5/failure", "{\"failRsn\":\"CHARACTER_API_ERROR\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(multipart(HttpMethod.PUT, BASE + "/3/equipped-image").file(image).header(REQUESTED_WITH, XHR))
+                .andExpect(status().isOk());
+
+        verify(characterCreationService).reportFailure(9L, true, 5L, "CHARACTER_API_ERROR");
+        verify(pixelCharacterService).saveEquippedImage(eq(9L), eq(true), eq(3L), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = "USRC0005")
+    void 재생성_시작은_생성_입력을_준다() throws Exception {
+        when(characterCreationService.regenStart(true, 5L))
+                .thenReturn(new CharacterJobResponse(5L, "PETC0002", "코리안숏헤어", "고등어", null));
+
+        mockMvc.perform(post(BASE + "/jobs/5/regen-start").header(REQUESTED_WITH, XHR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.charCrtJobSn").value(5))
+                .andExpect(jsonPath("$.data.petSeCd").value("PETC0002"))
+                .andExpect(jsonPath("$.data.vrtyNm").value("코리안숏헤어"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 회원_쿠키의_재생성_시작은_403_FORBIDDEN() throws Exception {
+        when(characterCreationService.regenStart(false, 5L)).thenThrow(new CustomException(ErrorCode.FORBIDDEN));
+
+        mockMvc.perform(post(BASE + "/jobs/5/regen-start").header(REQUESTED_WITH, XHR))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = "USRC0005")
+    void 이미_시작한_재생성은_409_ALREADY_PROCESSED() throws Exception {
+        when(characterCreationService.regenStart(true, 5L))
+                .thenThrow(new CustomException(ErrorCode.ALREADY_PROCESSED));
+
+        mockMvc.perform(post(BASE + "/jobs/5/regen-start").header(REQUESTED_WITH, XHR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ALREADY_PROCESSED"));
+    }
+
+    @Test
+    void 재생성_시작도_쿠키가_없으면_401() throws Exception {
+        mockMvc.perform(post(BASE + "/jobs/5/regen-start").header(REQUESTED_WITH, XHR))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(characterCreationService);
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = "USRC0005")
+    void 원본_사진은_저장된_형식_그대로_준다() throws Exception {
+        when(characterCreationService.getRegenPhoto(true, 5L))
+                .thenReturn(new StoredFile(new byte[] {1, 2}, "image/jpeg", "kongi.jpg"));
+
+        mockMvc.perform(get(BASE + "/jobs/5/original-photo"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("image/jpeg"))
+                .andExpect(content().bytes(new byte[] {1, 2}));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = "USRC0005")
+    void 원본_사진이_없으면_404_FILE_NOT_FOUND() throws Exception {
+        when(characterCreationService.getRegenPhoto(true, 5L))
+                .thenThrow(new CustomException(ErrorCode.FILE_NOT_FOUND));
+
+        mockMvc.perform(get(BASE + "/jobs/5/original-photo"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
     }
 
     @Test

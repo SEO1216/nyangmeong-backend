@@ -27,6 +27,7 @@ import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.log.AdminTaskLogService;
 import com.nyangmeong.global.log.AdminTaskType;
 import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.pet.dto.CharacterRegenJobSummary;
 import com.nyangmeong.pet.service.PixelCharacterService;
 import com.nyangmeong.support.domain.Inquiry;
 import com.nyangmeong.support.domain.InquiryPhoto;
@@ -291,6 +292,97 @@ class AdminInquiryServiceTest {
                 .isInstanceOfSatisfying(CustomException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ALREADY_PROCESSED));
         verify(pixelCharacterService, never()).finishErrorCheck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void 무료_재생성이_실패로_끝났으면_다시_재생성으로_처리한다() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0004", false, true));
+        when(inquiryMapper.updateCharErrResultRetry(INQ, "CHRC0008", "CHRC0008")).thenReturn(1);
+
+        service.processCharacterError(ADMIN, INQ, new AdminCharacterErrorRequest("CHRC0008"));
+
+        verify(pixelCharacterService).finishErrorCheck(PIXEL_CHAR, true);
+        verify(inquiryMapper, never()).updateCharErrResult(anyLong(), anyString());
+    }
+
+    @Test
+    void 무료_재생성이_실패로_끝났으면_원래_캐릭터_복원으로도_처리한다() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0004", false, true));
+        when(inquiryMapper.updateCharErrResultRetry(INQ, "CHRC0008", "CHRC0009")).thenReturn(1);
+
+        service.processCharacterError(ADMIN, INQ, new AdminCharacterErrorRequest("CHRC0009"));
+
+        verify(pixelCharacterService).finishErrorCheck(PIXEL_CHAR, false);
+    }
+
+    @Test
+    void 무료_재생성이_진행_중이면_PIXEL_CHARACTER_CREATING() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0001", true, false));
+
+        assertThatThrownBy(() -> service.processCharacterError(ADMIN, INQ, new AdminCharacterErrorRequest("CHRC0008")))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PIXEL_CHARACTER_CREATING));
+        verify(pixelCharacterService, never()).finishErrorCheck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void 무료_재생성이_성공했거나_재생성_작업이_없으면_ALREADY_PROCESSED() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0003", false, false))
+                .thenReturn(null);
+
+        for (int i = 0; i < 2; i++) {
+            assertThatThrownBy(
+                    () -> service.processCharacterError(ADMIN, INQ, new AdminCharacterErrorRequest("CHRC0008")))
+                    .isInstanceOfSatisfying(CustomException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ALREADY_PROCESSED));
+        }
+        verify(pixelCharacterService, never()).finishErrorCheck(anyLong(), anyBoolean());
+        verify(inquiryMapper, never()).updateCharErrResultRetry(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 다시_처리_결과_기록이_0건이면_ALREADY_PROCESSED() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0004", false, true));
+        when(inquiryMapper.updateCharErrResultRetry(INQ, "CHRC0008", "CHRC0008")).thenReturn(0);
+
+        assertThatThrownBy(() -> service.processCharacterError(ADMIN, INQ, new AdminCharacterErrorRequest("CHRC0008")))
+                .isInstanceOfSatisfying(CustomException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ALREADY_PROCESSED));
+        verify(pixelCharacterService, never()).finishErrorCheck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void 무료_재생성으로_처리한_문의_상세에는_재생성_작업_상태가_실린다() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0008"));
+        when(pixelCharacterService.getRegenJob(PIXEL_CHAR))
+                .thenReturn(new CharacterRegenJobSummary(6L, "CHRC0004", false, true));
+        when(inquiryMapper.selectCodeName("CHRC0004")).thenReturn("생성 실패");
+
+        AdminInquiryResponse res = service.get(INQ);
+
+        assertThat(res.regenJobSn()).isEqualTo(6L);
+        assertThat(res.regenJobSttsCd()).isEqualTo("CHRC0004");
+        assertThat(res.regenJobSttsCdNm()).isEqualTo("생성 실패");
+    }
+
+    @Test
+    void 복원으로_처리했거나_처리_전이면_재생성_작업_상태가_없다() {
+        when(inquiryMapper.selectAdminInquiry(INQ)).thenReturn(characterInquiry("CHRC0009"))
+                .thenReturn(characterInquiry(null));
+
+        assertThat(service.get(INQ).regenJobSn()).isNull();
+        assertThat(service.get(INQ).regenJobSttsCd()).isNull();
+        verify(pixelCharacterService, never()).getRegenJob(anyLong());
     }
 
     @Test

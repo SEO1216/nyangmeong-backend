@@ -126,6 +126,11 @@ public interface PixelCharacterMapper {
     List<Long> selectTimedOutJobs(@Param("crtJobSttsCd") String crtJobSttsCd, @Param("minutes") int minutes);
 
     /**
+     * 등록 뒤 제한 시간 동안 시작하지 않은 생성 작업 조회 (무료 재생성은 Python 이 시작)
+     */
+    List<Long> selectUnstartedJobs(@Param("crtJobSttsCd") String crtJobSttsCd, @Param("minutes") int minutes);
+
+    /**
      * 생성 작업에 오류 문의 연결
      */
     int updateJobInquiry(@Param("charCrtJobSn") Long charCrtJobSn, @Param("otoInqrySn") Long otoInqrySn);

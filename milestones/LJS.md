@@ -661,6 +661,12 @@
 - 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차, 8082에서 `/v3/api-docs` summary 새 문구 확인), 사람 확인 2026-11-13. pet 패키지 `grep "종합 건강기록"` 결과 없음, `PetShortcutServiceTest` 통과
 - 연결 남음: 없음
 
+## SCR-ADM-110 운영 설정 · 거래완료 글 숨김 기준 일수 검토·검증 서버 반영 — 대기
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-ADM-110-01~04
+- 기다리는 것: 프론트 SCR-ADM-110 거래완료 글 숨김 기준 칸(끝 2026-11-16, 프론트 `features/setting/shared/settingFields.js`)
+- 완료 조건: KSJ가 고친 global/setting의 `dlngCmptnHideCrtrDayCnt`를 담당자로서 검토한다(1~99 검증, 400 칸 오류 field 이름이 `dlngCmptnHideCrtrDayCnt`, 감사 로그 포함, 값이 null이면 7). 검증 백엔드 8081을 이 코드로 다시 띄우고 프론트 세션에 알린다
+- 이미 바뀐 것: `global/setting/AdminSettingResponse.java`·`AdminSettingUpdateRequest.java`·`AdminSystemSettingService.java`·`SystemSetting.java`, `mapper/global/SystemSettingMapper.xml`, 테스트 `AdminSettingHideDaysTest`(KSJ, `13794f1`)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)
@@ -786,3 +792,11 @@
 - 추가: 추가-1 무료 재생성 멱등 ID `REGEN-{직전 작업 번호}`(동시 다시 처리 409 `PIXEL_CHARACTER_CREATING`), 검증 통과
 - 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태(`regenJobSttsCd`) 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start)
 - 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트 보내기, ai 저장소에서 /start. 재생성 입구 regenerate·regen-start·original-photo 호출은 ai-39가 구현함)
+
+## SCR-ADM-110 운영 설정 · 거래완료 숨김 일수 검토 — 끝
+- 기능: FN-ADM-110-01 설정 조회, FN-ADM-110-02 설정 수정(KSJ 13794f1이 `community.dlngCmptnHideCrtrDayCnt`를 넣음, `global/setting` 담당 LJS 검토. frontend-07 요청, 사람 합의 2026-11-16)
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `PATCH /api/admin/settings`가 `dlngCmptnHideCrtrDayCnt` 0·100을 400 `data[0].field`=`dlngCmptnHideCrtrDayCnt`로 막고 1·99는 받는다. 바뀐 값이 감사 로그에 남고, 값이 없으면 7이다
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 코드 수정 없음, `AdminSystemSettingControllerTest` 경계값 테스트 2개 추가
+- 연결 남음: 없음(프론트 입력칸은 handoff/KSJ.md·milestones/KSJ.md의 연결 남음 그대로)

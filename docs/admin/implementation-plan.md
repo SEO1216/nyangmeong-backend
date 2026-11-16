@@ -98,7 +98,7 @@ API 경로는 제안이다. 구현은 모두 LJS가 한다. "도메인 담당(�
 | 화면 ID | 화면 | 주요 기능 | API 경로 | 테이블 | 도메인 담당(협의) | 결정 |
 |---|---|---|---|---|---|---|
 | SCR-ADM-080 | 라우팅 매핑표 | 지시어·화면 ID·파라미터·우선순위·제외 행 편집 | `/api/admin/ai/routes` | AI_ROUT_MPNG | LJS | 25 |
-| SCR-ADM-081 | 키워드 사전 | 일정 판정·가계부 분류 키워드 | `/api/admin/ai/keywords` | KWRD_DICT | LJS | 25 |
+| SCR-ADM-081 | 키워드 사전 | 삭제(2026-11-16, AI 도구 호출 전환) | 없음 | KWRD_DICT | LJS | 25 |
 | SCR-ADM-082 | 처리 현황 | OCR 상태별 목록·실패율, 캐릭터 생성 실패, PDF 분석 실패(Python 통지 기록 기준, 검사결과지가 아닌 파일은 제외) | `/api/admin/processing` | RECPT, CHAR_CRT_JOB, EXTL_API_CALL_LOG | LJS | |
 
 AI 대화 설정(턴 수, 토큰 상한)은 SCR-ADM-110 운영 설정에 들어간다(`SYS_STNG`).

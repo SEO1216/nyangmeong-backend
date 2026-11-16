@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -15,8 +14,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.nyangmeong.global.auth.PetAuthorizer;
 import com.nyangmeong.global.error.CustomException;
@@ -39,6 +36,7 @@ import com.nyangmeong.pet.domain.CharacterPhoto;
 import com.nyangmeong.pet.domain.PhotoRole;
 import com.nyangmeong.pet.domain.PixelCharacter;
 import com.nyangmeong.pet.dto.CharacterJobResponse;
+import com.nyangmeong.pet.dto.CharacterRegenJobSummary;
 import com.nyangmeong.pet.dto.EquippedImageSaveRequest;
 import com.nyangmeong.pet.dto.EquippedItemSaveRequest;
 import com.nyangmeong.pet.dto.HeldItemSummary;
@@ -63,7 +61,6 @@ public class PixelCharacterService {
     private final PetAuthorizer petAuthorizer;
     private final FileStore fileStore;
     private final EventPublisher eventPublisher;
-    private final CharacterCreationWorker characterCreationWorker;
 
     /**
      * 양육 반려동물별 캐릭터 목록 조회
@@ -154,11 +151,14 @@ public class PixelCharacterService {
     /**
      * 착용 모습 대표 이미지 저장
      * - Python이 합성한 512 PNG, 합성에 쓴 아이템이 지금 착용과 같을 때만 저장 (늦게 끝난 옛 합성 차단)
+     * - 관리자는 무료 재생성 뒤 합성으로 남의 캐릭터도 저장 (FN-MYP-010-23)
      */
     @Transactional
-    public void saveEquippedImage(Long mbrSn, Long pixelCharSn, EquippedImageSaveRequest req) {
+    public void saveEquippedImage(Long mbrSn, boolean admin, Long pixelCharSn, EquippedImageSaveRequest req) {
         PixelCharacter character = getCharacterOrThrow(pixelCharSn);
-        petAuthorizer.checkPrimary(mbrSn, character.getPetSn());
+        if (!admin) {
+            petAuthorizer.checkPrimary(mbrSn, character.getPetSn());
+        }
         byte[] image = CharacterSheetService.readBytes(req.image());
         if (!CharacterSpec.matches(image)) {
             throw new CustomException(ErrorCode.FILE_TYPE_NOT_ALLOWED);
@@ -230,9 +230,12 @@ public class PixelCharacterService {
 
     /**
      * 캐릭터 오류 확인 종료
+     * - 복원 : 바로 해제·알림, null
+     * - 무료 재생성 : 요청 상태 재생성 작업을 만들고 그 번호. 관리자 화면이 Python 재생성을 부른다
+     * - 재생성이 실패로 끝나도 오류 확인 중은 유지되어 다시 처리할 수 있다
      */
     @Transactional
-    public void finishErrorCheck(Long pixelCharSn, boolean regenerate) {
+    public Long finishErrorCheck(Long pixelCharSn, boolean regenerate) {
         PixelCharacter character = getCharacterOrThrow(pixelCharSn);
         if (!"Y".equals(character.getBscCharSbstYn())) {
             throw new CustomException(ErrorCode.ALREADY_PROCESSED);
@@ -247,7 +250,7 @@ public class PixelCharacterService {
             String petNm = pet != null ? pet.getPetNm() : "반려동물";
             eventPublisher.publish(new NotificationEvent(character.getMbrSn(), NotificationType.CHARACTER,
                     petNm + "의 캐릭터 오류 확인이 끝났어요", null, CharacterCreationService.MVMN_PATH));
-            return;
+            return null;
         }
 
         /** 오류 확인 중 표시는 재생성 완료까지 유지 (완료 시 CharacterCreationService 가 해제) */
@@ -257,10 +260,34 @@ public class PixelCharacterService {
         if (original == null) {
             throw new CustomException(ErrorCode.FILE_NOT_FOUND);
         }
-        CharacterCreationJob job = insertRequestedJob(character.getPetSn(), character.getMbrSn(),
-                "REGEN-" + UUID.randomUUID(), null);
+        /** 멱등 ID 는 직전 작업 기준 : 같은 결과로 동시에 다시 처리하면 유일 키 충돌 -> PIXEL_CHARACTER_CREATING */
+        CharacterCreationJob job;
+        try {
+            job = insertRequestedJob(character.getPetSn(), character.getMbrSn(),
+                    CharacterCreationJob.REGEN_ID_PREFIX + latest.getCharCrtJobSn(), null);
+        } catch (DuplicateKeyException e) {
+            throw new CustomException(ErrorCode.PIXEL_CHARACTER_CREATING);
+        }
         insertOriginalPhoto(pixelCharSn, job.getCharCrtJobSn(), original.getAtchFileSn());
-        generateAfterCommit(job.getCharCrtJobSn());
+        return job.getCharCrtJobSn();
+    }
+
+    /**
+     * 캐릭터의 최근 무료 재생성 작업 (최근 작업이 재생성이 아니면 null)
+     */
+    @Transactional(readOnly = true)
+    public CharacterRegenJobSummary getRegenJob(Long pixelCharSn) {
+        PixelCharacter character = pixelCharacterMapper.selectPixelCharacter(pixelCharSn);
+        if (character == null) {
+            return null;
+        }
+        CharacterCreationJob latest = pixelCharacterMapper.selectLatestJob(character.getPetSn());
+        if (latest == null || !latest.isRegeneration()) {
+            return null;
+        }
+        return new CharacterRegenJobSummary(latest.getCharCrtJobSn(), latest.getCrtJobSttsCd(),
+                CharacterJobStatus.isInProgress(latest.getCrtJobSttsCd()),
+                CharacterJobStatus.FAILED.is(latest.getCrtJobSttsCd()));
     }
 
     /**
@@ -331,19 +358,6 @@ public class PixelCharacterService {
         photo.setSortSeq(0);
         photo.setNowIndctYn("N");
         pixelCharacterMapper.insertPhoto(photo);
-    }
-
-    /**
-     * 커밋 뒤 백그라운드 생성 예약
-     * - 커밋 전 실행 시 작업 행이 보이지 않음
-     */
-    private void generateAfterCommit(Long charCrtJobSn) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                characterCreationWorker.generate(charCrtJobSn);
-            }
-        });
     }
 
     /**

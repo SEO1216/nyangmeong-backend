@@ -40,6 +40,7 @@ import lombok.RequiredArgsConstructor;
  * [캐릭터 내부 API 컨트롤러]
  * - /internal/ai/characters : Python AI 서버가 사용자 쿠키를 그대로 넘겨 호출 (docs/api/pet.md)
  * - 생성·합성은 Python, Java 는 작업 상태와 결과·시트 저장만 (FN-MYP-010-08·09·12, FN-MYP-011-01)
+ * - 무료 재생성은 관리자 쿠키 : regen-start·original-photo 뒤 success·failure 보고 (FN-MYP-010-23)
  */
 @RestController
 @RequiredArgsConstructor
@@ -62,15 +63,33 @@ public class CharacterInternalController {
     @PostMapping(value = "/jobs/{charCrtJobSn}/success", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CharacterSuccessResponse>> reportSuccess(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long charCrtJobSn, @Valid @ModelAttribute CharacterSuccessRequest req) {
-        return ResponseEntity.ok(ApiResponse.success(characterCreationService.reportSuccess(me.id(), charCrtJobSn, req)));
+        return ResponseEntity.ok(ApiResponse.success(
+                characterCreationService.reportSuccess(me.id(), me.isAdmin(), charCrtJobSn, req)));
     }
 
     @Operation(summary = "캐릭터 생성 실패 보고")
     @PostMapping("/jobs/{charCrtJobSn}/failure")
     public ResponseEntity<ApiResponse<Void>> reportFailure(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long charCrtJobSn, @Valid @RequestBody CharacterFailureRequest req) {
-        characterCreationService.reportFailure(me.id(), charCrtJobSn, req.failRsn());
+        characterCreationService.reportFailure(me.id(), me.isAdmin(), charCrtJobSn, req.failRsn());
         return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "무료 재생성 시작")
+    @PostMapping("/jobs/{charCrtJobSn}/regen-start")
+    public ResponseEntity<ApiResponse<CharacterJobResponse>> regenStart(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long charCrtJobSn) {
+        return ResponseEntity.ok(ApiResponse.success(characterCreationService.regenStart(me.isAdmin(), charCrtJobSn)));
+    }
+
+    @Operation(summary = "무료 재생성 원본 사진")
+    @GetMapping("/jobs/{charCrtJobSn}/original-photo")
+    public ResponseEntity<byte[]> getRegenPhoto(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long charCrtJobSn) {
+        StoredFile file = characterCreationService.getRegenPhoto(me.isAdmin(), charCrtJobSn);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .body(file.content());
     }
 
     @Operation(summary = "굽기 대상 아이템 조회")
@@ -91,7 +110,7 @@ public class CharacterInternalController {
     @PutMapping(value = "/{pixelCharSn}/equipped-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Void>> saveEquippedImage(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long pixelCharSn, @Valid @ModelAttribute EquippedImageSaveRequest req) {
-        pixelCharacterService.saveEquippedImage(me.id(), pixelCharSn, req);
+        pixelCharacterService.saveEquippedImage(me.id(), me.isAdmin(), pixelCharSn, req);
         return ResponseEntity.ok(ApiResponse.success());
     }
 

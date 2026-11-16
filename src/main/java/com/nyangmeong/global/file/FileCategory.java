@@ -28,6 +28,8 @@ public enum FileCategory {
     PET_CHARACTER("pet", "character", Scope.SHARED, Owner.PET, false),
     PET_WEAR("pet", "wear", Scope.SHARED, Owner.PET, false),
     PET_SHEET("pet", "sheet", Scope.OWNER, Owner.PET, false),
+    /** 캐릭터 생성 원본 사진 : 무료 재생성 입력 (FN-MYP-010-23) */
+    PET_ORIGINAL("pet", "original", Scope.OWNER, Owner.PET, false),
     ASSET_ITEM(FileCategory.ASSET_DIR, "item", Scope.SHARED, Owner.SERVICE, false),
     ASSET_NOTICE(FileCategory.ASSET_DIR, "notice", Scope.SHARED, Owner.SERVICE, false),
     ASSET_NEWS(FileCategory.ASSET_DIR, "news", Scope.SHARED, Owner.SERVICE, false);

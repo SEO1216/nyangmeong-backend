@@ -354,6 +354,15 @@
            AND DEL_YN = 'N'
     </select>
 
+    <select id="selectUnstartedJobs" resultType="long">
+        /* 등록 뒤 제한 시간 동안 시작하지 않은 캐릭터 생성 작업 조회 */
+        SELECT CHAR_CRT_JOB_SN
+          FROM CHAR_CRT_JOB
+         WHERE CRT_JOB_STTS_CD = #{crtJobSttsCd}
+           AND REG_DT &lt; NOW() - INTERVAL #{minutes} MINUTE
+           AND DEL_YN = 'N'
+    </select>
+
     <update id="updateJobInquiry">
         /* 캐릭터 생성 작업에 문의 연결 */
         UPDATE CHAR_CRT_JOB

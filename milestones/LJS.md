@@ -777,3 +777,12 @@
 - 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16(8080). `FileControllerTest`의 예전 주소 검사 삭제·404 검사 추가는 사람 승인(없앤 기능의 검사). 검증 중 8082 서버가 기본 프로필로 떠 공용 DB 회원 1 프로필 사진이 바뀌었고 사람이 되돌린다
 - 추가: 없음
 - 연결 남음: 없음
+
+## SCR-MYP-010 픽셀 캐릭터 관리 · 무료 재생성 Python 연결 — 끝
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-010-23 무료 재생성, FN-ADM-042-07(화면은 SCR-ADM-042)
+- 기다리는 것: 없음. Python 재생성 API와 원본 사진 보내기는 ai 저장소, 관리자 화면 호출은 프론트 저장소
+- 완료 조건: 가짜 생성기(`CharacterCreationWorker`·`CharacterGenerator`·`FakeCharacterGenerator`·`app.character.generator`) 삭제, 무료 재생성이 regen-start·original-photo·success/failure로 동작
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 2회차. 1회차는 공용 DB 정상 흐름 확인 못 함으로 실패, 사람이 확인용 데이터 생성 허용), 사람 확인 2026-11-16. 기존 테스트 변경(가짜 생성기·`start`·`complete`·Worker 테스트 삭제, 나머지 시그니처)은 사람 확인. 기획의 `CharacterRegenStartResponse`는 필드가 같은 `CharacterJobResponse`를 그대로 씀. 검증 서버 기동 때 새 시간 초과 규칙이 공용 DB의 오래된 REQUESTED 작업 44건(2026-09~10월)을 `CHARACTER_TIMEOUT`으로 실패 처리함
+- 추가: 추가-1 무료 재생성 멱등 ID `REGEN-{직전 작업 번호}`(동시 다시 처리 409 `PIXEL_CHARACTER_CREATING`), 검증 통과
+- 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태(`regenJobSttsCd`) 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트 보내기, ai 저장소에서 /start. 재생성 입구 regenerate·regen-start·original-photo 호출은 ai-39가 구현함)

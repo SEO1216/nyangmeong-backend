@@ -123,6 +123,12 @@ public interface InquiryMapper {
             @Param("charErrPrcsRsltCd") String charErrPrcsRsltCd);
 
     /**
+     * 캐릭터 오류 다시 처리 결과 기록 (기록된 결과가 bfrCd 일 때만)
+     */
+    int updateCharErrResultRetry(@Param("otoInqrySn") Long otoInqrySn, @Param("bfrCd") String bfrCd,
+            @Param("charErrPrcsRsltCd") String charErrPrcsRsltCd);
+
+    /**
      * 처리 상태별 문의 수 조회
      */
     long countByStatus(@Param("inqryPrcsSttsCd") String inqryPrcsSttsCd, @Param("inqryTypeCd") String inqryTypeCd);

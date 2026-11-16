@@ -81,6 +81,9 @@
 -- v0.14 (14) 공동양육 초대 상태 취소(PETC0035) 추가 (2026-11-16, SJM, 근거: 사람 결정 2026-11-16 "주양육자가 보낸 대기 중 초대를 취소하고, 취소한 초대는 목록에서 삭제", SCR-MYP-004·005 FN-MYP-005-03·10). 기존 DB에 실행하며 새 DB는 본문 끝의 같은 행으로 만든다. 공용 DB 실행 전(사람이 실행)
 --   SET NAMES utf8mb4;
 --   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
+-- v0.14 (16) 펫돌봄 지난 모집 자동 마감 배치 구분(SYSC0033) 추가 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 2번 사람 요청 2026-11-15, SCR-CMU-004). 없으면 관리자 배치 화면·실행 이력 코드가 비어 보인다
+--   SET NAMES utf8mb4;
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
 SET NAMES utf8mb4;
 START TRANSACTION;
 
@@ -622,6 +625,9 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 -- ■ PET 마이페이지(반려동물) — v0.14 추가: 초대 상태 취소 (v0.14 (14))
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
 
+-- ■ SYS 시스템 — v0.14 추가: 펫돌봄 지난 모집 마감 배치 (v0.14 (16))
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
+
 -- =====================================================================
 -- [2] 케어미션 마스터 (CARE_MSN) — 20261027_02_update_care_msn_and_ckup_pnt 의 최종 상태
 --     일상케어(MYPC0010) 9개, 활동기반(MYPC0011) 12개. 근거: FN-MYP-020-03·05, FN-HLT-003-12
@@ -777,4 +783,4 @@ INSERT INTO `KWRD_DICT` (`DICT_USG_CD`,`KWRD_CLSF_NM`,`ARTCL_NM`,`KWRD_CN`,`INTR
   ('AIMC0038','가계부 카테고리','돌봄','돌봄, 펫시터, 펫호텔, 유치원','가계부 카테고리 = 돌봄(MYPG05)','MYPC0017',60,'어디에도 안 걸리면 기타(MYPC0018). 관리자 SCR-ADM-081에서 편집. FN-ADM-081-03');
 
 COMMIT;
--- 합계: 공통코드 그룹 78건 + 코드 328건 = 406건, 케어미션 21건, AI 라우팅 매핑 45건, 키워드 사전 29건
+-- 합계: 공통코드 그룹 78건 + 코드 329건 = 407건, 케어미션 21건, AI 라우팅 매핑 45건, 키워드 사전 29건

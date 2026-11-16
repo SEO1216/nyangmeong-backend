@@ -308,6 +308,58 @@ class CareRecruitmentServiceTest {
     }
 
     @Test
+    void 상세는_확정된_매칭이_있었는지를_준다() {
+        CareRecruitmentDetail dealt = detail("PCAC0003");
+        dealt.setCfmtnPetPrtcMtchSn(30L);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(dealt);
+        assertThat(service.getRecruitment(OTHER, RCRT).matched()).isTrue();
+
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail("PCAC0003"));
+        assertThat(service.getRecruitment(OTHER, RCRT).matched()).isFalse();
+    }
+
+    @Test
+    void 자동_마감_대상은_모집중_정상글_수락_대기_코드와_30일로_찾는다() {
+        when(careRecruitmentMapper.selectCloseTargets(RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(List.of(5L));
+
+        assertThat(service.findCloseTargets()).containsExactly(5L);
+    }
+
+    @Test
+    void 자동_마감은_거래완료로_바꾸고_처리자_없이_사유와_이력을_남긴다() {
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(new CareRecruitment());
+        when(careRecruitmentMapper.existsCloseTarget(RCRT, RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(true);
+        when(careRecruitmentMapper.updateStatus(RCRT, RECRUITING, "PCAC0003", null)).thenReturn(1);
+
+        assertThat(service.closeExpired(RCRT)).isTrue();
+
+        ArgumentCaptor<com.nyangmeong.community.domain.CareRecruitmentStatusHistory> captor = ArgumentCaptor
+                .forClass(com.nyangmeong.community.domain.CareRecruitmentStatusHistory.class);
+        verify(careRecruitmentMapper).insertStatusHistory(captor.capture());
+        assertThat(captor.getValue().getPetPrtcRcrtSn()).isEqualTo(RCRT);
+        assertThat(captor.getValue().getMbrSn()).isNull();
+        assertThat(captor.getValue().getBfrSttsCd()).isEqualTo(RECRUITING);
+        assertThat(captor.getValue().getAftrSttsCd()).isEqualTo("PCAC0003");
+        assertThat(captor.getValue().getChgRsn()).isEqualTo("모집 기간 종료 자동 마감");
+    }
+
+    @Test
+    void 잠근_뒤_대상에서_빠졌으면_바꾸지_않는다() {
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(new CareRecruitment());
+        when(careRecruitmentMapper.existsCloseTarget(RCRT, RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(false);
+
+        assertThat(service.closeExpired(RCRT)).isFalse();
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
+        verify(careRecruitmentMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 없는_모집은_마감하지_않는다() {
+        assertThat(service.closeExpired(9L)).isFalse();
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
+    }
+
+    @Test
     void 최저시급_조회는_설정의_현재_값을_매번_읽어_준다() {
         SystemSetting first = new SystemSetting();
         first.setLowstHrwgAplcnYr("2026");

@@ -8,6 +8,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -38,6 +43,8 @@ import lombok.RequiredArgsConstructor;
  * - SCR-HOS-001·PLC-001~004 (FN-HOS-001-03~07·16·19·20·30)
  * - 카카오 검색 결과를 PLC 에 저장한 뒤 장소 번호·내 즐겨찾기 번호를 붙여 반환
  * - 이름순은 카카오가 지원하지 않아 전체(최대 45건)를 받아 정렬한 뒤 15건씩 자름
+ * - whole=true 는 범위의 결과를 한 응답으로 줌. 카카오 결과가 45건 이상이면 범위를 4등분해 칸마다 모아 합침
+ * - 여러 쪽·여러 칸은 1쪽을 받은 뒤 가상 스레드로 동시에 부름
  */
 @Service
 @RequiredArgsConstructor
@@ -48,6 +55,8 @@ public class PlaceService {
     private static final int RPRS_TELNO_MAX_LENGTH = 20;
     private static final int KAKAO_URL_PATH_MAX_LENGTH = 500;
     private static final double EARTH_RADIUS_METER = 6_371_000;
+    private static final int KAKAO_MAX_COUNT = PlaceSearchClient.PAGE_SIZE * PlaceSearchClient.MAX_PAGE;
+    private static final BigDecimal TWO = BigDecimal.valueOf(2);
 
     private final PlaceSearchClient placeSearchClient;
     private final PlaceMapper placeMapper;
@@ -63,6 +72,9 @@ public class PlaceService {
         int page = pq.pageOrDefault();
         String query = category.toQuery(cond.getKeyword());
 
+        if (cond.isWholeArea()) {
+            return searchWhole(mbrSn, category, cond, query, sort);
+        }
         if (page > PlaceSearchClient.MAX_PAGE) {
             return emptyPage(page);
         }
@@ -81,22 +93,128 @@ public class PlaceService {
      */
     private PageResponse<PlaceSummary> searchByName(Long mbrSn, PlaceCategory category, PlaceSearchCond cond,
             String query, int page) {
-        List<PlaceSearchItem> items = new ArrayList<>();
-        for (int current = 1; current <= PlaceSearchClient.MAX_PAGE; current++) {
-            PlaceSearchPage result = placeSearchClient
-                    .search(toQuery(query, PlaceSort.NAME, cond, current));
-            items.addAll(result.items());
-            if (result.end()) {
-                break;
-            }
-        }
+        List<PlaceSearchItem> items = collectPages(query, PlaceSort.NAME, cond.getSwLat(), cond.getSwLot(),
+                cond.getNeLat(), cond.getNeLot(), cond).items();
         List<PlaceSummary> all = new ArrayList<>(resolve(mbrSn, category, cond, items));
-        all.sort(Comparator.comparing(PlaceSummary::getPlcConm, Collator.getInstance(Locale.KOREAN)));
+        all.sort(byName());
 
         int from = (page - 1) * PlaceSearchClient.PAGE_SIZE;
         int to = Math.min(from + PlaceSearchClient.PAGE_SIZE, all.size());
         List<PlaceSummary> content = from >= all.size() ? List.of() : all.subList(from, to);
         return toPage(content, page, all.size(), to < all.size());
+    }
+
+    /**
+     * 범위 한 번에 조회 : 쪽 없이 전체를 정렬해 한 응답으로 반환
+     * - 1쪽의 카카오 건수가 45건 이상이면 범위를 4등분해 칸마다 다시 모아 1쪽 뒤에 이어 붙임(겹치는 업체는 하나로)
+     * - RECOMMEND 는 카카오 순서, DISTANCE 는 거리 오름차순, NAME 은 가나다순
+     */
+    private PageResponse<PlaceSummary> searchWhole(Long mbrSn, PlaceCategory category, PlaceSearchCond cond,
+            String query, PlaceSort sort) {
+        List<PlaceSearchItem> items;
+        if (cond.hasCoordinates()) {
+            PlaceSearchPage first = placeSearchClient.search(toQuery(query, sort, cond, 1));
+            items = first.totalCount() >= KAKAO_MAX_COUNT
+                    ? collectQuarters(query, sort, cond, first)
+                    : collectRest(query, sort, cond.getSwLat(), cond.getSwLot(), cond.getNeLat(), cond.getNeLot(),
+                            cond, first).items();
+        } else {
+            items = collectPages(query, sort, null, null, null, null, cond).items();
+        }
+
+        List<PlaceSummary> content = new ArrayList<>(resolve(mbrSn, category, cond, items));
+        if (PlaceSort.NAME.is(sort.getCode())) {
+            content.sort(byName());
+        } else if (PlaceSort.DISTANCE.is(sort.getCode())) {
+            content.sort(Comparator.comparing(PlaceSummary::getDistance,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+        return new PageResponse<>(content, 1, KAKAO_MAX_COUNT, content.size(), content.isEmpty() ? 0 : 1, false);
+    }
+
+    /**
+     * 범위를 4등분해 칸마다 최대 3쪽을 동시에 모음 : 전체 범위 1쪽 결과를 앞에 둠
+     */
+    private List<PlaceSearchItem> collectQuarters(String query, PlaceSort sort, PlaceSearchCond cond,
+            PlaceSearchPage first) {
+        BigDecimal midLat = cond.getSwLat().add(cond.getNeLat()).divide(TWO);
+        BigDecimal midLot = cond.getSwLot().add(cond.getNeLot()).divide(TWO);
+        List<Callable<List<PlaceSearchItem>>> quarters = List.of(
+                () -> collectPages(query, sort, cond.getSwLat(), cond.getSwLot(), midLat, midLot, cond).items(),
+                () -> collectPages(query, sort, cond.getSwLat(), midLot, midLat, cond.getNeLot(), cond).items(),
+                () -> collectPages(query, sort, midLat, cond.getSwLot(), cond.getNeLat(), midLot, cond).items(),
+                () -> collectPages(query, sort, midLat, midLot, cond.getNeLat(), cond.getNeLot(), cond).items());
+
+        List<PlaceSearchItem> items = new ArrayList<>(first.items());
+        for (List<PlaceSearchItem> quarter : runAll(quarters)) {
+            items.addAll(quarter);
+        }
+        return items;
+    }
+
+    /**
+     * 한 범위의 최대 3쪽 모으기 : 1쪽을 받은 뒤 나머지 쪽을 동시에
+     */
+    private PlaceSearchPage collectPages(String query, PlaceSort sort, BigDecimal swLat, BigDecimal swLot,
+            BigDecimal neLat, BigDecimal neLot, PlaceSearchCond cond) {
+        PlaceSearchPage first = placeSearchClient.search(toQuery(query, sort, swLat, swLot, neLat, neLot, cond, 1));
+        return collectRest(query, sort, swLat, swLot, neLat, neLot, cond, first);
+    }
+
+    /**
+     * 1쪽 뒤의 쪽을 동시에 받아 쪽 순서대로 이어 붙임
+     * - 남은 쪽 수는 1쪽의 pageable_count 로 정함(끝이 아닌데 건수가 15 이하로 오면 2쪽까지)
+     */
+    private PlaceSearchPage collectRest(String query, PlaceSort sort, BigDecimal swLat, BigDecimal swLot,
+            BigDecimal neLat, BigDecimal neLot, PlaceSearchCond cond, PlaceSearchPage first) {
+        if (first.end()) {
+            return first;
+        }
+        int byCount = (first.totalCount() + PlaceSearchClient.PAGE_SIZE - 1) / PlaceSearchClient.PAGE_SIZE;
+        int lastPage = Math.min(PlaceSearchClient.MAX_PAGE, Math.max(2, byCount));
+        List<Callable<List<PlaceSearchItem>>> rest = new ArrayList<>();
+        for (int current = 2; current <= lastPage; current++) {
+            PlaceSearchQuery pageQuery = toQuery(query, sort, swLat, swLot, neLat, neLot, cond, current);
+            rest.add(() -> placeSearchClient.search(pageQuery).items());
+        }
+
+        List<PlaceSearchItem> items = new ArrayList<>(first.items());
+        for (List<PlaceSearchItem> pageItems : runAll(rest)) {
+            items.addAll(pageItems);
+        }
+        return new PlaceSearchPage(items, first.totalCount(), true);
+    }
+
+    /**
+     * 가상 스레드로 동시에 실행하고 넣은 순서대로 결과 반환 : 하나라도 실패하면 그 예외를 그대로 올림
+     */
+    private <T> List<T> runAll(List<Callable<T>> tasks) {
+        if (tasks.isEmpty()) {
+            return List.of();
+        }
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<T>> futures = new ArrayList<>();
+            for (Callable<T> task : tasks) {
+                futures.add(executor.submit(task));
+            }
+            List<T> results = new ArrayList<>();
+            for (Future<T> future : futures) {
+                results.add(future.get());
+            }
+            return results;
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CustomException(ErrorCode.EXTERNAL_API_ERROR);
+        }
+    }
+
+    private Comparator<PlaceSummary> byName() {
+        return Comparator.comparing(PlaceSummary::getPlcConm, Collator.getInstance(Locale.KOREAN));
     }
 
     /**
@@ -166,8 +284,16 @@ public class PlaceService {
     }
 
     private PlaceSearchQuery toQuery(String query, PlaceSort sort, PlaceSearchCond cond, int page) {
-        return new PlaceSearchQuery(query, PlaceSort.DISTANCE.is(sort.getCode()), cond.getSwLat(), cond.getSwLot(),
-                cond.getNeLat(), cond.getNeLot(), cond.getCntrLat(), cond.getCntrLot(), page);
+        return toQuery(query, sort, cond.getSwLat(), cond.getSwLot(), cond.getNeLat(), cond.getNeLot(), cond, page);
+    }
+
+    /**
+     * 범위를 바꿔 쓰는 검색 조건 : 거리 기준은 언제나 검색 시점의 지도 중앙
+     */
+    private PlaceSearchQuery toQuery(String query, PlaceSort sort, BigDecimal swLat, BigDecimal swLot,
+            BigDecimal neLat, BigDecimal neLot, PlaceSearchCond cond, int page) {
+        return new PlaceSearchQuery(query, PlaceSort.DISTANCE.is(sort.getCode()), swLat, swLot, neLat, neLot,
+                cond.getCntrLat(), cond.getCntrLot(), page);
     }
 
     private Place toPlace(PlaceCategory category, PlaceSearchItem item) {

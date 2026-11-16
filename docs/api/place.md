@@ -7,7 +7,7 @@
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | /place-bookmarks | 내 장소 즐겨찾기 목록(`?plcClsfCd=` 선택, 생략하거나 빈 값이면 전체 분류(AI 대화창, 2026-11-11), 없는 코드는 400 `INVALID_INPUT_VALUE`, 저장 최신순, 페이지 없음) | HOS-001-17·26·29·32 | YAY | - | List<PlaceBookmarkSummary> |
-| GET | /places | 장소 검색(카테고리·키워드·지도 범위·정렬, 거리는 검색 시점 지도 중앙 기준). 좌표를 모두 생략하면 범위 없이 전국 정확도순, `distance`는 null(AI 대화창, 2026-11-11). 쪽 크기 15 고정, 카카오 제한으로 최대 3쪽(45건). 커뮤니티 지도 선택도 사용 | HOS-001-03~07·16·19·20·30, PLC-001-01, PLC-002-01, PLC-003-01, PLC-004-01, CMU-002-11, CMU-004-10, CMU-005-05 | YAY | PlaceSearchCond | Page<PlaceSummary> |
+| GET | /places | 장소 검색(카테고리·키워드·지도 범위·정렬, 거리는 검색 시점 지도 중앙 기준). 좌표를 모두 생략하면 범위 없이 전국 정확도순, `distance`는 null(AI 대화창, 2026-11-11). 쪽 크기 15 고정, 카카오 제한으로 최대 3쪽(45건). `whole=true`면 쪽 없이 범위의 결과를 한 응답으로 주고, 카카오 결과가 45건 이상이면 범위를 4등분해 모아 합친다(2026-11-16, 플레이스 화면). 커뮤니티 지도 선택도 사용 | HOS-001-03~07·16·19·20·30, PLC-001-01, PLC-002-01, PLC-003-01, PLC-004-01, CMU-002-11, CMU-004-10, CMU-005-05 | YAY | PlaceSearchCond | Page<PlaceSummary> |
 | POST | /place-bookmarks | 장소 즐겨찾기 저장 | HOS-001-09·23 | YAY | PlaceBookmarkCreateRequest | PlaceBookmarkResponse |
 | DELETE | /place-bookmarks/{plcBkmkSn} | 장소 즐겨찾기 해제 | HOS-001-09·23 | YAY | - | - |
 
@@ -21,6 +21,7 @@
 | keyword | String | N | 100자 이하. 지역·상호명·키워드 하나의 입력창 | HOS-001-03·04 |
 | swLat·swLot·neLat·neLot | BigDecimal | N | 검색 범위(지도 영역)의 남서·북동 모서리. 최초 진입은 전주시 대표 영역을 보낸다. 좌표 6칸은 모두 보내거나 모두 생략한다. 일부만 오면 400 `INVALID_INPUT_VALUE`(`data[].field`에 빠진 칸) | HOS-001-05·16·19 |
 | cntrLat·cntrLot | BigDecimal | N | 거리 기준. 검색·재검색을 실행한 시점의 지도 중앙. 좌표를 생략하고 `sort=DISTANCE`면 400 `INVALID_INPUT_VALUE`(`data[0].field`=`sort`) | HOS-001-04·16 |
+| whole | Boolean | N | `true`면 `page`를 무시하고 범위의 결과를 한 응답으로 준다. 정렬은 `sort`대로(`RECOMMEND` 카카오 순서, `DISTANCE` 거리 오름차순, `NAME` 가나다순). 1쪽의 카카오 건수가 45건 이상이고 좌표가 있으면 범위를 4등분해 칸마다 최대 45건을 모아 합친다(겹치는 업체는 하나로). 응답은 `page`=1·`size`=45·`totalElements`=건수·`totalPages`=0 또는 1·`hasNext`=false. 생략하면 지금처럼 15건씩(2026-11-16, 리뷰 지적 "스크롤하면 계속 불러옴·이름순 느림") | HOS-001-06·16·19·30 |
 
 ### PlaceBookmarkCreateRequest
 쓰는 API: POST /place-bookmarks

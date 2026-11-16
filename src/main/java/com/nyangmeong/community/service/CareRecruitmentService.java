@@ -3,6 +3,7 @@ package com.nyangmeong.community.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +71,10 @@ import lombok.RequiredArgsConstructor;
 public class CareRecruitmentService {
 
     static final int PAGE_SIZE = 10;
+    static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    /** 돌봄 시작일은 오늘부터 90일 이내, 종료일은 시작일부터 30일 이내 */
+    static final int START_LIMIT_DAYS = 90;
+    static final int PERIOD_LIMIT_DAYS = 30;
 
     private final CareRecruitmentMapper careRecruitmentMapper;
     private final PostMapper postMapper;
@@ -154,7 +159,7 @@ public class CareRecruitmentService {
         List<CareRecruitmentPet> pets = toPets(req.pets());
         List<String> shapes = checkShapes(req.prtcShpCds());
         checkCost(req.cstUnitCd(), req.cstAmt());
-        checkSchedule(schdlCnsltn, req.prtcBgngDt(), req.prtcEndDt());
+        checkSchedule(schdlCnsltn, req.prtcBgngDt(), req.prtcEndDt(), null, null);
         Long rgnSn = findRegionOrThrow(req.prtcPlcLat(), req.prtcPlcLot());
         List<MultipartFile> images = attached(req.images());
         if (images.size() > maxImages()) {
@@ -223,7 +228,7 @@ public class CareRecruitmentService {
         LocalDateTime endDt = clearSchedule ? null
                 : req.prtcEndDt() != null ? req.prtcEndDt() : detail.getPrtcEndDt();
         checkCost(cstUnitCd, cstAmt);
-        checkSchedule(schdlCnsltn, bgngDt, endDt);
+        checkSchedule(schdlCnsltn, bgngDt, endDt, detail.getPrtcBgngDt(), detail.getPrtcEndDt());
         List<CareRecruitmentPet> pets = req.pets() == null ? null : toPets(req.pets());
         List<String> shapes = req.prtcShpCds() == null ? null : checkShapes(req.prtcShpCds());
 
@@ -369,9 +374,16 @@ public class CareRecruitmentService {
     }
 
     /**
-     * 일정 검사 (일정 협의가 아니면 필수, 입력했으면 30분 단위·종료가 시작보다 뒤)
+     * 일정 검사 (일정 협의가 아니면 필수, 입력했으면 30분 단위·종료가 시작보다 뒤, 날짜 기한)
+     * - 수정이면 저장된 일정을 넘겨 바뀌지 않은 날짜는 기한 검사에서 뺀다
      */
-    private void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt) {
+    private void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt,
+            LocalDateTime savedBgngDt, LocalDateTime savedEndDt) {
+        checkSchedule(schdlCnsltn, bgngDt, endDt, savedBgngDt, savedEndDt, LocalDate.now(ZONE));
+    }
+
+    static void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt,
+            LocalDateTime savedBgngDt, LocalDateTime savedEndDt, LocalDate today) {
         if ((bgngDt == null) != (endDt == null) || (!schdlCnsltn && bgngDt == null)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -381,9 +393,19 @@ public class CareRecruitmentService {
         if (!endDt.isAfter(bgngDt) || !isHalfHour(bgngDt) || !isHalfHour(endDt)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        LocalDate bgngDe = bgngDt.toLocalDate();
+        LocalDate endDe = endDt.toLocalDate();
+        boolean bgngChanged = savedBgngDt == null || !bgngDe.equals(savedBgngDt.toLocalDate());
+        boolean endChanged = savedEndDt == null || !endDe.equals(savedEndDt.toLocalDate());
+        if (bgngChanged && (bgngDe.isBefore(today) || bgngDe.isAfter(today.plusDays(START_LIMIT_DAYS)))) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (endChanged && endDe.isAfter(bgngDe.plusDays(PERIOD_LIMIT_DAYS))) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
-    private boolean isHalfHour(LocalDateTime dateTime) {
+    private static boolean isHalfHour(LocalDateTime dateTime) {
         return dateTime.getMinute() % 30 == 0 && dateTime.getSecond() == 0 && dateTime.getNano() == 0;
     }
 

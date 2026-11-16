@@ -10,6 +10,7 @@ import com.nyangmeong.community.domain.CareRecruitmentDetail;
  * - 상세·등록·수정 공통, 상세 주소·정확한 좌표는 담지 않는다(FN-CMU-004-10)
  * - aplcntCnt : 「지금 n명과 채팅 중」, 작성자에게만 준다
  * - chatting : 로그인 회원이 이 글로 채팅 중인지(메시지가 오간 방 참여), mtchSitterNcnm : 매칭·거래 완료일 때 돌보미 닉네임
+ * - matched : 확정된 매칭이 있었는지, 매칭 없이 자동 마감된 거래완료 글은 false (화면의 「모집 종료」)
  */
 public record CareRecruitmentResponse(
         Long petPrtcRcrtSn,
@@ -37,7 +38,8 @@ public record CareRecruitmentResponse(
         Boolean liked,
         Boolean owner,
         Boolean chatting,
-        String mtchSitterNcnm) {
+        String mtchSitterNcnm,
+        Boolean matched) {
 
     /**
      * 채팅 중 여부·매칭 돌보미 없이 만든다(채팅 정보를 아직 모를 때)
@@ -55,6 +57,7 @@ public record CareRecruitmentResponse(
                 detail.getPstRegDt(), detail.getInqCnt(), detail.getRcrtSttsCd(), pets, prtcShpCds,
                 detail.getPrtcBgngDt(), detail.getPrtcEndDt(), "Y".equals(detail.getSchdlCnsltnPsbltyYn()),
                 detail.getCstUnitCd(), detail.getCstAmt(), detail.getRgnSn(), detail.getRlsRgnNm(), imgs,
-                detail.getRcmdtnCnt(), owner ? detail.getAplcntCnt() : null, liked, owner, chatting, mtchSitterNcnm);
+                detail.getRcmdtnCnt(), owner ? detail.getAplcntCnt() : null, liked, owner, chatting, mtchSitterNcnm,
+                detail.getCfmtnPetPrtcMtchSn() != null);
     }
 }

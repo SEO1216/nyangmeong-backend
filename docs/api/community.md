@@ -673,6 +673,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | owner | Boolean | Y | 작성자 본인인지(수정·삭제 버튼) | PST.MBR_SN, CMU-004-11 |
 | chatting | Boolean | Y | 내가 이 글로 채팅 중인지. 나가지 않은 참여 방 중 메시지가 1건 이상 오간 방이 있으면 true(지원자 수 `aplcntCnt`와 같은 기준, 작성자도 같은 규칙). 목록 응답에는 없다 | OTO_CHAT_ROOM.PST_SN, CHAT_PRTPNT.PTCP_STTS_CD, CMU-004-05 |
 | mtchSitterNcnm | String | N | 매칭 완료·거래 완료일 때 확정된 매칭의 돌보미(채팅을 건 지원자) 닉네임. 모집중이거나 확정 매칭이 없으면 null. 돌보미가 파기된 회원(이메일 HMAC `PURGED`)이면 「탈퇴한 회원」. 상세를 보는 로그인 회원 모두에게 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, MBR.MBR_NCNM, CMU-004-05 |
+| matched | Boolean | Y | 확정된 매칭이 있었으면 true(매칭완료, 실제 거래로 끝난 거래완료). 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
 #### CareRecruitmentPetItem (응답 record, 쓰는 DTO: CareRecruitmentResponse)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -705,8 +706,11 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | schdlCnsltnPsbltyYn | Boolean | Y | 일정 협의 가능 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-01 |
 | regDt | LocalDateTime | Y | 경과 시간 표시 | PST.REG_DT, CMU-004-01 |
 | owner | Boolean | Y | 내 글 배지 | PST.MBR_SN, CMU-004-01 |
+| matched | Boolean | Y | 확정된 매칭이 있었으면 true. 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
 목록 검색 조건(`CareRecruitmentSearchCond`, 쿼리): `rcrtSttsCd`(없으면 전체, `PCAC0001`이면 모집중), `mineYn`, `rgnSn`(하위 지역 포함), `prtcBgngDe`~`prtcEndDe`(일정이 기간과 겹치는 글, 일정 없는 글은 제외), `petSeCd`, `petSizeCd`(고양이만 고르면 무시). 모두 AND, 10건. 기본 정렬은 모집 상태 코드 오름차순(PCAC0001 모집중 → 0002 매칭완료 → 0003 거래완료), 같은 상태 안에서는 최신순.
+
+자동 마감: 매일 00:00 KST 배치(SYSC0033)가 수락 대기 매칭이 없는 모집중 글 중 일정 종료 일시가 지난 글과, 일정 없이 작성 후 30일이 지난 글을 거래완료(PCAC0003, `matched=false`)로 바꾸고 상태 이력을 남긴다.
 ### MinimumWageResponse
 쓰는 API: GET /care-recruitments/minimum-wage
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |

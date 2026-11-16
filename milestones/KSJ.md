@@ -257,7 +257,7 @@
 - 기다리는 것: 없음(프론트 `NotificationDropdown`은 이미 `mvmnPath`의 `otoChatRoomSn` 쿼리를 읽는다)
 - 완료 조건: 펫돌봄 거래 알림(AIMC0009)의 `mvmnPath`가 `/chat?otoChatRoomSn={방 번호}`로 저장된다(지금은 null이라 알림을 누르면 그 방이 아니라 채팅 목록이 열림)
 
-## SCR-CMU-004 우리동네 펫돌봄 · 일정 기한 검증 — 진행
+## SCR-CMU-004 우리동네 펫돌봄 · 일정 기한 검증 — 끝
 - 기능: 명세 기능 ID 추가 없음(사람 요청 2026-11-15, 프론트 `docs/backend-request-care-chat.md` 1번). 걸치는 FN-CMU-004-07 돌봄 기간·시간 입력, FN-CMU-004-11 게시글 등록·수정
 - 기다리는 것: 없음(프론트 `CareForm.jsx`에 같은 규칙이 이미 있다)
 - 완료 조건: 등록·수정에서 시작일이 오늘(KST) 전이거나 오늘+90일 뒤, 종료일이 시작일+30일 뒤면 `INVALID_INPUT_VALUE`(400). 수정에서 저장된 날짜와 같은 날짜는 지난 날짜여도 통과

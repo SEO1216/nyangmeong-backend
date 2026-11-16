@@ -2,21 +2,11 @@
 
 ## 지금 하는 것
 
-SCR-CMU-004 우리동네 펫돌봄 · 일정 기한 검증 — 구현 중 (승인 2026-11-15 23:43, 시작 2026-11-15 14:39)
-
-근거: 프론트 저장소 `docs/backend-request-care-chat.md` 1번(사람 요청 2026-11-15). 명세 기능 ID 추가 없음. 경계는 프론트 `CareForm.jsx` `whenError`와 같게(날짜 단위, 경계일 포함).
-
-- FN-CMU-004-07·11 등록 날짜 기한: `community/service/CareRecruitmentService.java` `create`에서 일정이 있으면 시작일(KST 날짜)이 오늘 전이거나 오늘+90일 뒤면, 종료일이 시작일+30일 뒤면 `INVALID_INPUT_VALUE`. 오늘은 `LocalDate.now(ZoneId.of("Asia/Seoul"))`(`ExpenseService`·`PointService`와 같은 방식), 시험할 수 있게 오늘을 인자로 받는 검사 메서드로 나눈다. API: `POST /care-recruitments`(KSJ, `CareRecruitmentCreateRequest` → `CareRecruitmentResponse`) 그대로. 완료 조건: `명령:` `./gradlew test --tests com.nyangmeong.community.service.CareRecruitmentServiceTest -q`(어제 시작·오늘+91일 시작·기간 31일은 거부, 오늘 시작·오늘+90일 시작·기간 30일은 통과). `화면:` Swagger로 시작일을 오늘+91일로 등록하면 400 `INVALID_INPUT_VALUE`.
-- FN-CMU-004-11 수정 날짜 기한: 같은 파일 `update`에서 합친 일정(`bgngDt`·`endDt`)에 같은 검사를 하되, 저장된 값과 날짜가 같은 쪽은 건너뛴다(시작일이 같으면 시작일 검사 생략, 종료일이 같으면 기간 검사 생략. 프론트와 같음). 일정 비우기(`clearSchedule`)는 검사 없음. API: `PATCH /care-recruitments/{petPrtcRcrtSn}`(KSJ, `CareRecruitmentUpdateRequest` → `CareRecruitmentResponse`) 그대로. 완료 조건: `명령:` 같은 테스트(지난 시작일이 저장된 글의 제목만 수정은 통과, 시작일을 어제로 바꾸면 거부). `화면:` Swagger로 일정 그대로 제목만 수정하면 200.
-- 문서: `docs/api/community.md` `CareRecruitmentCreateRequest`·`CareRecruitmentUpdateRequest`의 `prtcBgngDt`·`prtcEndDt` 설명에 「시작일은 오늘부터 90일 이내, 종료일은 시작일부터 30일 이내(날짜 기준), 수정에서 바꾸지 않은 날짜는 검사하지 않음」을 넣는다. 응답·경로는 바뀌지 않는다.
-- 프론트 연결: 없음(`CareForm.jsx`에 같은 규칙이 이미 있다).
-- 전체 검증: `./gradlew build -q`
-
-새 의존성: 없음
+끝남. SCR-CMU-004 펫돌봄 · 일정 기한 검증(2026-11-16, 커밋 fd5a068, PR 전)
 
 ## 지난 작업
 
-SCR-CMU-005 알림 이동 경로(2026-11-13), SCR-CMU-004 목록 기본 정렬(2026-11-13), SCR-CMU-002 운영 지역 변환 설정(PR #226, 2026-11-11), SCR-CMU-001 내 글만 보기(PR #211, 2026-11-10), SCR-CMU-001 케어미션 반영(PR #209, 2026-11-10), SCR-CMU-003 검색어 설정 인코딩(PR #204, 2026-11-09), SCR-CMU-002 만료 알림 경로(PR #203, 2026-11-09, 공용 DB SYSC0032 입력·확인용 알림 정리 끝, 외부 뉴스 비우고 재수집 끝), SCR-CMU-003 검색어 반려 3종(PR #201, 2026-11-09), SCR-CMU-004 작성자 조회수 제외(커밋 0328347, 2026-11-09), SCR-CMU-002 작성자 조회수 제외(커밋 f0cafb8, 2026-11-09), SCR-CMU-002 품종 선택 항목·만료 7일·1일 전 알림(PR #190, 2026-11-06), SCR-CMU-005 14일 무응답 자동 종료(PR #186, 2026-11-06), SCR-CMU-001·002·004·005 탈퇴 회원 표시(PR #164·#166·#170·#172)·SCR-ADM-022 완료 사진 열람(2026-11-05), SCR-CMU-004 펫돌봄 대기 4건(2026-11-04), SCR-CMU-002 전북 밖 좌표 거절(PR #154)·시드 게시판 코드(PR #147), SCR-CMU-005 펫돌봄 채팅(PR #139) — 모두 끝남
+SCR-CMU-004 일정 기한 검증(2026-11-16), SCR-CMU-005 알림 이동 경로(PR #240, 2026-11-13), SCR-CMU-004 목록 기본 정렬(2026-11-13), SCR-CMU-002 운영 지역 변환 설정(PR #226, 2026-11-11), SCR-CMU-001 내 글만 보기(PR #211, 2026-11-10), SCR-CMU-001 케어미션 반영(PR #209, 2026-11-10), SCR-CMU-003 검색어 설정 인코딩(PR #204, 2026-11-09), SCR-CMU-002 만료 알림 경로(PR #203, 2026-11-09, 공용 DB SYSC0032 입력·확인용 알림 정리 끝, 외부 뉴스 비우고 재수집 끝), SCR-CMU-003 검색어 반려 3종(PR #201, 2026-11-09), SCR-CMU-004 작성자 조회수 제외(커밋 0328347, 2026-11-09), SCR-CMU-002 작성자 조회수 제외(커밋 f0cafb8, 2026-11-09), SCR-CMU-002 품종 선택 항목·만료 7일·1일 전 알림(PR #190, 2026-11-06), SCR-CMU-005 14일 무응답 자동 종료(PR #186, 2026-11-06), SCR-CMU-001·002·004·005 탈퇴 회원 표시(PR #164·#166·#170·#172)·SCR-ADM-022 완료 사진 열람(2026-11-05), SCR-CMU-004 펫돌봄 대기 4건(2026-11-04), SCR-CMU-002 전북 밖 좌표 거절(PR #154)·시드 게시판 코드(PR #147), SCR-CMU-005 펫돌봄 채팅(PR #139) — 모두 끝남
 
 ## 다음에 할 것
 - 사람이 할 일: 기획 담당에게 커뮤니티 기능명세서 FN-CMU-004-01 「기본 최신순」을 「모집 상태(모집중 → 매칭완료 → 거래완료) → 같은 상태는 최신순」으로 고쳐 달라고 알린다. 관리자 펫돌봄 목록은 최신순 그대로

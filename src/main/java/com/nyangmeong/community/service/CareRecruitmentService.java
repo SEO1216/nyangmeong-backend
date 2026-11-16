@@ -91,6 +91,7 @@ public class CareRecruitmentService {
 
     /**
      * 목록 조회 (최신순 10건, 반려동물·돌봄 형태는 목록 조회 뒤 한 번에 채움)
+     * - 「내 글만 보기」가 아니면 거래완료 후 설정 일수(SYS_STNG)가 지난 글은 공개 목록에서 뺀다
      */
     @Transactional(readOnly = true)
     public PageResponse<CareRecruitmentSummary> search(Long mbrSn, CareRecruitmentSearchCond cond, PageQuery pq) {
@@ -118,11 +119,14 @@ public class CareRecruitmentService {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
+        /** 설정 조회는 startPage 전에 : 뒤에 부르면 페이지 처리가 설정 쿼리에 붙음 */
+        long hideDays = systemSettingService.get().getDlngCmptnHideCrtrDayCnt();
         PageHelper.startPage(pq.pageOrDefault(), pq.sizeOr(PAGE_SIZE));
         List<CareRecruitmentSummary> rows = careRecruitmentMapper.selectList(mbrSn, PostStatus.NORMAL.getCode(),
                 rcrtSttsCd, cond.isMineYn(), cond.getRgnSn(), bgngDe == null ? null : bgngDe.atStartOfDay(),
                 endDe == null ? null : endDe.plusDays(1).atStartOfDay(), petSeCd, PetSe.DOG.getCode(), sizeFilter,
-                sizeFilter ? size.getMinBdwg() : null, sizeFilter ? size.getMaxBdwg() : null);
+                sizeFilter ? size.getMinBdwg() : null, sizeFilter ? size.getMaxBdwg() : null,
+                CareRecruitmentStatus.COMPLETED.getCode(), hideDays);
         PageInfo<CareRecruitmentSummary> pageInfo = new PageInfo<>(rows);
         fillChildren(rows);
         return PageResponse.of(pageInfo);

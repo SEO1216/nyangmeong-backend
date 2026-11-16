@@ -2,7 +2,7 @@
 
 ## 지금 하는 것
 
-SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 막기 — 끝 (2026-11-13). `PointService.use`가 키로 원장을 읽어(`selectLedgerByIdmptDmndId`, resultMap) 회원·거래 종류·금액·메모가 같으면 건너뛰고 다르면 409 `IDEMPOTENCY_KEY_REUSED`. 적립(미션·검진)은 그대로. 검증 2회차 `통과`(1회차는 resultType으로 받아 늘 null → 500)·사람 확인 (승인 2026-11-13 14:23, 시작 2026-11-13 14:11)
+SCR-MYP-010 픽셀 캐릭터 관리 · 예전 공용 파일 주소 삭제 — 끝 (2026-11-16). 프론트 PR #383 병합을 확인하고 `FileController`의 `GET /api/files/public/{atchFileSn}`을 지웠다(이제 404 `NOT_FOUND`). `FileControllerTest`는 예전 주소 검사를 `예전_주소는_없어져_404이다`로 바꿨다(사람 승인). `docs/api/global.md` 행과 `issues.md` 10·15번에 반영. 검증 1회차 `통과`·사람 확인 (승인 2026-11-16 11:55, 시작 2026-11-16 11:54)
 
 ## 다음에 할 것
 
@@ -11,7 +11,6 @@ SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 막기 — 끝
 - SCR-MYP-011 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx`가 `IDEMPOTENCY_KEY_REUSED`를 받으면 새 `idmptDmndId`를 만들고 상점을 다시 읽기, `PURCHASE_ERRORS` 문구, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 409 처리 — 대기" 넣음). 그 전까지는 이 오류를 받으면 모달을 닫았다 열어야 다시 살 수 있다
 - 공용 DB 정리(사람): SCR-MYP-011 가짜 연결 검증·사람 확인으로 회원 164 캐릭터 21에 보유 아이템 43·46(과 사람 확인 때 산 두 개), 포인트 원장 5734(−20)와 사람 확인분. `HLD_ITEM` 행 삭제와 관리자 `POST /api/admin/points/adjustments`로 되돌린다. 배치 수동 실행으로 생긴 오늘 케어 일정 알림·`NOTI_SNDNG_LOG`는 실제 사전 알림과 같아 두어도 된다
 - 팀에 알린다(SCR-AIM-006 사전 알림 실제 발송): 이제 09:00 배치가 실제 양육자에게 인앱 알림과 메일을 보낸다. 공유 `application.properties`가 `app.mail.client=smtp`라 각자 띄운 서버도 실제 메일을 보낸다(중복방지키로 한 번만). 메일을 보내지 않으려면 `--app.mail.client=log`로 띄운다
-- SCR-MYP-010 연결 남음: 파일 저장 경로 재구성 (프론트 연결 이미지 URL `/api/files/public/{번호}` → `/api/files/{번호}`: 공통 파일 이미지 컴포넌트, 관리자 공지 편집기·뉴스 등록, 사용자 공지·뉴스 화면, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-010 픽셀 캐릭터 관리 · 이미지 주소 /api/files 전환 — 대기" 넣음). 프론트가 옮긴 뒤 백엔드에서 `GET /api/files/public/{atchFileSn}`을 지운다
 - 남김(SCR-MYP-010 파일 저장 경로 재구성 범위 밖): 기존 공지·뉴스 이미지(`public/…`) 이동(파일 이동·`PHYS_STRG_PATH` UPDATE·공지 본문 URL 교체, 운영 디스크 작업이라 사람), 영수증 원본 저장 중단(따로 기획), 지운·교체한 파일 정리 배치, `AdminNewsService.create`의 `atchFileSn` 존재·위치 검사, `byte[]` 저장의 `FILE_MAX_SZ` 검사, 채팅·문의 이미지 상한 상수 10
 - 공용 DB 정리(사람): SCR-MYP-010 파일 경로 검증으로 회원 1의 채팅방 264(상대 회원 133)에 사진 메시지 3556(`ATCH_FILE` 4593)이 남았다(삭제 API 없음, 상대에게 보임). 게시글 1024는 삭제 API로 지움
 - ai 세션에 알린다(SCR-MYP-011 그림 참고 굽기 끝, 백엔드 커밋·develop 병합 뒤): `GET /internal/ai/characters/bake-items` 행에 `bakeImgRefYn`(boolean)·`atchFileSn`이 더 있고 그림 참고 아이템은 `bakeHint`가 null일 수 있다. 그림은 `GET /internal/ai/items/{itemSn}/bake-image`(회원·관리자 쿠키, 굽기 대상이 아니면 404 `ITEM_NOT_FOUND`). 응답 `Content-Type`은 저장된 형식(jpg·png·webp) 그대로다 — PNG만 받아야 하면 알려 달라(등록 때 형식 제한 또는 변환을 정한다). 계약은 `docs/api/pet.md`, ai `docs/api/internal.md` bake-items 행과 새 행은 ai 저장소에서 고친다

@@ -81,7 +81,7 @@
 -- v0.14 (14) 공동양육 초대 상태 취소(PETC0035) 추가 (2026-11-16, SJM, 근거: 사람 결정 2026-11-16 "주양육자가 보낸 대기 중 초대를 취소하고, 취소한 초대는 목록에서 삭제", SCR-MYP-004·005 FN-MYP-005-03·10). 기존 DB에 실행하며 새 DB는 본문 끝의 같은 행으로 만든다. 공용 DB 실행 전(사람이 실행)
 --   SET NAMES utf8mb4;
 --   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
--- v0.14 (16) 펫돌봄 지난 모집 자동 마감 배치 구분(SYSC0033) 추가 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 2번 사람 요청 2026-11-15, SCR-CMU-004). 없으면 관리자 배치 화면·실행 이력 코드가 비어 보인다
+-- v0.14 (18) 펫돌봄 지난 모집 자동 마감 배치 구분(SYSC0033) 추가 (2026-11-16, KSJ, 번호는 DDL v0.14 (16)과 겹쳐 2026-11-16에 (16)→(18)로 바꿈, SQL은 그대로, 근거: 프론트 요청서 backend-request-care-chat.md 2번 사람 요청 2026-11-15, SCR-CMU-004). 없으면 관리자 배치 화면·실행 이력 코드가 비어 보인다
 --   SET NAMES utf8mb4;
 --   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
 SET NAMES utf8mb4;
@@ -625,7 +625,7 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 -- ■ PET 마이페이지(반려동물) — v0.14 추가: 초대 상태 취소 (v0.14 (14))
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
 
--- ■ SYS 시스템 — v0.14 추가: 펫돌봄 지난 모집 마감 배치 (v0.14 (16))
+-- ■ SYS 시스템 — v0.14 추가: 펫돌봄 지난 모집 마감 배치 (v0.14 (18))
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
 
 -- =====================================================================

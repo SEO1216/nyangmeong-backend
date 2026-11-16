@@ -19,6 +19,7 @@
         <result column="MDCN_END_YMD"             property="mdcnEndYmd" />
         <result column="DAY_MDCN_NMTM"            property="dayMdcnNmtm" />
         <result column="TODAY_CMPTN_CNT"          property="todayCmptnCnt" />
+        <result column="INDCT_YN"                 property="indctYn" />
     </resultMap>
 
     <resultMap id="careItemResultMap" type="com.nyangmeong.health.domain.CareItem">
@@ -34,6 +35,7 @@
         <result column="NXTM_PRNMNT_YMD"          property="nxtmPrnmntYmd" />
         <result column="LAST_CMPTN_YMD"           property="lastCmptnYmd" />
         <result column="BSC_ARTCL_YN"             property="bscArtclYn" />
+        <result column="INDCT_YN"                 property="indctYn" />
         <result column="DEL_YN"                   property="delYn" />
         <result column="REG_DT"                   property="regDt" />
         <result column="MDFCN_DT"                 property="mdfcnDt" />
@@ -48,6 +50,7 @@
         <result column="RPRS_ICON_ID"             property="rprsIconId" />
         <result column="CMPTN_YMD"                property="cmptnYmd" />
         <result column="CMPTN_CYCL"               property="cmptnCycl" />
+        <result column="CMPTN_DT"                 property="cmptnDt" />
     </resultMap>
 
     <resultMap id="careCompletionResultMap" type="com.nyangmeong.health.domain.CareCompletion">
@@ -83,6 +86,12 @@
              WHERE H.CARE_ARTCL_SN = A.CARE_ARTCL_SN
                AND H.CMPTN_YMD = #{today}
                AND H.DEL_YN = 'N' ) AS TODAY_CMPTN_CNT
+        /* 케어리스트 표시여부 (※신규 정책) : 연동 항목은 항상 보임, 고른 적 없는 기본 항목은 NULL(서비스가 추천 항목으로 판단) */
+        , CASE WHEN A.PRSC_SN IS NOT NULL OR A.REPT_PRVNT_MNG_SN IS NOT NULL THEN TRUE
+               WHEN A.INDCT_YN = 'Y' THEN TRUE
+               WHEN A.INDCT_YN = 'N' THEN FALSE
+               WHEN A.BSC_ARTCL_YN = 'Y' THEN NULL
+               ELSE TRUE END AS INDCT_YN
     </sql>
 
     <select id="selectPetForUpdate" resultType="long">
@@ -179,6 +188,7 @@
              , NXTM_PRNMNT_YMD
              , LAST_CMPTN_YMD
              , BSC_ARTCL_YN
+             , INDCT_YN
              , DEL_YN
              , REG_DT
              , MDFCN_DT
@@ -245,6 +255,20 @@
            AND DEL_YN = 'N'
     </update>
 
+    <update id="updateIndications">
+        /* 케어리스트 표시 항목 저장 (※신규 정책) : 반려동물의 삭제되지 않은 항목 전부를 Y/N으로 */
+        UPDATE CARE_ARTCL
+           SET INDCT_YN = CASE WHEN CARE_ARTCL_SN IN
+        <foreach collection="indctSns" item="careArtclSn" open="(" separator="," close=")">
+                                    #{careArtclSn}
+        </foreach>
+                               THEN 'Y' ELSE 'N' END
+             , MDFR_ID  = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
+    </update>
+
     <update id="deleteItem">
         /* 케어 항목 삭제 */
         UPDATE CARE_ARTCL
@@ -263,6 +287,7 @@
              , A.RPRS_ICON_ID
              , H.CMPTN_YMD
              , H.CMPTN_CYCL
+             , H.MDFCN_DT AS CMPTN_DT
           FROM CARE_CMPTN_HSTRY H
           JOIN CARE_ARTCL A
             ON A.CARE_ARTCL_SN = H.CARE_ARTCL_SN

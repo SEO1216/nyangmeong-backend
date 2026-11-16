@@ -57,6 +57,7 @@ class CareMatchServiceTest {
     private static final Long ROOM = 11L;
     private static final Long MATCH = 21L;
     private static final String NORMAL = "CMUC0003";
+    private static final String JOINED = "CHTC0003";
 
     private static final String REQUESTED = "PCAC0012";
     private static final String MATCHED = "PCAC0013";
@@ -158,7 +159,7 @@ class CareMatchServiceTest {
     private void stubPost() {
         CareRecruitmentDetail post = new CareRecruitmentDetail();
         post.setPstCn("저녁 산책");
-        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL)).thenReturn(post);
+        when(careRecruitmentMapper.selectDetailByPstSn(PST, NORMAL, JOINED)).thenReturn(post);
     }
 
     // 매칭 요청
@@ -472,8 +473,9 @@ class CareMatchServiceTest {
         CareMatch match = stubMatch(AWAITING_CONFIRM);
         when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(recruitment(MATCHED_CD));
 
-        service.cancelOnLeave(SITTER, room(MATCH, AWAITING_CONFIRM));
+        boolean notified = service.cancelOnLeave(SITTER, room(MATCH, AWAITING_CONFIRM));
 
+        assertThat(notified).isTrue();
         assertThat(match.getMtchDlngSttsCd()).isEqualTo(CANCELED);
         verify(careMatchMapper).updateStatus(MATCH, AWAITING_CONFIRM, CANCELED);
         verify(careRecruitmentMapper).updateStatus(RCRT, MATCHED_CD, RECRUITING_CD, null);
@@ -491,9 +493,9 @@ class CareMatchServiceTest {
 
     @Test
     void 매칭이_없거나_끝난_방에서_나가면_아무것도_바꾸지_않는다() {
-        service.cancelOnLeave(GUARDIAN, room(null, null));
+        assertThat(service.cancelOnLeave(GUARDIAN, room(null, null))).isFalse();
         stubMatch(COMPLETED);
-        service.cancelOnLeave(GUARDIAN, room(MATCH, COMPLETED));
+        assertThat(service.cancelOnLeave(GUARDIAN, room(MATCH, COMPLETED))).isFalse();
 
         verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
     }

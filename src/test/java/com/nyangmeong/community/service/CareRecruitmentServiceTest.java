@@ -59,6 +59,7 @@ class CareRecruitmentServiceTest {
     private static final Long PST = 7L;
     private static final Long RCRT = 5L;
     private static final String NORMAL = "CMUC0003";
+    private static final String JOINED = "CHTC0003";
     private static final String DELETED = "CMUC0005";
     private static final String RECRUITING = "PCAC0001";
     private static final String MATCHED = "PCAC0002";
@@ -163,7 +164,7 @@ class CareRecruitmentServiceTest {
             inv.<CareRecruitment>getArgument(0).setPetPrtcRcrtSn(RCRT);
             return 1;
         }).when(careRecruitmentMapper).insertRecruitment(any(CareRecruitment.class));
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
     }
 
     /** 목록 */
@@ -174,7 +175,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, new CareRecruitmentSearchCond(), new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, false, null,
-                null, COMPLETED, 7L);
+                null, COMPLETED, 7L, JOINED);
     }
 
     @Test
@@ -188,7 +189,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, true, null, null, null, null, DOG, false, null,
-                null, COMPLETED, 3L);
+                null, COMPLETED, 3L, JOINED);
     }
 
     @Test
@@ -208,7 +209,7 @@ class CareRecruitmentServiceTest {
         verify(breedService).checkPetSe(DOG);
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, RECRUITING, true, 10L,
                 LocalDateTime.of(2026, 11, 10, 0, 0), LocalDateTime.of(2026, 11, 13, 0, 0), DOG, DOG, true,
-                new BigDecimal("10"), new BigDecimal("25"), COMPLETED, 7L);
+                new BigDecimal("10"), new BigDecimal("25"), COMPLETED, 7L, JOINED);
     }
 
     @Test
@@ -220,7 +221,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, true,
-                new BigDecimal("25"), null, COMPLETED, 7L);
+                new BigDecimal("25"), null, COMPLETED, 7L, JOINED);
     }
 
     @Test
@@ -233,7 +234,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, CAT, DOG, false, null,
-                null, COMPLETED, 7L);
+                null, COMPLETED, 7L, JOINED);
     }
 
     @Test
@@ -258,7 +259,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 상세는_조회수를_올리고_작성자에게만_채팅_인원수를_준다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(postMapper.insertViewIgnore(PST, OTHER)).thenReturn(1);
 
         CareRecruitmentResponse res = service.getRecruitment(OTHER, RCRT);
@@ -271,7 +272,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_보면_조회_이력도_조회수도_건드리지_않는다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         CareRecruitmentResponse res = service.getRecruitment(MBR, RCRT);
 
@@ -282,7 +283,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 같은_날_다시_보면_조회수는_그대로이고_작성자는_채팅_인원수를_본다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         CareRecruitmentResponse res = service.getRecruitment(MBR, RCRT);
 
@@ -294,7 +295,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 상세는_로그인_회원이_채팅_중인지를_나가지_않은_참여_기준으로_준다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.existsChatting(PST, OTHER, "CHTC0003")).thenReturn(true);
 
         assertThat(service.getRecruitment(OTHER, RCRT).chatting()).isTrue();
@@ -306,7 +307,7 @@ class CareRecruitmentServiceTest {
         for (String sttsCd : new String[] { MATCHED, "PCAC0003" }) {
             CareRecruitmentDetail matched = detail(sttsCd);
             matched.setCfmtnPetPrtcMtchSn(30L);
-            when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(matched);
+            when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(matched);
             when(careRecruitmentMapper.selectMatchedSitterNcnm(30L)).thenReturn("돌보미");
 
             assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isEqualTo("돌보미");
@@ -317,10 +318,10 @@ class CareRecruitmentServiceTest {
     void 모집중이거나_확정된_매칭이_없으면_돌보미_닉네임은_null이고_조회하지_않는다() {
         CareRecruitmentDetail recruiting = detail(RECRUITING);
         recruiting.setCfmtnPetPrtcMtchSn(30L);
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(recruiting);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(recruiting);
         assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isNull();
 
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
         assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isNull();
 
         verify(careRecruitmentMapper, never()).selectMatchedSitterNcnm(anyLong());
@@ -330,10 +331,10 @@ class CareRecruitmentServiceTest {
     void 상세는_확정된_매칭이_있었는지를_준다() {
         CareRecruitmentDetail dealt = detail("PCAC0003");
         dealt.setCfmtnPetPrtcMtchSn(30L);
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(dealt);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(dealt);
         assertThat(service.getRecruitment(OTHER, RCRT).matched()).isTrue();
 
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail("PCAC0003"));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail("PCAC0003"));
         assertThat(service.getRecruitment(OTHER, RCRT).matched()).isFalse();
     }
 
@@ -565,14 +566,14 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_아니면_수정할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.update(OTHER, RCRT, update(null, null, null, null, null)), ErrorCode.NOT_OWNER);
     }
 
     @Test
     void 모집중이_아니면_수정할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
 
         assertError(() -> service.update(MBR, RCRT, update(null, null, null, null, null)),
                 ErrorCode.CARE_RECRUITMENT_NOT_EDITABLE);
@@ -581,7 +582,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 비용만_바꿔도_합친_값으로_최저시급을_검사한다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.update(MBR, RCRT, update(null, 9000, null, null, null)),
                 ErrorCode.CARE_MIN_WAGE_NOT_MET);
@@ -591,7 +592,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 보낸_필드만_바꾸고_나머지는_그대로_둔다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
 
@@ -616,7 +617,7 @@ class CareRecruitmentServiceTest {
 
     private void stubUpdate() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
     }
@@ -663,7 +664,7 @@ class CareRecruitmentServiceTest {
         noSchedule.setPrtcBgngDt(null);
         noSchedule.setPrtcEndDt(null);
         noSchedule.setSchdlCnsltnPsbltyYn("Y");
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(noSchedule);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(noSchedule);
 
         assertError(() -> service.update(MBR, RCRT, update(null, null, false, null, null)),
                 ErrorCode.INVALID_INPUT_VALUE);
@@ -685,7 +686,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 반려동물을_보내면_목록을_교체한다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
         CareRecruitmentUpdateRequest req = new CareRecruitmentUpdateRequest(List.of(dog(1L, null, "MEDIUM")), null,
@@ -699,7 +700,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 좌표를_하나만_보내면_400() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         CareRecruitmentUpdateRequest onlyLat = new CareRecruitmentUpdateRequest(null, null, null, null, null, null,
                 null, null, null, LAT, null, null, null, null, null);
 
@@ -782,7 +783,7 @@ class CareRecruitmentServiceTest {
         CareRecruitmentDetail pastDetail = detail(RECRUITING);
         pastDetail.setPrtcBgngDt(at(TODAY.minusDays(3)));
         pastDetail.setPrtcEndDt(at(TODAY.minusDays(2)));
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(pastDetail);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(pastDetail);
         CareRecruitmentUpdateRequest titleOnly = new CareRecruitmentUpdateRequest(null, null, null, null, null, null,
                 null, null, null, null, null, "제목만 수정", null, null, null);
 
@@ -805,7 +806,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자는_상태와_무관하게_삭제하고_채팅_기록은_건드리지_않는다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
         when(postMapper.updateStatus(PST, NORMAL, DELETED, "1")).thenReturn(1);
 
         service.delete(MBR, RCRT);
@@ -816,7 +817,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_아니면_삭제할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.delete(OTHER, RCRT), ErrorCode.NOT_OWNER);
         verify(postMapper, never()).updateStatus(anyLong(), anyString(), anyString(), anyString());

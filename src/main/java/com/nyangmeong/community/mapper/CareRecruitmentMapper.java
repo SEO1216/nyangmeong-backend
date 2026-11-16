@@ -32,18 +32,20 @@ public interface CareRecruitmentMapper {
             @Param("petSeCd") String petSeCd, @Param("dogCd") String dogCd,
             @Param("sizeFilter") boolean sizeFilter, @Param("minBdwg") BigDecimal minBdwg,
             @Param("maxBdwg") BigDecimal maxBdwg, @Param("completedCd") String completedCd,
-            @Param("hideDays") long hideDays);
+            @Param("hideDays") long hideDays,
+            @Param("joinedCd") String joinedCd);
 
     /**
      * 상세 조회 (게시글 상태 조건)
      */
     CareRecruitmentDetail selectDetail(@Param("petPrtcRcrtSn") Long petPrtcRcrtSn,
-            @Param("pstSttsCd") String pstSttsCd);
+            @Param("pstSttsCd") String pstSttsCd, @Param("joinedCd") String joinedCd);
 
     /**
      * 게시글 번호로 상세 조회 (펫돌봄 게시글이 아니면 null)
      */
-    CareRecruitmentDetail selectDetailByPstSn(@Param("pstSn") Long pstSn, @Param("pstSttsCd") String pstSttsCd);
+    CareRecruitmentDetail selectDetailByPstSn(@Param("pstSn") Long pstSn, @Param("pstSttsCd") String pstSttsCd,
+            @Param("joinedCd") String joinedCd);
 
     /**
      * 로그인 회원이 이 글로 채팅 중인지 (나가지 않은 참여 방 중 메시지가 오간 방이 있는지)

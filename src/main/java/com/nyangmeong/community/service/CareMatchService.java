@@ -17,6 +17,8 @@ import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentStatus;
 import com.nyangmeong.community.domain.CareRecruitmentStatusHistory;
 import com.nyangmeong.community.domain.ChatRoomDetail;
+import com.nyangmeong.community.domain.ChatRoomStatus;
+import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.domain.PostStatus;
 import com.nyangmeong.community.dto.CareCompletionRequestCreateRequest;
 import com.nyangmeong.community.dto.CareCompletionRequestResponse;
@@ -49,6 +51,8 @@ public class CareMatchService {
     /** 거래 알림 이동 경로 : 프론트 알림 드롭다운이 쿼리의 방 번호로 채팅 모달을 연다 */
     static final String CHAT_ROOM_PATH = "/chat?otoChatRoomSn=%d";
     private static final String CANCEL_BY_LEAVE = "채팅방 나가기";
+    private static final String CLOSE_BY_OTHER_MATCH = "다른 분과 매칭되어 모집 종료";
+    private static final String REOPEN_BY_CANCEL = "확정 매칭 취소로 모집 재개";
     private static final String CANCEL_BY_OTHER_MATCH = "다른 분과 매칭되어 요청이 취소되었어요.";
 
     private final CareMatchMapper careMatchMapper;
@@ -262,6 +266,7 @@ public class CareMatchService {
         if (confirmed) {
             changeRecruitmentStatus(recruitment, CareRecruitmentStatus.MATCHED, CareRecruitmentStatus.RECRUITING,
                     null, mbrSn, CANCEL_BY_LEAVE);
+            reopenOtherRooms(room, mbrSn);
         }
         chatMessageService.createSystemMessage(room.getOtoChatRoomSn(), "상대가 채팅방을 나가 매칭이 취소되었어요.");
         Long counterpartMbrSn = mbrSn.equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn() : room.getOwnerMbrSn();
@@ -438,6 +443,34 @@ public class CareMatchService {
                 changeStatus(other, CareMatchStatus.CANCELED, mbrSn, CANCEL_BY_OTHER_MATCH);
             }
             chatMessageService.createSystemMessage(otherRoomSn, "다른 분과 매칭되어 모집이 종료되었어요.");
+            changeRoomStatus(otherRoomSn, ChatRoomStatus.ACTIVE, ChatRoomStatus.READ_ONLY, mbrSn,
+                    CLOSE_BY_OTHER_MATCH);
+        }
+    }
+
+    /** 채팅방 상태를 바꾸고 이력을 남김 (현재 상태가 from 이 아니면 건너뜀) */
+    private void changeRoomStatus(Long otoChatRoomSn, ChatRoomStatus from, ChatRoomStatus to, Long mbrSn,
+            String chgRsn) {
+        if (chatRoomMapper.updateRoomStatus(otoChatRoomSn, from.getCode(), to.getCode()) == 0) {
+            return;
+        }
+        ChatStatusHistory history = new ChatStatusHistory();
+        history.setRefSn(otoChatRoomSn);
+        history.setMbrSn(mbrSn);
+        history.setBfrSttsCd(from.getCode());
+        history.setAftrSttsCd(to.getCode());
+        history.setChgRsn(chgRsn);
+        chatRoomMapper.insertRoomStatusHistory(history);
+    }
+
+    /** 확정 매칭이 취소돼 모집중으로 돌아가면, 그 글의 읽기 전용 방을 다시 연다 */
+    private void reopenOtherRooms(ChatRoomDetail room, Long mbrSn) {
+        List<Long> closedRoomSns = chatRoomMapper.selectOtherRoomSnsByStatus(room.getPstSn(),
+                room.getOtoChatRoomSn(), ChatRoomStatus.READ_ONLY.getCode());
+        for (Long closedRoomSn : closedRoomSns) {
+            changeRoomStatus(closedRoomSn, ChatRoomStatus.READ_ONLY, ChatRoomStatus.ACTIVE, mbrSn,
+                    REOPEN_BY_CANCEL);
+            chatMessageService.createSystemMessage(closedRoomSn, "모집이 다시 열렸어요.");
         }
     }
 

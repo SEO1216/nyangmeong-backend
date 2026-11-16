@@ -235,6 +235,23 @@
          ORDER BY C.OTO_CHAT_ROOM_SN
     </select>
 
+    <update id="updateRoomStatus">
+        UPDATE OTO_CHAT_ROOM
+           SET CHAT_ROOM_STTS_CD = #{aftrSttsCd}
+             , MDFCN_DT = NOW()
+         WHERE OTO_CHAT_ROOM_SN = #{otoChatRoomSn}
+           AND CHAT_ROOM_STTS_CD = #{bfrSttsCd}
+    </update>
+
+    <select id="selectOtherRoomSnsByStatus" resultType="long">
+        SELECT C.OTO_CHAT_ROOM_SN
+          FROM OTO_CHAT_ROOM C
+         WHERE C.PST_SN = #{pstSn}
+           AND C.OTO_CHAT_ROOM_SN <![CDATA[<>]]> #{exceptRoomSn}
+           AND C.CHAT_ROOM_STTS_CD = #{sttsCd}
+         ORDER BY C.OTO_CHAT_ROOM_SN
+    </select>
+
     <select id="selectList" resultMap="chatRoomSummaryResultMap">
         SELECT C.OTO_CHAT_ROOM_SN
              , C.CHAT_ROOM_STTS_CD

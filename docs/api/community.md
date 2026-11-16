@@ -25,15 +25,15 @@
 | GET | /posts/{pstSn} | 게시글 상세(조회수 동일 사용자 1일 1회 증가) | CMU-001-10 | KSJ | - | PostResponse |
 | GET | /posts/{pstSn}/comments | 댓글·대댓글 목록(삭제 댓글 대체 문구) | CMU-001-11, CMU-002-07 | KSJ | - | List<CommentSummary> |
 | POST | /care-matches | 매칭 요청(채팅방 기준, 보호자만. 요청 시점의 모집글 조건을 복사해 조건 버전을 만든다. 요청 취소된 매칭은 같은 행으로 다시 요청해 조건 버전이 늘어난다) | CMU-005-06 | KSJ | CareMatchCreateRequest | CareMatchResponse |
-| POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내) | CMU-005-07 | KSJ | - | - |
+| POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내를 받고 읽기 전용(CHTC0002)이 됨) | CMU-005-07 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel | 수락 전 매칭 요청 취소(보호자만, 사유 필수) | CMU-005-06 | KSJ | CareMatchCancelRequest | - |
 | POST | /care-matches/{petPrtcMtchSn}/completion-requests | 돌봄 완료 요청(제공자만. 별도 입력 없음, 서버가 회차·요청 시각을 기록. 201) | CMU-005-08 | KSJ | CareCompletionRequestCreateRequest | CareCompletionRequestResponse |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-completion | 보호자 돌봄 완료 확정 | CMU-005-09 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-receipt | 제공자 비용 수령 확인(양측 충족 시 거래 완료) | CMU-005-10 | KSJ | CareMatchReceiptConfirmRequest | - |
 | POST | /care-recruitments | 펫돌봄 모집 등록(multipart/form-data. 반려동물·돌봄 형태·일정·비용 최저시급 검증·장소·사진·동의) | CMU-004-06~11·13 | KSJ | CareRecruitmentCreateRequest | CareRecruitmentResponse |
 | POST | /chat-rooms | 게시글·보호자·지원자 조합 채팅방 생성 또는 기존 방 반환(새 방 201, 기존 방 200) | CMU-004-05, CMU-005-01 | KSJ | ChatRoomCreateRequest | ChatRoomResponse |
-| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 진행 중 매칭은 요청 취소로 바뀌고 매칭 완료 이후였으면 모집글이 모집중으로 돌아감). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
-| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
+| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 진행 중 매칭은 요청 취소로 바뀌고 매칭 완료 이후였으면 모집글이 모집중으로 돌아가고, 그 글의 읽기 전용 방은 다시 열리며 「모집이 다시 열렸어요.」 안내). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
+| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 방이 읽기 전용(CHTC0002)이거나 매칭이 무응답 종료(PCAC0018)면 409 `CHAT_ROOM_CLOSED`(이미 저장된 `idmptDmndId` 재전송은 200). 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/images/{atchFileSn} | 채팅 사진 보기(참여자만, 그 방 메시지에 붙은 사진만) | CMU-005-05 | KSJ | - | 이미지 바이너리 |
 | POST | /chat-rooms/{otoChatRoomSn}/read | 활성 대화창에 표시된 메시지까지 읽음 처리 | CMU-005-03, COM-009 | KSJ | ChatRoomReadRequest | - |
 | POST | /lost-reports | 실종 제보 등록(게시글+제보, 품종 마스터/직접입력, 목격 좌표, 개인정보 동의) | CMU-002-10·13 | KSJ | LostReportCreateRequest | LostReportResponse |

@@ -1,6 +1,7 @@
 package com.nyangmeong.health.mapper;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
@@ -65,6 +66,13 @@ public interface CareItemMapper {
      * 케어 항목 수정
      */
     int updateItem(@Param("item") CareItem item, @Param("actorId") String actorId);
+
+    /**
+     * 케어리스트 표시 항목 저장 (※신규 정책)
+     * - 반려동물의 삭제되지 않은 항목 중 indctSns는 'Y', 나머지는 'N'
+     */
+    int updateIndications(@Param("petSn") Long petSn, @Param("indctSns") Collection<Long> indctSns,
+            @Param("actorId") String actorId);
 
     /**
      * 케어 항목 삭제

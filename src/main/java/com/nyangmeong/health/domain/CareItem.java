@@ -36,6 +36,8 @@ public class CareItem {
     private LocalDate lastCmptnYmd;
     /** 기본항목여부 */
     private String bscArtclYn;
+    /** 표시여부 : NULL이면 고른 적 없음 (※신규 정책) */
+    private String indctYn;
     /** 삭제여부 */
     private String delYn;
     /** 등록일시 */

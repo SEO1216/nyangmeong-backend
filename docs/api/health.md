@@ -9,7 +9,8 @@
 | GET | /care-schedules | 케어 캘린더 일정 목록(여러 반려동물, 화면당 호출 수를 반려동물 수와 관계없이 고정). `?petSns=&fromYmd=&toYmd=&schdlKndCd=&ckupTypeCd=&size=` — `petSns`는 쉼표로 구분한 반려동물 번호(`1,2,3`, 최대 50개, 형식 `^$\|^\d+(,\d+)*$`). 생략하거나 빈 문자열이면 로그인 회원이 양육(주양육자·공동양육자, 연동 중, 삭제 안 됨)하는 반려동물 전체. 볼 수 없는 번호는 오류 없이 빠지고 남은 반려동물이 없으면 빈 목록. 형식 오류·51개 이상은 400 `INVALID_INPUT_VALUE`. **`size`는 반려동물마다 N건**(전체 N건 아님). 나머지 조건과 정렬은 `/pets/{petSn}/care-schedules`와 같고, 그 1마리 주소도 그대로 둔다. AI 도구 `list_my_care_schedules`(1마리 주소는 AI 도구가 아니다. 대화창은 이 도구로 한 마리도 읽는다, 2026-11-11) | HLT-003-29·31·40 | JAJ | - | List<CareScheduleSummary> |
 | GET | /members/me/dashboard-widgets | 건강기록 대시보드 고른 항목·순서. 저장한 적 없으면 `savedYn=false`와 13개 전부(기본 순서, `indctYn=true`)를 주고 프론트가 튜토리얼을 연다 | 새 기능(ID 없음, ※신규 정책) | JAJ | - | HealthDashboardWidgetResponse |
 | GET | /pets/{petSn}/care-completions | 케어 완료 기록 목록(기록 내용). `?careArtclSn=&fromYmd=&toYmd=` | HLT-003-12 | JAJ | - | List<CareCompletionSummary> |
-| GET | /pets/{petSn}/care-items | 케어 항목 목록(토탈 케어리스트, 오늘 투약 횟수 포함). `?careArtclNm=` | HLT-003-12, AIM-012-08 | JAJ | - | List<CareItemSummary> |
+| GET | /pets/{petSn}/care-items | 케어 항목 목록(토탈 케어리스트, 오늘 투약 횟수 포함). `?careArtclNm=`. 숨긴 항목도 담고 행마다 `indctYn`(케어리스트 표시여부)·오늘 케어미션 여부·포인트·완료 여부(※신규 정책) | HLT-003-12, AIM-012-08 | JAJ | - | List<CareItemSummary> |
+| GET | /pets/{petSn}/care-items/mission-progress | 케어리스트 진행 상자의 오늘 케어미션 완료 수/전체 수와 주양육자 여부. 양육자 누구나(공동양육자 포함), 포인트는 담지 않는다. 전체 수는 그날 출제된 미션 전체(마이페이지 포인트 화면과 같은 수), 출제 전이면 0/0 | 새 기능(ID 없음, ※신규 정책) | JAJ | - | CareMissionProgressResponse |
 | GET | /pets/{petSn}/care-schedules | 케어 캘린더 일정 목록. `?fromYmd=&toYmd=&schdlKndCd=&ckupTypeCd=&size=` — 월간·날짜 상세·다가오는 일정·다음 예정일·가까운 예정 일정 후보 | HLT-003-29~31·39·40, HLT-011-04, HLT-002-46 | JAJ | - | List<CareScheduleSummary> |
 | GET | /pets/{petSn}/checkup-attachments | 검진기록 첨부 목록(최신순). `?ckupRcdSn=&atchTypeCd=&page=&size=` — `ckupRcdSn` 생략 시 반려동물 전체(완료 검진기록, 연결 일정이 삭제된 것 포함) | HLT-005-01·02, HLT-011-09 | JAJ | - | Page<CheckupAttachmentSummary> |
 | GET | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 파일 다운로드·이미지 미리보기(보호 파일, 파일 자체 반환) | HLT-005-01, HLT-011-09 | JAJ | - | 파일 |
@@ -38,17 +39,18 @@
 | POST | /pets/{petSn}/prescriptions | 처방약 추가(주기 체크 ON이면 투약 케어 항목 생성) | HLT-005-03 | JAJ | PrescriptionCreateRequest | PrescriptionResponse |
 | POST | /pets/{petSn}/repeat-preventions | 반복 예방 등록(정기관리 케어 항목 자동 추가) | HLT-005-05 | JAJ | RepeatPreventionCreateRequest | RepeatPreventionResponse |
 | PUT | /members/me/dashboard-widgets | 건강기록 대시보드 고른 항목 전체 저장. 13개 코드를 보일 순서대로 한 번씩(배열 순서가 `SORT_SEQ`). 모르는 코드·중복 코드·빠진 코드는 400 `INVALID_INPUT_VALUE`. 저장 뒤 조회와 같은 응답 | 새 기능(ID 없음, ※신규 정책) | JAJ | HealthDashboardWidgetSaveRequest | HealthDashboardWidgetResponse |
+| PUT | /pets/{petSn}/care-items/indications | 케어리스트에 보일 항목 전체 저장(반려동물 단위, 5개 이상). 보낸 항목만 보이고 나머지는 숨김, 처방·반복 예방 연동 항목은 빠져도 보임. 저장 뒤 GET care-items와 같은 응답. 「케어 항목 관리」 모달 [저장]은 POST → PATCH → 이 PUT → DELETE 순서 | HLT-003-12(※신규 정책) | JAJ | CareItemIndicationSaveRequest | List<CareItemSummary> |
 | PATCH | /pets/{petSn}/care-items/{careArtclSn} | 케어 항목 수정(사용자 항목 전체, 기본 정기관리 항목은 주기만) | HLT-003-12 | JAJ | CareItemUpdateRequest | CareItemResponse |
-| PATCH | /pets/{petSn}/care-schedules/{schdlSn} | 일정 수정(반려동물 변경 시 연결 검진기록·자동 생성 케어 항목 이동, ★ 해제) | HLT-003-32~37 | JAJ | CareScheduleUpdateRequest | CareScheduleResponse |
+| PATCH | /pets/{petSn}/care-schedules/{schdlSn} | 일정 수정(반려동물 변경 시 연결 검진기록·자동 생성 케어 항목 이동, 옮긴 항목은 새 반려동물에서 고른 적 없는 상태(※신규 정책), ★ 해제) | HLT-003-32~37 | JAJ | CareScheduleUpdateRequest | CareScheduleResponse |
 | PATCH | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 1건 파일 교체·유형 수정(multipart) | HLT-005-01 | JAJ | CheckupAttachmentUpdateRequest | CheckupAttachmentResponse |
-| PATCH | /pets/{petSn}/checkups/{ckupRcdSn} | 검진기록 수정(내용·메모 인라인, 검진일·반려동물 변경 시 일정 재연결·케어 항목 이동) | HLT-002-26~29, HLT-005-01 | JAJ | CheckupUpdateRequest | CheckupResponse |
+| PATCH | /pets/{petSn}/checkups/{ckupRcdSn} | 검진기록 수정(내용·메모 인라인, 검진일·반려동물 변경 시 일정 재연결·케어 항목 이동, 옮긴 항목은 새 반려동물에서 고른 적 없는 상태(※신규 정책)) | HLT-002-26~29, HLT-005-01 | JAJ | CheckupUpdateRequest | CheckupResponse |
 | PATCH | /pets/{petSn}/daily-health-records/{dailyHlthRcdSn} | 일상 기록 인라인 수정(시각·값). 체중은 0 초과 200 이하(※신규 정책). 산책은 0 초과 120 이하(※신규 정책). 음수량은 1회 프로필 체중(kg)×100 이하, 식사량은 1회 프로필 체중(kg)×50 이하(※신규 정책). 기록 시각은 지금(Asia/Seoul)+5분까지, 넘으면 400 `rcdDt`(※신규 정책: 지난 일만 기록, 예정은 캘린더) | HLT-002-13 | JAJ | DailyHealthRecordUpdateRequest | DailyHealthRecordResponse |
 | PATCH | /pets/{petSn}/etc-inspections/{etcInspSn} | 기타검사 수정 | HLT-005-02·11~14 | JAJ | EtcInspectionUpdateRequest | EtcInspectionResponse |
 | PATCH | /pets/{petSn}/inspection-values/{inspNvlSn} | 검사 수치 1행 수정(항목 변경 불가). refRange를 보내면 덮어씀, {null,null}이면 참고범위 비움, 안 보내면 유지 | HLT-007-02·03 | JAJ | InspectionValueUpdateRequest | InspectionValueResponse |
 | PATCH | /pets/{petSn}/observation-cycles/{obsrvCyclSn} | 관찰 회차 수정(multipart) | HLT-002-19 | JAJ | ObservationCycleUpdateRequest | ObservationCycleResponse |
 | PATCH | /pets/{petSn}/prescriptions/{prscSn} | 처방약 수정(투약 항목 목표 횟수·종료일 연동, 종료·OFF면 투약 항목 삭제) | HLT-005-03 | JAJ | PrescriptionUpdateRequest | PrescriptionResponse |
 | DELETE | /pets/{petSn}/care-completions/{careCmptnHstrySn} | 그날 완료 기록 취소(기록 내용 아이콘, 투약은 그날 체크 전부). 다음 예정일 재계산 | HLT-003-12 | JAJ | - | - |
-| DELETE | /pets/{petSn}/care-items/{careArtclSn} | 사용자 추가 케어 항목 삭제(기본 항목 불가) | HLT-003-12 | JAJ | - | - |
+| DELETE | /pets/{petSn}/care-items/{careArtclSn} | 사용자 추가 케어 항목 삭제(기본 항목 불가). 보이는 항목(`indctYn=true`)을 지워 그 반려동물의 보이는 항목이 5개 미만이 되면 400 `INVALID_INPUT_VALUE`, `data[0].field`=`indctYn`(※신규 정책, 화면 문구 「케어리스트에는 항목을 5개 이상 남겨 주세요.」). 숨긴 항목 삭제는 막지 않는다 | HLT-003-12 | JAJ | - | - |
 | DELETE | /pets/{petSn}/care-items/{careArtclSn}/today-completion/last | 투약 항목 오늘 마지막 1회 취소(케어리스트 [마지막 1회 취소]). 투약 아니면 400, 오늘 기록 없으면 404 | HLT-003-12 | JAJ | - | - |
 | DELETE | /pets/{petSn}/care-schedules/{schdlSn} | 일정 삭제(연결 검진기록은 유지) | HLT-003-33 | JAJ | - | - |
 | DELETE | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 삭제 | HLT-005-01 | JAJ | - | - |
@@ -90,6 +92,7 @@
 | rprsIconId | String | Y | 기록 내용의 항목 아이콘(클릭 시 취소) | CARE_ARTCL.RPRS_ICON_ID, HLT-003-12 |
 | cmptnYmd | LocalDate | Y | 날짜별로 쌓아 표시 | CARE_CMPTN_HSTRY.CMPTN_YMD, HLT-003-12 |
 | cmptnCycl | Integer | N | 투약 항목은 1일 복용 횟수를 채운 날만 나온다 | CARE_CMPTN_HSTRY.CMPTN_CYCL |
+| cmptnDt | LocalDateTime | Y | 완료 시각(화면 「08:12」). 마지막으로 체크한 시각: 투약은 마지막 회차, 취소 뒤 다시 체크하면 다시 체크한 시각. 숨긴 항목의 기록도 나온다 | CARE_CMPTN_HSTRY.MDFCN_DT |
 
 ### CareItemCreateRequest
 쓰는 API: POST /pets/{petSn}/care-items
@@ -103,7 +106,7 @@
 | lastCmptnYmd | LocalDate | N | 정기관리만(일상관리면 보내지 않는다). 보내면 그날 완료 기록 1건을 만든다. 오늘 이후 날짜는 400 `CARE_COMPLETION_FUTURE_DATE`(HLT-003-38). 미입력 시 등록일 기준으로 예정일 계산 | CARE_CMPTN_HSTRY.CMPTN_YMD (HLT-003-38, 미입력 시 등록일 기준) |
 
 ### CareItemResponse
-쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}; POST /pets/{petSn}/care-items (GET care-items 응답 행과 같은 필드 → CareItemSummary와 같은 모양)
+쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}; POST /pets/{petSn}/care-items (GET care-items 응답 행과 같은 필드 → CareItemSummary와 같은 모양. 단 `indctYn`·`todayMsnYn`·`msnPnt`·`msnCmptnYn`은 목록·표시 저장 응답에만)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | careArtclSn | Long | Y | | CARE_ARTCL.CARE_ARTCL_SN |
@@ -143,6 +146,24 @@
 | mdcnEndYmd | LocalDate | N | | PRSC.MDCN_END_YMD (HLT-003-12 복용 종료일 표시) |
 | dayMdcnNmtm | Integer | N | | PRSC.DAY_MDCN_NMTM (투약 n/N회의 N) |
 | todayCmptnCnt | Integer | N | | HLT-003-12 (오늘 CARE_CMPTN_HSTRY 건수) |
+| indctYn | Boolean | Y | 케어리스트 표시여부(※신규 정책). 고른 적 없으면 기본 항목은 추천 5개(화장실 청소·양치·빗질·놀이·귀 청소)만, 직접 추가 항목은 true. 처방·반복 예방 연동 항목은 항상 true. 케어리스트는 true만, 「케어 항목 관리」 모달은 전부 그린다 | CARE_ARTCL.INDCT_YN (NULL = 고른 적 없음) |
+| todayMsnYn | boolean | Y | 오늘 케어미션으로 나온 기본 항목이면 true | DAY_MSN(해당 반려동물, 오늘) ↔ 기본 항목 |
+| msnPnt | Integer | N | 오늘 케어미션 배점 포인트. 주양육자에게만, 공동양육자와 미션 아닌 항목은 null(※신규 정책) | DAY_MSN.SCOR_PNT |
+| msnCmptnYn | boolean | Y | 오늘 케어미션 완료 여부. 미션 아닌 항목은 false | DAY_MSN.CMPTN_YN |
+
+### CareItemIndicationSaveRequest
+쓰는 API: PUT /pets/{petSn}/care-items/indications (※신규 정책)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| careArtclSns | List<Long> | Y | 케어리스트에 보일 항목 번호 전체. 빠진 항목은 숨긴다. 처방·반복 예방 연동 항목은 빠져도 오류 없이 보인다. 보일 항목(보낸 항목 + 연동 항목)이 5개 미만이면 400 `INVALID_INPUT_VALUE` `data[0].field`=`indctYn`, 그 반려동물의 항목이 아니거나 삭제된 항목·중복 번호는 400 `INVALID_INPUT_VALUE` `data[0].field`=`careArtclSns`. 「케어 항목 관리」 모달에서 지울 항목은 넣지 않는다 | CARE_ARTCL.INDCT_YN |
+
+### CareMissionProgressResponse
+쓰는 API: GET /pets/{petSn}/care-items/mission-progress (※신규 정책)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| prmyYn | boolean | Y | 요청 회원이 그 반려동물의 주양육자인지(공동양육자면 포인트 문구 대신 「공동양육 중인 아이라 포인트는 주양육자에게 적립돼요」) | 양육 역할 |
+| cmptnCnt | int | Y | 오늘 완료한 미션 수(진행 상자 a) | DAY_MSN.CMPTN_YN |
+| totCnt | int | Y | 오늘 출제된 미션 수(진행 상자 b). 출제 전이면 0 | DAY_MSN |
 
 ### CareItemUpdateRequest
 쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}

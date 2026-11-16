@@ -81,6 +81,18 @@ public interface ChatRoomMapper {
             @Param("joinedCd") String joinedCd);
 
     /**
+     * 채팅방 상태 변경 (현재 상태가 bfrSttsCd 일 때만)
+     */
+    int updateRoomStatus(@Param("otoChatRoomSn") Long otoChatRoomSn, @Param("bfrSttsCd") String bfrSttsCd,
+            @Param("aftrSttsCd") String aftrSttsCd);
+
+    /**
+     * 같은 글의 다른 채팅방 중 지정한 상태인 방 번호 목록
+     */
+    List<Long> selectOtherRoomSnsByStatus(@Param("pstSn") Long pstSn, @Param("exceptRoomSn") Long exceptRoomSn,
+            @Param("sttsCd") String sttsCd);
+
+    /**
      * 같은 글의 다른 채팅방 번호 목록
      */
     List<Long> selectOtherRoomSns(@Param("pstSn") Long pstSn, @Param("exceptRoomSn") Long exceptRoomSn);

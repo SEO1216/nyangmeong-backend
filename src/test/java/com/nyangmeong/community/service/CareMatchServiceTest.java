@@ -29,6 +29,7 @@ import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentStatusHistory;
 import com.nyangmeong.community.domain.ChatParticipant;
 import com.nyangmeong.community.domain.ChatRoomDetail;
+import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.dto.CareCompletionRequestCreateRequest;
 import com.nyangmeong.community.dto.CareMatchCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCreateRequest;
@@ -577,5 +578,62 @@ class CareMatchServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.expireNoResponse(MATCH, CareMatchStatus.AWAITING_RECEIPT, 14L))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // 종료 방 읽기 전용
+
+    @Test
+    void 수락하면_같은_글의_다른_방은_읽기_전용이_되고_이력이_남는다() {
+        stubMatch(REQUESTED);
+        when(chatRoomMapper.selectOtherRoomSns(PST, ROOM)).thenReturn(List.of(12L));
+        when(chatRoomMapper.updateRoomStatus(12L, "CHTC0001", "CHTC0002")).thenReturn(1);
+
+        service.accept(SITTER, MATCH);
+
+        verify(chatRoomMapper).updateRoomStatus(12L, "CHTC0001", "CHTC0002");
+        ArgumentCaptor<ChatStatusHistory> history = ArgumentCaptor.forClass(ChatStatusHistory.class);
+        verify(chatRoomMapper).insertRoomStatusHistory(history.capture());
+        assertThat(history.getValue().getRefSn()).isEqualTo(12L);
+        assertThat(history.getValue().getMbrSn()).isEqualTo(SITTER);
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0001");
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0002");
+    }
+
+    @Test
+    void 이미_읽기_전용인_방은_이력을_남기지_않는다() {
+        stubMatch(REQUESTED);
+        when(chatRoomMapper.selectOtherRoomSns(PST, ROOM)).thenReturn(List.of(12L));
+        when(chatRoomMapper.updateRoomStatus(12L, "CHTC0001", "CHTC0002")).thenReturn(0);
+
+        service.accept(SITTER, MATCH);
+
+        verify(chatRoomMapper, never()).insertRoomStatusHistory(any());
+    }
+
+    @Test
+    void 확정_매칭이_나가기로_취소되면_읽기_전용_방이_다시_열리고_안내가_남는다() {
+        stubMatch(AWAITING_CONFIRM);
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(recruitment(MATCHED_CD));
+        when(chatRoomMapper.selectOtherRoomSnsByStatus(PST, ROOM, "CHTC0002")).thenReturn(List.of(12L));
+        when(chatRoomMapper.updateRoomStatus(12L, "CHTC0002", "CHTC0001")).thenReturn(1);
+
+        service.cancelOnLeave(SITTER, room(MATCH, AWAITING_CONFIRM));
+
+        verify(chatRoomMapper).updateRoomStatus(12L, "CHTC0002", "CHTC0001");
+        ArgumentCaptor<ChatStatusHistory> history = ArgumentCaptor.forClass(ChatStatusHistory.class);
+        verify(chatRoomMapper).insertRoomStatusHistory(history.capture());
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0002");
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0001");
+        verify(chatMessageService).createSystemMessage(12L, "모집이 다시 열렸어요.");
+    }
+
+    @Test
+    void 수락_대기에서_나가면_다른_방_상태는_건드리지_않는다() {
+        stubMatch(REQUESTED);
+
+        service.cancelOnLeave(GUARDIAN, room(MATCH, REQUESTED));
+
+        verify(chatRoomMapper, never()).updateRoomStatus(anyLong(), anyString(), anyString());
+        verify(chatRoomMapper, never()).selectOtherRoomSnsByStatus(anyLong(), anyLong(), anyString());
     }
 }

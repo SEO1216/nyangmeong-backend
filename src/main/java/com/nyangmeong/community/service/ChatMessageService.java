@@ -17,6 +17,8 @@ import com.nyangmeong.community.domain.ChatMessage;
 import com.nyangmeong.community.domain.ChatMessagePhoto;
 import com.nyangmeong.community.domain.ChatMessageType;
 import com.nyangmeong.community.domain.ChatParticipantStatus;
+import com.nyangmeong.community.domain.ChatRoom;
+import com.nyangmeong.community.domain.ChatRoomStatus;
 import com.nyangmeong.community.dto.ChatMessageCreateRequest;
 import com.nyangmeong.community.dto.ChatMessageResponse;
 import com.nyangmeong.community.dto.ChatMessageSliceResponse;
@@ -91,7 +93,7 @@ public class ChatMessageService {
         checkRequest(req, images);
 
         /** 방 잠금 뒤에 중복 요청과 순서를 확인 : 같은 방의 전송이 한 줄로 처리됨 */
-        chatRoomMapper.selectRoomForUpdate(otoChatRoomSn);
+        ChatRoom lockedRoom = chatRoomMapper.selectRoomForUpdate(otoChatRoomSn);
         ChatMessage replay = chatMessageMapper.selectByIdmptDmndIdForShare(req.idmptDmndId());
         if (replay != null) {
             if (!otoChatRoomSn.equals(replay.getOtoChatRoomSn()) || !mbrSn.equals(replay.getMbrSn())) {
@@ -104,6 +106,7 @@ public class ChatMessageService {
         if (ChatMessageType.ADDRESS.is(req.msgTypeCd())) {
             checkAddressAllowed(otoChatRoomSn);
         }
+        checkRoomOpen(lockedRoom, otoChatRoomSn);
 
         ChatMessage message = new ChatMessage();
         message.setOtoChatRoomSn(otoChatRoomSn);
@@ -166,6 +169,15 @@ public class ChatMessageService {
         }
         if (!valid) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    /** 읽기 전용 방과 무응답 종료된 매칭 방은 새 메시지를 받지 않음 (room 은 방 잠금 때 읽은 값) */
+    private void checkRoomOpen(ChatRoom room, Long otoChatRoomSn) {
+        CareMatch match = careMatchMapper.selectByRoomForUpdate(otoChatRoomSn);
+        if ((room != null && ChatRoomStatus.READ_ONLY.is(room.getChatRoomSttsCd()))
+                || (match != null && CareMatchStatus.NO_RESPONSE.is(match.getMtchDlngSttsCd()))) {
+            throw new CustomException(ErrorCode.CHAT_ROOM_CLOSED);
         }
     }
 

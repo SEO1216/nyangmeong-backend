@@ -538,8 +538,7 @@
 - 기다리는 것: 프론트 SCR-ADM-081(끝, 가짜 응답 `features/adminAiKeyword/api.js`)
 - 완료 조건: `GET /api/admin/ai/keywords?dictUsgCd=&kwrdClsfNm=`(용도·분류가 같은 행, `sortSeq`·`kwrdDictSn` 순, 한 줄은 `KWRD_DICT` 필드 `kwrdDictSn`·`dictUsgCd`·`kwrdClsfNm`·`artclNm`·`kwrdCn`·`intrpRsltCn`·`mpngCd`·`sortSeq`·`rmrkCn`·`useYn`), `POST /api/admin/ai/keywords`(본문 `dictUsgCd`·`kwrdClsfNm`·`artclNm`·`kwrdCn`·`intrpRsltCn`·`mpngCd`·`rmrkCn`, 새 행 `sortSeq`는 프론트 가정 그 탭 맨 아래), `PATCH`·`DELETE /api/admin/ai/keywords/{kwrdDictSn}`, 감사 로그. 프론트 탭은 AIMC0037의 등록 동사·날짜·주기·일정 종류·검진유형(판정 규칙·시간 행은 뺌)과 AIMC0038 "가계부 카테고리". 가계부 분류(AIMC0038) 초기 키워드 INSERT. AI 서버·대화창용 조회 API: 예시 문구 형식 차이: AI 서버 `ai/data/register_dict.yaml`은 정규식(`(잡아|등록해)(줘|주|줄)`·`\d+일후`), DB `KWRD_CN`은 부록 B 예시 문구(`잡아줘, 등록해줘`·`○일 후`)라 그대로 못 쓴다. 사전에 정규식을 저장할지, 예시를 정규식으로 바꾸는 규칙을 둘지 정한다
 - 완료 조건 결과: 검증 `확인 못 함 있음`(2026-11-05, 2회차. 1회차는 공용 DB에 v0.13 (2) 미실행 → 사람이 실행 뒤 재검증, 내 몫 확인 못 함 없음), 사람 확인 2026-11-05. 정한 것: `useYn`은 true/false, 행에 `mpngCdNm` 추가, 404 `AI_KEYWORD_NOT_FOUND`, 다루는 분류는 AIMC0037 등록 동사·날짜·주기·일정 종류·검진유형과 AIMC0038 가계부 카테고리('판정 규칙'·'시간'은 목록에 없고 수정·삭제 404, 그 분류로 등록하면 400), 새 행 `sortSeq`는 탭 최댓값+1(빈 탭 10), 가계부 분류 초기 데이터 6건(v0.13 (2), 기타 없음). AI 서버용 `GET /internal/ai/keywords?dictUsgCd=`는 사용 중 행을 예시 문구 그대로 준다(결정 ① 추천안). 계약은 `docs/api/ai.md`
-- 연결 남음: FN-ADM-081-01·02 (프론트 연결 `features/adminAiKeyword/api.js` 목록·등록/수정 모달·삭제, 프론트 저장소에서 /start)
-- 연결 남음: FN-ADM-081-01 내부 제공 (ai 연결 `app/chat/rules.py`가 `register_dict.yaml` 대신 `GET /internal/ai/keywords`를 읽게, 정규식 변환 규칙은 ai가 정함, ai 저장소에서 /start)
+- 연결 남음: 없음(2026-11-16 키워드 사전 삭제로 프론트·ai 연결 둘 다 필요 없어짐, 아래 "API 삭제" 절)
 
 ## SCR-ADM-082 처리 현황 · 영수증 OCR 현황 API — 끝
 - 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-082-01
@@ -660,6 +659,12 @@
 - 완료 조건: 세 파일에 "저장한 적 없으면 종합 건강기록" 뜻의 문장이 없고 `[]`를 준다고 적혀 있다. `./gradlew build -q` 통과
 - 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차, 8082에서 `/v3/api-docs` summary 새 문구 확인), 사람 확인 2026-11-13. pet 패키지 `grep "종합 건강기록"` 결과 없음, `PetShortcutServiceTest` 통과
 - 연결 남음: 없음
+
+## SCR-ADM-110 운영 설정 · 거래완료 글 숨김 기준 일수 검토·검증 서버 반영 — 끝
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-ADM-110-01~04
+- 기다리는 것: 프론트 SCR-ADM-110 거래완료 글 숨김 기준 칸(끝 2026-11-16, 프론트 `features/setting/shared/settingFields.js`)
+- 완료 조건: KSJ가 고친 global/setting의 `dlngCmptnHideCrtrDayCnt`를 담당자로서 검토한다(1~99 검증, 400 칸 오류 field 이름이 `dlngCmptnHideCrtrDayCnt`, 감사 로그 포함, 값이 null이면 7). 검증 백엔드 8081을 이 코드로 다시 띄우고 프론트 세션에 알린다
+- 이미 바뀐 것: `global/setting/AdminSettingResponse.java`·`AdminSettingUpdateRequest.java`·`AdminSystemSettingService.java`·`SystemSetting.java`, `mapper/global/SystemSettingMapper.xml`, 테스트 `AdminSettingHideDaysTest`(KSJ, `13794f1`)
 
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
@@ -786,3 +791,19 @@
 - 추가: 추가-1 무료 재생성 멱등 ID `REGEN-{직전 작업 번호}`(동시 다시 처리 409 `PIXEL_CHARACTER_CREATING`), 검증 통과
 - 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태(`regenJobSttsCd`) 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start)
 - 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트 보내기, ai 저장소에서 /start. 재생성 입구 regenerate·regen-start·original-photo 호출은 ai-39가 구현함)
+
+## SCR-ADM-110 운영 설정 · 거래완료 숨김 일수 검토 — 끝
+- 기능: FN-ADM-110-01 설정 조회, FN-ADM-110-02 설정 수정(KSJ 13794f1이 `community.dlngCmptnHideCrtrDayCnt`를 넣음, `global/setting` 담당 LJS 검토. frontend-07 요청, 사람 합의 2026-11-16)
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `PATCH /api/admin/settings`가 `dlngCmptnHideCrtrDayCnt` 0·100을 400 `data[0].field`=`dlngCmptnHideCrtrDayCnt`로 막고 1·99는 받는다. 바뀐 값이 감사 로그에 남고, 값이 없으면 7이다
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 코드 수정 없음, `AdminSystemSettingControllerTest` 경계값 테스트 2개 추가
+- 연결 남음: 없음(프론트 입력칸은 handoff/KSJ.md·milestones/KSJ.md의 연결 남음 그대로)
+
+## SCR-ADM-081 키워드 사전 · 관리자·내부 키워드 사전 API 삭제 — 끝
+- 기능: 명세 기능 ID 추가 없음(frontend-07 요청, 사람 결정 2026-11-16), 걸치는 기능 FN-ADM-081-01·02·03
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음(프론트 화면 삭제는 따로, 순서 의존 없음)
+- 완료 조건: `/api/admin/ai/keywords`·`/internal/ai/keywords` 코드와 `docs/api/ai.md` 행·DTO 절이 없어지고, `KWRD_DICT`를 쓰는 커뮤니티 뉴스 키워드(`/api/admin/news/keywords`)와 라우팅 매핑표(`/api/admin/ai/routes`)는 그대로 동작한다
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 정한 것: AIMC0037·0038 공통코드와 그 `KWRD_DICT` 행은 DB에 남김(추천안대로, `db/` SQL 변경 없음). 기능명세서·화면설계서 반영은 사람
+- 연결 남음: 없음(프론트 화면 삭제는 프론트 저장소가 따로 진행)

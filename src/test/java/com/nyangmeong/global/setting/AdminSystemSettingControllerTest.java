@@ -107,6 +107,30 @@ class AdminSystemSettingControllerTest {
 
     @Test
     @WithMockLoginMember(id = 9L, mbrAuthrtCd = ADMIN)
+    void 거래완료_숨김_일수가_1에서_99_밖이면_400() throws Exception {
+        for (String value : new String[] { "0", "100" }) {
+            mockMvc.perform(patch("/api/admin/settings").header("X-Requested-With", "XMLHttpRequest")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"dlngCmptnHideCrtrDayCnt\":" + value + "}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
+                    .andExpect(jsonPath("$.data[0].field").value("dlngCmptnHideCrtrDayCnt"));
+        }
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = ADMIN)
+    void 거래완료_숨김_일수_1과_99는_받는다() throws Exception {
+        when(adminSystemSettingService.update(any(), any())).thenReturn(new SystemSetting());
+
+        for (String value : new String[] { "1", "99" }) {
+            mockMvc.perform(patch("/api/admin/settings").header("X-Requested-With", "XMLHttpRequest")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"dlngCmptnHideCrtrDayCnt\":" + value + "}"))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    @WithMockLoginMember(id = 9L, mbrAuthrtCd = ADMIN)
     void 최저시급_연도_형식_오류는_400() throws Exception {
         mockMvc.perform(patch("/api/admin/settings").header("X-Requested-With", "XMLHttpRequest")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"lowstHrwgAplcnYr\":\"26\"}"))

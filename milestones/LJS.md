@@ -661,7 +661,7 @@
 - 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차, 8082에서 `/v3/api-docs` summary 새 문구 확인), 사람 확인 2026-11-13. pet 패키지 `grep "종합 건강기록"` 결과 없음, `PetShortcutServiceTest` 통과
 - 연결 남음: 없음
 
-## SCR-ADM-110 운영 설정 · 거래완료 글 숨김 기준 일수 검토·검증 서버 반영 — 대기
+## SCR-ADM-110 운영 설정 · 거래완료 글 숨김 기준 일수 검토·검증 서버 반영 — 끝
 - 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-ADM-110-01~04
 - 기다리는 것: 프론트 SCR-ADM-110 거래완료 글 숨김 기준 칸(끝 2026-11-16, 프론트 `features/setting/shared/settingFields.js`)
 - 완료 조건: KSJ가 고친 global/setting의 `dlngCmptnHideCrtrDayCnt`를 담당자로서 검토한다(1~99 검증, 400 칸 오류 field 이름이 `dlngCmptnHideCrtrDayCnt`, 감사 로그 포함, 값이 null이면 7). 검증 백엔드 8081을 이 코드로 다시 띄우고 프론트 세션에 알린다

@@ -42,6 +42,23 @@ class PetMapperXmlTest {
     }
 
     @Test
+    void 함께하는_반려동물_수는_역할과_관계없이_연동_중이고_삭제되지_않은_행만_센다() throws Exception {
+        assertThat(sql("select", "countLinkedPets"))
+                .contains("R.MBR_SN = #{mbrSn}")
+                .contains("R.USE_YN = 'Y'")
+                .contains("P.DEL_YN = 'N'")
+                .doesNotContain("BRUP_ROLE_CD");
+    }
+
+    @Test
+    void 반려동물_한도_검사는_회원_행을_잠근다() throws Exception {
+        assertThat(sql("select", "lockMemberForPetLimit"))
+                .contains("FROM MBR")
+                .contains("WHERE MBR_SN = #{mbrSn}")
+                .contains("FOR UPDATE");
+    }
+
+    @Test
     void 체중_수정은_PET_BDWG만_바꾸고_삭제되지_않은_행만_고른다() throws Exception {
         String sql = sql("update", "updatePetWeight");
         assertThat(sql)

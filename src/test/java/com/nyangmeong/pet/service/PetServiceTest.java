@@ -184,6 +184,7 @@ class PetServiceTest {
     @Test
     void 등록은_PET과_주양육_양육관계를_저장한다() {
         when(mapper.countPrimaryPets(MBR, BrupRole.PRIMARY.getCode())).thenReturn(2);
+        when(mapper.countLinkedPets(MBR)).thenReturn(2);
 
         PetResponse res = service.createPet(MBR, create(15L, null, " 새우, ,닭고기 ", " , "));
 
@@ -229,7 +230,7 @@ class PetServiceTest {
 
     @Test
     void 주양육_0마리에서_등록하면_대표가_된다() {
-        when(mapper.countPrimaryPets(MBR, BrupRole.PRIMARY.getCode())).thenReturn(0);
+        when(mapper.countLinkedPets(MBR)).thenReturn(0);
 
         service.createPet(MBR, create(15L, null, null, null));
 
@@ -240,19 +241,48 @@ class PetServiceTest {
 
     @Test
     void 주양육_10마리면_등록이_막힌다() {
-        when(mapper.countPrimaryPets(MBR, BrupRole.PRIMARY.getCode())).thenReturn(10);
+        when(mapper.countLinkedPets(MBR)).thenReturn(10);
 
         assertCode(() -> service.createPet(MBR, create(15L, null, null, null)), ErrorCode.PET_LIMIT_EXCEEDED);
         verify(mapper, never()).insertPet(any());
     }
 
     @Test
-    void 주양육_9마리면_공동양육과_상관없이_등록된다() {
-        when(mapper.countPrimaryPets(MBR, BrupRole.PRIMARY.getCode())).thenReturn(9);
+    void 주양육_9마리와_공동양육_1마리면_합계_10이라_등록이_막힌다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(10);
+
+        assertCode(() -> service.createPet(MBR, create(15L, null, null, null)), ErrorCode.PET_LIMIT_EXCEEDED);
+        verify(mapper, never()).insertPet(any());
+    }
+
+    @Test
+    void 이미_10마리를_넘은_회원도_등록만_막히고_데이터는_건드리지_않는다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(12);
+
+        assertCode(() -> service.createPet(MBR, create(15L, null, null, null)), ErrorCode.PET_LIMIT_EXCEEDED);
+        verify(mapper, never()).insertPet(any());
+        verify(mapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 합계_9마리면_등록된다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(9);
 
         service.createPet(MBR, create(15L, null, null, null));
 
         verify(mapper).insertPet(any());
+    }
+
+    @Test
+    void 등록은_회원_행을_잠근_뒤_센다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(0);
+
+        service.createPet(MBR, create(15L, null, null, null));
+
+        InOrder order = inOrder(mapper);
+        order.verify(mapper).lockMemberForPetLimit(MBR);
+        order.verify(mapper).countLinkedPets(MBR);
+        order.verify(mapper).insertPet(any());
     }
 
     @Test

@@ -42,6 +42,7 @@ import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationConflictResponse;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationLinkedPet;
@@ -229,11 +230,25 @@ class CaregiverInvitationControllerTest {
     @Test
     @WithMockLoginMember
     void 수락은_200() throws Exception {
+        when(caregiverInvitationService.acceptInvitation(eq(1L), eq(50L), any()))
+                .thenReturn(CaregiverInvitationAcceptResult.success());
         mockMvc.perform(json(post("/api/caregiver-invitations/50/accept"), "{\"petSns\":[100]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.httpCode").value(200));
         verify(caregiverInvitationService).acceptInvitation(1L, 50L,
                 new CaregiverInvitationAcceptRequest(List.of(100L)));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 반려동물_한도를_넘는_수락은_400이고_data에_남은_자리가_있다() throws Exception {
+        when(caregiverInvitationService.acceptInvitation(eq(1L), eq(50L), any()))
+                .thenReturn(CaregiverInvitationAcceptResult.limitExceeded(2));
+
+        mockMvc.perform(json(post("/api/caregiver-invitations/50/accept"), "{\"petSns\":[100]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.data.remainingPetCount").value(2));
     }
 
     @Test

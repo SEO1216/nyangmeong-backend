@@ -78,6 +78,9 @@
 --   UPDATE `COM_CD` SET `COM_CD_NM`='기타진료', `COM_CD_EXPLN`='기타진료 — 일정 종류 ''기타''(HLTG19)와 표기 충돌을 피하기 위한 명칭 (09-15 회의)', `MDFCN_DT`=NOW() WHERE `COM_CD`='HLTC0005';
 --   UPDATE `COM_CD` SET `COM_CD_EXPLN`='기타진료·그 밖의 일정 기본 톤', `MDFCN_DT`=NOW() WHERE `COM_CD`='HLTC0083';
 --   UPDATE `KWRD_DICT` SET `INTRP_RSLT_CN`='검진유형 = 기타진료(HLTG01)', `MDFCN_DT`=NOW() WHERE `DICT_USG_CD`='AIMC0037' AND `MPNG_CD`='HLTC0005' AND `INTRP_RSLT_CN`='검진유형 = 기타 진료(HLTG01)';
+-- v0.14 (14) 공동양육 초대 상태 취소(PETC0035) 추가 (2026-11-16, SJM, 근거: 사람 결정 2026-11-16 "주양육자가 보낸 대기 중 초대를 취소하고, 취소한 초대는 목록에서 삭제", SCR-MYP-004·005 FN-MYP-005-03·10). 기존 DB에 실행하며 새 DB는 본문 끝의 같은 행으로 만든다. 공용 DB 실행 전(사람이 실행)
+--   SET NAMES utf8mb4;
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
 SET NAMES utf8mb4;
 START TRANSACTION;
 
@@ -615,6 +618,9 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='MANG02') p),'MANC0016','케어미션','마이페이지 포인트의 케어미션으로 이동',90);
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='MANG02') p),'MANC0017','캐릭터 꾸미기','마이페이지 캐릭터 꾸미기로 이동',100);
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='MANG02') p),'MANC0018','반려동물 정보 수정','마이페이지 반려동물 목록에서 그 반려동물 수정 창을 연다',110);
+
+-- ■ PET 마이페이지(반려동물) — v0.14 추가: 초대 상태 취소 (v0.14 (14))
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PETG06') p),'PETC0035','취소','주양육자가 보낸 대기중 초대를 수락·거절 전에 취소. 취소한 초대만 보낸 초대 목록에서 삭제(JNT_BRUP_INVTN.DEL_YN)',50);
 
 -- =====================================================================
 -- [2] 케어미션 마스터 (CARE_MSN) — 20261027_02_update_care_msn_and_ckup_pnt 의 최종 상태

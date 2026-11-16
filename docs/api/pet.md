@@ -17,8 +17,8 @@
 | GET | /admin/care-missions | 관리자 케어미션 목록. 사용 안 함 포함, 번호순, 페이지 없음. 쿼리 `msnPoolCd`(MYPG04: MYPC0010 일상케어·MYPC0011 활동기반) 없거나 공백이면 전체. 모르는 풀 코드 400 INVALID_INPUT_VALUE, 일반 회원 403 ADMIN_ONLY | ADM-071-01 | LJS | - | List<AdminCareMissionSummary> |
 | PATCH | /admin/care-missions/{careMsnSn} | 케어미션 수정(보상 포인트·달성 기준 횟수·사용 여부 중 보낸 칸만, 미션명·풀·이동 경로는 안 바꿈, 감사 로그). 추가·삭제 API 없음(미션은 코드의 활동과 짝). 바꾼 값은 다음 날 00:00 출제부터 반영하고, 이미 출제된 미션은 출제 때 복사한 배점(`DAY_MSN.SCOR_PNT`)·달성 기준(`DAY_MSN.ACHV_CRTR_NMTM`)으로 진행·정산한다. 사용을 꺼도 이미 출제된 미션은 진행된다. 아무 칸도 없거나 범위 밖이면 400 INVALID_INPUT_VALUE, 없는 미션 404 CARE_MISSION_NOT_FOUND | ADM-071-02·03 | LJS | AdminCareMissionUpdateRequest | AdminCareMissionSummary |
 | GET | /breeds | 반려동물 구분별 품종 마스터 목록(`?petSeCd=`) | CMU-002-13, CMU-004-06·13, MYP-003-02 (기능 분배 3.1절 10번) | KSJ | - | List<BreedSummary> |
-| GET | /caregiver-invitations | 내가 보낸 공동양육 초대 목록(계정 전체) | MYP-005-03 | SJM | - | List<CaregiverInvitationSummary> |
-| GET | /caregiver-invitations/{jntBrupInvtnSn} | 받은 초대 상세. 로그인 회원 누구나. 대기중이고 로그인 이메일이 초대 이메일과 같을 때만 초대한 사람·대상 반려동물 카드, 아니면 상태와 가린 이메일만(만료·처리 여부를 이메일보다 먼저 판단) | MYP-005-05·09·10 | SJM | - | CaregiverInvitationResponse |
+| GET | /caregiver-invitations | 내가 보낸 공동양육 초대 목록(계정 전체, 취소 포함, 삭제한 초대 제외) | MYP-005-03 | SJM | - | List<CaregiverInvitationSummary> |
+| GET | /caregiver-invitations/{jntBrupInvtnSn} | 받은 초대 상세. 로그인 회원 누구나. 대기중이고 로그인 이메일이 초대 이메일과 같을 때만 초대한 사람·대상 반려동물 카드, 아니면 상태와 가린 이메일만(만료·처리·취소 여부를 이메일보다 먼저 판단, 취소는 PETC0035로 내려가고 프론트가 "취소된 초대예요"를 보인다, 삭제한 초대는 404) | MYP-005-05·09·10 | SJM | - | CaregiverInvitationResponse |
 | GET | /items/{itemSn}/image | 아이템 이미지(로그인 회원, 판매 중 아이템) | MYP-010-14, MYP-011-02 | LJS | - | 이미지 파일 |
 | GET | /members/me/points | 보유 포인트, 이번 달 적립·사용 합계와 건수, 오늘 미션 요약(주양육 반려동물 전체) | MYP-001-03·04, MYP-011-05, MYP-020-01·09 | SJM | - | PointResponse |
 | GET | /pets | 내 반려동물 목록(주양육·공동양육, 역할·대표 여부·공동양육 인원 포함) | MYP-001-01, MYP-002-01~03, MYP-005-02, MYP-006-04, MYP-020-03 | SJM | - | List<PetSummary> |
@@ -33,6 +33,7 @@
 | GET | /point-ledgers | 선택한 월의 포인트 적립·사용 내역(최신순). 쿼리 `yearMonth` | MYP-020-02 | SJM | - | List<PointLedgerSummary> |
 | POST | /caregiver-invitations | 이메일로 공동양육 초대 발송. 대상 반려동물 여러 마리를 한 초대로 묶음. 가입 회원은 인앱 알림, 미가입은 메일. 고른 반려동물을 모두 검사해 충돌을 모아 409 오류 data에 CaregiverInvitationConflictResponse. 이미 가족이 하나라도 있으면 `CAREGIVER_ALREADY_LINKED`, 대기 초대만 있으면 `CAREGIVER_INVITATION_DUPLICATED`. 충돌이 있으면 초대를 만들지 않음 | MYP-005-01·02 | SJM | CaregiverInvitationCreateRequest | CaregiverInvitationResponse |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
+| POST | /caregiver-invitations/{jntBrupInvtnSn}/cancel | 보낸 초대 취소. 내가 보낸 만료 전 대기중 초대만 취소(상태 PETC0035, 이력 대기중→취소). 남이 보낸 초대 403 `CAREGIVER_INVITATION_NOT_SENDER`, 수락·거절한 초대와 동시 응답으로 못 바꾼 초대 409 `CAREGIVER_INVITATION_ALREADY_PROCESSED`, 이미 취소한 초대 409 `CAREGIVER_INVITATION_CANCELED`, 만료된 초대 400 `CAREGIVER_INVITATION_EXPIRED`. 받는 사람 알림은 새로 보내지 않는다. 취소 뒤 받는 쪽 수락·거절은 409 `CAREGIVER_INVITATION_CANCELED` | MYP-005-03 | SJM | - | - |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/reject | 초대 거절. 초대의 반려동물 전체 | MYP-005-07·08 | SJM | - | - |
 | POST | /pets | 반려동물 등록(계정당 10마리, 첫 등록은 대표 지정) | MYP-002-01, MYP-003-01·04·05·07 | SJM | PetCreateRequest | PetResponse |
 | POST | /pets/{petSn}/representative | 대표 반려동물 지정(주양육 반려동물만) | MYP-010-05 | SJM | - | - |
@@ -40,6 +41,7 @@
 | PUT | /pixel-characters/{pixelCharSn}/equipped-items | 착용 상태 확정 저장(부위당 1개, 요청에 없는 보유 아이템은 착용 해제). 착용 모습 대표 이미지를 지운다 | MYP-010-13·16 | LJS | EquippedItemSaveRequest | PixelCharacterResponse |
 | PUT | /pets/main-shortcuts | 메인 바로가기 저장. 본문은 배열 `[{ petSn, shrtcCds }]`, 반려동물마다 보일 코드를 순서대로(`[]`면 전부 숨김). 본문에 없는 반려동물은 그대로. 400 `INVALID_INPUT_VALUE`(`data[].field`가 `[i].petSn`·`[i].shrtcCds`·`[i].shrtcCds[j]`): 반려동물 번호 없음·중복, 코드 목록 없음, 같은 코드 두 번, MANG02에 없거나 사용 안 하는 코드. 남의 반려동물 403 `PET_ACCESS_DENIED`, 없는 번호 404 `PET_NOT_FOUND`(하나라도 틀리면 아무것도 저장 안 함). 응답은 조회와 같음 | MAN-008 | LJS | List<PetShortcutSaveRequest> | List<PetShortcutSummary> |
 | PATCH | /pets/{petSn} | 반려동물 수정(양육자 전원, 체중 잠금은 화면에서) | MYP-002-04, MYP-003-01·04~07 | SJM | PetUpdateRequest | PetResponse |
+| DELETE | /caregiver-invitations/{jntBrupInvtnSn} | 취소한 보낸 초대 삭제(보낸 목록에서 숨김, `JNT_BRUP_INVTN.DEL_YN = 'Y'`, 상태 이력·대상 반려동물은 남김). 내가 보낸 초대만(아니면 403 `CAREGIVER_INVITATION_NOT_SENDER`), 취소 상태가 아니면 409 `CAREGIVER_INVITATION_NOT_CANCELED`, 없거나 이미 삭제한 초대 404 `CAREGIVER_INVITATION_NOT_FOUND`. 삭제한 초대는 받는 쪽 상세도 404 | MYP-005-03 | SJM | - | - |
 | DELETE | /pets/{petSn} | 반려동물 삭제(주양육자만). 캐릭터·보유 아이템 삭제, 공동양육 연동 해제, 대표 승계 | MYP-002-07·08 | SJM | - | - |
 | DELETE | /pets/{petSn}/caregivers/{brupRelSn} | 공동양육 연동 해제. 주양육자의 강제 해제와 공동양육자의 자진 해제 | MYP-004-01, MYP-006-02 | SJM | - | - |
 | GET | /admin/items?itemRegnCd= | 관리자 아이템 목록(판매 중지 포함, 부위·정렬 순서·번호순, 페이지 없음). 부위 코드가 MYPG01이 아니거나 신발(MYPC0006, 사용 안 함)이면 400 `INVALID_INPUT_VALUE`. 전체 목록에서도 사용 안 하는 부위(`COM_CD.USE_YN='N'`) 아이템은 뺀다 | ADM-070-01 | LJS | - | List<AdminItemSummary> |
@@ -382,7 +384,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | jntBrupInvtnSn | Long | Y | | JNT_BRUP_INVTN.JNT_BRUP_INVTN_SN |
 | sndrMbrNcnm | String | N | | JNT_BRUP_INVTN.SNDR_MBR_SN → MBR.MBR_NCNM |
-| invtnSttsCd | String | Y | 초대 상태(PETG06). 대기중이어도 만료일시가 지나면 만료됨 | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-04 |
+| invtnSttsCd | String | Y | 초대 상태(PETG06). 대기중이어도 만료일시가 지나면 만료됨, 보낸 사람이 취소했으면 취소(PETC0035) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-04 |
 | invtnExpryDt | LocalDateTime | Y | | JNT_BRUP_INVTN.INVTN_EXPRY_DT |
 | invtnTrgtEmlMask | String | Y | 아이디 첫 글자와 도메인만 남긴 초대 이메일("s***@example.com") | JNT_BRUP_INVTN.INVTN_TRGT_EML_ENC, MYP-005-09 |
 | emailMatched | boolean | Y | 로그인 계정 이메일이 초대 이메일과 같은지 | JNT_BRUP_INVTN.INVTN_TRGT_EML_HMAC, MBR.ACNT_EML_HMAC, MYP-005-09 |
@@ -398,7 +400,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | rcvrJoined | boolean | Y | 발송 때 가입 회원이었는지. true "가입 회원(인앱 알림)", false "미가입 이메일" | JNT_BRUP_INVTN.RCVR_MBR_SN, MBR.REG_DT, MYP-005-03 |
 | pets | List<CaregiverInvitationPetSummary> | Y | 반려동물명·반려동물별 상태 표시 | INVTN_TRGT_PET.PET_SN, MYP-005-03 |
 | regDt | LocalDateTime | Y | 발송일 | JNT_BRUP_INVTN.REG_DT, MYP-005-03 |
-| invtnSttsCd | String | Y | 초대 단위 상태, 대기중·수락·거절·만료됨(PETG06) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
+| invtnSttsCd | String | Y | 초대 단위 상태, 대기중·수락·거절·만료됨·취소(PETG06) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
 | invtnExpryDt | LocalDateTime | Y | 대기중 항목의 만료 예정일 | JNT_BRUP_INVTN.INVTN_EXPRY_DT, MYP-005-03·04 |
 
 #### CaregiverInvitationPetSummary (CaregiverInvitationSummary.pets, CaregiverInvitationResponse.pets)
@@ -409,7 +411,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | petSeCd | String | Y | | PET.PET_SE_CD, MYP-005-05 |
 | vrtyNm | String | N | 목록에서 고른 품종명. 품종을 고르지 않았으면 null | PET.VRTY_SN → VRTY.VRTY_NM, MYP-005-05 |
 | vrtyDrctInptNm | String | N | 직접 입력한 품종명. 없으면 null. 둘 다 있으면 직접 입력을 먼저 보인다(합치지 않고 따로 내림) | PET.VRTY_DRCT_INPT_NM, MYP-005-05 |
-| invtnSttsCd | String | Y | 반려동물별 상태(PETG06). 일부 수락이면 고른 반려동물은 수락, 뺀 반려동물은 거절. 응답 전이면 초대 상태(만료 포함) | INVTN_TRGT_PET.ACPT_YN, JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
+| invtnSttsCd | String | Y | 반려동물별 상태(PETG06). 일부 수락이면 고른 반려동물은 수락, 뺀 반려동물은 거절. 응답 전이면 초대 상태(만료·취소 포함) | INVTN_TRGT_PET.ACPT_YN, JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
 
 ### CaregiverSummary
 쓰는 API: GET /pets/{petSn}/caregivers

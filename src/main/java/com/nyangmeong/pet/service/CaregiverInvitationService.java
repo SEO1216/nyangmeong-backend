@@ -226,6 +226,57 @@ public class CaregiverInvitationService {
     }
 
     /**
+     * 보낸 공동양육 초대 취소 (대기 중인 초대만)
+     * - 받는 사람 알림은 새로 보내지 않는다. 알림을 눌러 상세를 열면 취소 상태로 보인다
+     */
+    @Transactional
+    public void cancelInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadSentInvitation(mbrSn, jntBrupInvtnSn);
+        InvitationStatus status = effectiveStatus(invitation, LocalDateTime.now());
+        if (status == InvitationStatus.CANCELED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        }
+        if (status == InvitationStatus.EXPIRED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_EXPIRED);
+        }
+        if (status != InvitationStatus.PENDING) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        }
+        /** 동시에 응답했거나 만료된 경우 먼저 바꾼 쪽만 */
+        if (invitationMapper.updateCancel(jntBrupInvtnSn, mbrSn, InvitationStatus.PENDING.getCode(),
+                InvitationStatus.CANCELED.getCode(), LocalDateTime.now(), String.valueOf(mbrSn)) == 0) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        }
+        insertHistory(jntBrupInvtnSn, mbrSn, InvitationStatus.PENDING, InvitationStatus.CANCELED);
+    }
+
+    /**
+     * 취소한 공동양육 초대 삭제 (보낸 목록에서 숨김, 이력은 남긴다)
+     */
+    @Transactional
+    public void deleteInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadSentInvitation(mbrSn, jntBrupInvtnSn);
+        if (!InvitationStatus.CANCELED.is(invitation.getInvtnSttsCd())) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_CANCELED);
+        }
+        if (invitationMapper.updateDelete(jntBrupInvtnSn, mbrSn, InvitationStatus.CANCELED.getCode(),
+                String.valueOf(mbrSn)) == 0) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 내가 보낸 초대 조회 (삭제된 초대는 없는 초대)
+     */
+    private JntBrupInvtn loadSentInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadInvitation(jntBrupInvtnSn);
+        if (!mbrSn.equals(invitation.getSndrMbrSn())) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        }
+        return invitation;
+    }
+
+    /**
      * 초대 조회
      */
     private JntBrupInvtn loadInvitation(Long jntBrupInvtnSn) {
@@ -273,6 +324,9 @@ public class CaregiverInvitationService {
      */
     private void checkRespondable(Long mbrSn, JntBrupInvtn invitation) {
         InvitationStatus status = effectiveStatus(invitation, LocalDateTime.now());
+        if (status == InvitationStatus.CANCELED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        }
         if (status == InvitationStatus.ACCEPTED || status == InvitationStatus.REJECTED) {
             throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
         }

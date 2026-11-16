@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -67,6 +68,7 @@ class CaregiverInvitationServiceTest {
     private static final String ACCEPTED = "PETC0021";
     private static final String REJECTED = "PETC0022";
     private static final String EXPIRED = "PETC0023";
+    private static final String CANCELED = "PETC0035";
     private static final String PRIMARY = "PETC0018";
     private static final String CO_PARENT = "PETC0019";
     private static final String LINK_ACCEPTED = "PETC0024";
@@ -484,6 +486,141 @@ class CaregiverInvitationServiceTest {
         assertThatThrownBy(() -> service.rejectInvitation(RECEIVER, INVITATION))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+    }
+
+    @Test
+    void 대기_중인_초대를_취소하면_상태를_바꾸고_이력을_남기고_알림은_보내지_않는다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(invitationMapper.updateCancel(eq(INVITATION), eq(SENDER), eq(PENDING), eq(CANCELED), any(), eq("1")))
+                .thenReturn(1);
+
+        service.cancelInvitation(SENDER, INVITATION);
+
+        ArgumentCaptor<JntBrupInvtnSttsHstry> history = ArgumentCaptor.forClass(JntBrupInvtnSttsHstry.class);
+        verify(invitationMapper).insertStatusHistory(history.capture());
+        assertThat(history.getValue().getJntBrupInvtnSn()).isEqualTo(INVITATION);
+        assertThat(history.getValue().getMbrSn()).isEqualTo(SENDER);
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo(PENDING);
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo(CANCELED);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void 남이_보낸_초대는_취소할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+
+        assertThatThrownBy(() -> service.cancelInvitation(OTHER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        verify(invitationMapper, never()).updateCancel(anyLong(), anyLong(), any(), any(), any(), any());
+    }
+
+    @Test
+    void 없거나_삭제한_초대는_취소할_수_없다() {
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, 999L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+    }
+
+    @Test
+    void 수락_거절_만료_취소한_초대는_다시_취소할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(ACCEPTED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(REJECTED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, -1));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_EXPIRED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+
+        verify(invitationMapper, never()).updateCancel(anyLong(), anyLong(), any(), any(), any(), any());
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소하는_사이_받는_사람이_먼저_응답했으면_409이고_이력을_남기지_않는다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(invitationMapper.updateCancel(anyLong(), anyLong(), any(), any(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소한_초대는_수락도_거절도_할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        assertThatThrownBy(() -> service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        assertThatThrownBy(() -> service.rejectInvitation(RECEIVER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 알림을_눌러_취소한_초대를_열면_취소_상태만_보이고_반려동물은_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        CaregiverInvitationResponse response = service.getInvitation(RECEIVER, INVITATION);
+
+        assertThat(response.invtnSttsCd()).isEqualTo(CANCELED);
+        assertThat(response.pets()).isNull();
+        assertThat(response.sndrMbrNcnm()).isNull();
+    }
+
+    @Test
+    void 취소한_초대는_삭제할_수_있다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        when(invitationMapper.updateDelete(INVITATION, SENDER, CANCELED, "1")).thenReturn(1);
+
+        service.deleteInvitation(SENDER, INVITATION);
+
+        verify(invitationMapper).updateDelete(INVITATION, SENDER, CANCELED, "1");
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소하지_않은_초대는_삭제할_수_없다() {
+        for (String statusCd : List.of(PENDING, ACCEPTED, REJECTED, EXPIRED)) {
+            when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(statusCd, 3));
+            assertThatThrownBy(() -> service.deleteInvitation(SENDER, INVITATION))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_CANCELED);
+        }
+        verify(invitationMapper, never()).updateDelete(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void 남이_보낸_초대는_삭제할_수_없고_없는_초대는_404() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        assertThatThrownBy(() -> service.deleteInvitation(OTHER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        assertThatThrownBy(() -> service.deleteInvitation(SENDER, 999L))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+        verify(invitationMapper, never()).updateDelete(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void 삭제하는_사이_이미_삭제됐으면_404() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        when(invitationMapper.updateDelete(anyLong(), anyLong(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.deleteInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
     }
 
     private MemberResponse member(String email, String nickname) {

@@ -19,6 +19,7 @@ public class JntBrupInvtn {
     private LocalDateTime invtnExpryDt;
     private LocalDateTime acptRfslRspnsDt;
     private String invtnTknHash;
+    private String delYn;
     private LocalDateTime regDt;
     private LocalDateTime mdfcnDt;
     private String mdfrId;

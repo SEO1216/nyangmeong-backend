@@ -53,6 +53,44 @@ class CaregiverInvitationMapperXmlTest {
     }
 
     @Test
+    void 삭제한_초대는_조회_세_곳에서_빠진다() throws Exception {
+        assertThat(sql("selectInvitation")).contains("AND DEL_YN = 'N'");
+        assertThat(sql("selectSentList")).contains("AND I.DEL_YN = 'N'");
+        assertThat(sql("selectPendingExpryDt")).contains("AND I.DEL_YN = 'N'");
+    }
+
+    @Test
+    void 취소는_발송자의_만료_전_대기_초대만_바꾼다() throws Exception {
+        String cancel = find("update", "updateCancel").getTextContent().replaceAll("\s+", " ");
+        assertThat(cancel)
+                .contains("SNDR_MBR_SN = #{sndrMbrSn}")
+                .contains("INVTN_STTS_CD = #{pendingCd}")
+                .contains("INVTN_EXPRY_DT > #{now}")
+                .contains("DEL_YN = 'N'");
+    }
+
+    @Test
+    void 삭제는_발송자의_취소한_초대를_DEL_YN으로만_숨긴다() throws Exception {
+        String delete = find("update", "updateDelete").getTextContent().replaceAll("\s+", " ");
+        assertThat(delete)
+                .contains("SET DEL_YN = 'Y'")
+                .contains("SNDR_MBR_SN = #{sndrMbrSn}")
+                .contains("INVTN_STTS_CD = #{canceledCd}")
+                .contains("DEL_YN = 'N'");
+    }
+
+    @Test
+    void 초대_결과_매핑이_삭제_여부를_담는다() throws Exception {
+        NodeList results = find("resultMap", "invitationResultMap").getElementsByTagName("result");
+        boolean mapped = false;
+        for (int i = 0; i < results.getLength(); i++) {
+            Element result = (Element) results.item(i);
+            mapped |= "DEL_YN".equals(result.getAttribute("column")) && "delYn".equals(result.getAttribute("property"));
+        }
+        assertThat(mapped).isTrue();
+    }
+
+    @Test
     void 반려동물_결과_매핑이_두_품종_컬럼을_따로_담는다() throws Exception {
         Element map = find("resultMap", "invitationPetResultMap");
         NodeList results = map.getElementsByTagName("result");

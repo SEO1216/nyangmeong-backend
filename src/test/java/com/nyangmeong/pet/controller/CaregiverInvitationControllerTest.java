@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -284,6 +285,65 @@ class CaregiverInvitationControllerTest {
         mockMvc.perform(post("/api/caregiver-invitations/50/reject").header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CAREGIVER_INVITATION_ALREADY_PROCESSED"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 취소는_200() throws Exception {
+        mockMvc.perform(post("/api/caregiver-invitations/50/cancel").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.httpCode").value(200));
+        verify(caregiverInvitationService).cancelInvitation(1L, 50L);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 남이_보낸_초대의_취소는_403() throws Exception {
+        doThrow(new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER))
+                .when(caregiverInvitationService).cancelInvitation(1L, 50L);
+
+        mockMvc.perform(post("/api/caregiver-invitations/50/cancel").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CAREGIVER_INVITATION_NOT_SENDER"));
+    }
+
+    @Test
+    void 로그인하지_않으면_취소와_삭제는_401() throws Exception {
+        mockMvc.perform(post("/api/caregiver-invitations/50/cancel").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/caregiver-invitations/50").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 취소한_초대의_수락은_409() throws Exception {
+        doThrow(new CustomException(ErrorCode.CAREGIVER_INVITATION_CANCELED))
+                .when(caregiverInvitationService).rejectInvitation(1L, 50L);
+
+        mockMvc.perform(post("/api/caregiver-invitations/50/reject").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CAREGIVER_INVITATION_CANCELED"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 삭제는_200() throws Exception {
+        mockMvc.perform(delete("/api/caregiver-invitations/50").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.httpCode").value(200));
+        verify(caregiverInvitationService).deleteInvitation(1L, 50L);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 취소하지_않은_초대의_삭제는_409() throws Exception {
+        doThrow(new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_CANCELED))
+                .when(caregiverInvitationService).deleteInvitation(1L, 50L);
+
+        mockMvc.perform(delete("/api/caregiver-invitations/50").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CAREGIVER_INVITATION_NOT_CANCELED"));
     }
 
     private CaregiverInvitationPetSummary pet(Long petSn, String petNm) {

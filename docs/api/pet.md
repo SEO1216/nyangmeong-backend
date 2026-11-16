@@ -32,10 +32,10 @@
 | GET | /pixel-characters/{pixelCharSn}/shop-items | 상점 아이템 목록(판매 중, 사용 안 하는 부위(신발 MYPC0006) 제외, 이 캐릭터 기준 보유중 표시, 보유 포인트). `?itemRegnCd=` | MYP-011-02·03 | LJS | - | ShopItemListResponse |
 | GET | /point-ledgers | 선택한 월의 포인트 적립·사용 내역(최신순). 쿼리 `yearMonth` | MYP-020-02 | SJM | - | List<PointLedgerSummary> |
 | POST | /caregiver-invitations | 이메일로 공동양육 초대 발송. 대상 반려동물 여러 마리를 한 초대로 묶음. 가입 회원은 인앱 알림, 미가입은 메일. 고른 반려동물을 모두 검사해 충돌을 모아 409 오류 data에 CaregiverInvitationConflictResponse. 이미 가족이 하나라도 있으면 `CAREGIVER_ALREADY_LINKED`, 대기 초대만 있으면 `CAREGIVER_INVITATION_DUPLICATED`. 충돌이 있으면 초대를 만들지 않음 | MYP-005-01·02 | SJM | CaregiverInvitationCreateRequest | CaregiverInvitationResponse |
-| POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
+| POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절. 지금 연동 중인 수(주양육+공동양육) + 고른 수가 10을 넘으면 400 `PET_LIMIT_EXCEEDED`(data `{remainingPetCount}`)이고 아무것도 연동하지 않는다 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/cancel | 보낸 초대 취소. 내가 보낸 만료 전 대기중 초대만 취소(상태 PETC0035, 이력 대기중→취소). 남이 보낸 초대 403 `CAREGIVER_INVITATION_NOT_SENDER`, 수락·거절한 초대와 동시 응답으로 못 바꾼 초대 409 `CAREGIVER_INVITATION_ALREADY_PROCESSED`, 이미 취소한 초대 409 `CAREGIVER_INVITATION_CANCELED`, 만료된 초대 400 `CAREGIVER_INVITATION_EXPIRED`. 받는 사람 알림은 새로 보내지 않는다. 취소 뒤 받는 쪽 수락·거절은 409 `CAREGIVER_INVITATION_CANCELED` | MYP-005-03 | SJM | - | - |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/reject | 초대 거절. 초대의 반려동물 전체 | MYP-005-07·08 | SJM | - | - |
-| POST | /pets | 반려동물 등록(계정당 10마리, 첫 등록은 대표 지정) | MYP-002-01, MYP-003-01·04·05·07 | SJM | PetCreateRequest | PetResponse |
+| POST | /pets | 반려동물 등록(공동양육을 포함해 계정당 10마리, 합계가 10이면 400 `PET_LIMIT_EXCEEDED`, 첫 등록은 대표 지정) | MYP-002-01, MYP-003-01·04·05·07 | SJM | PetCreateRequest | PetResponse |
 | POST | /pets/{petSn}/representative | 대표 반려동물 지정(주양육 반려동물만) | MYP-010-05 | SJM | - | - |
 | POST | /pixel-characters/{pixelCharSn}/held-items | 아이템 일괄 구매(포인트 차감, 보관함 추가, 주양육자만). 201. 오류: `POINT_NOT_ENOUGH`(400), `PET_PRIMARY_ONLY`(403), `ITEM_NOT_FOUND`(404), `ITEM_ALREADY_HELD`(409), `IDEMPOTENCY_KEY_REUSED`(409, 원장에 있는 `idmptDmndId`로 내용이 다른 구매) | MYP-011-05·06 | LJS | ItemPurchaseRequest | PixelCharacterResponse |
 | PUT | /pixel-characters/{pixelCharSn}/equipped-items | 착용 상태 확정 저장(부위당 1개, 요청에 없는 보유 아이템은 착용 해제). 착용 모습 대표 이미지를 지운다 | MYP-010-13·16 | LJS | EquippedItemSaveRequest | PixelCharacterResponse |
@@ -347,6 +347,12 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | petSns | List<Long> | Y | 1개 이상. 초대에 든 반려동물만(아니면 400 `INVALID_INPUT_VALUE`). 고르지 않은 반려동물은 거절 | INVTN_TRGT_PET.PET_SN, INVTN_TRGT_PET.ACPT_YN, MYP-005-05 |
 
+### PetLimitExceededResponse
+쓰는 API: POST /caregiver-invitations/{jntBrupInvtnSn}/accept의 오류 응답 data(400 `PET_LIMIT_EXCEEDED`)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| remainingPetCount | int | Y | 더 연동할 수 있는 수. 0 미만이면 0 | PET·BRUP_REL 합계, MYP-005-05 |
+
 ### CaregiverInvitationConflictResponse
 쓰는 API: POST /caregiver-invitations의 오류 응답 data(409 `CAREGIVER_ALREADY_LINKED`·`CAREGIVER_INVITATION_DUPLICATED`)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -392,6 +398,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | invtnTrgtEmlMask | String | Y | 아이디 첫 글자와 도메인만 남긴 초대 이메일("s***@example.com") | JNT_BRUP_INVTN.INVTN_TRGT_EML_ENC, MYP-005-09 |
 | emailMatched | boolean | Y | 로그인 계정 이메일이 초대 이메일과 같은지 | JNT_BRUP_INVTN.INVTN_TRGT_EML_HMAC, MBR.ACNT_EML_HMAC, MYP-005-09 |
 | pets | List<CaregiverInvitationPetSummary> | N | 초대 대상 반려동물 카드(삭제된 반려동물은 빠짐) | INVTN_TRGT_PET.PET_SN, MYP-005-05 |
+| remainingPetCount | Integer | N | 내가 더 함께할 수 있는 반려동물 수 = max(0, 10 − 주양육·공동양육 합계). `pets`와 같은 조건(대기중이고 `emailMatched`)에서만 있다. 프론트가 이 수를 넘게 고르지 못하게 막는다 | PET·BRUP_REL 합계, MYP-005-05 |
 
 ### CaregiverInvitationSummary
 쓰는 API: GET /caregiver-invitations

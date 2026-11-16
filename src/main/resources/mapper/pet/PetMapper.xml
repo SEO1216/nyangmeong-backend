@@ -324,7 +324,7 @@
     </select>
 
     <select id="countPrimaryPets" resultType="int">
-        /* 주양육 반려동물 수 조회 */
+        /* 주양육 반려동물 수 조회 : 첫 등록 대표 지정 판단용 */
         SELECT COUNT(*)
           FROM BRUP_REL R
           JOIN PET P
@@ -333,6 +333,25 @@
          WHERE R.MBR_SN = #{mbrSn}
            AND R.BRUP_ROLE_CD = #{primaryRoleCd}
            AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="countLinkedPets" resultType="int">
+        /* 함께하는 반려동물 수 조회 : 주양육 + 공동양육 */
+        SELECT COUNT(*)
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.MBR_SN = #{mbrSn}
+           AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="lockMemberForPetLimit" resultType="long">
+        /* 반려동물 한도 검사용 회원 행 잠금 */
+        SELECT MBR_SN
+          FROM MBR
+         WHERE MBR_SN = #{mbrSn}
+           FOR UPDATE
     </select>
 
     <select id="selectPrimaryCaregiverMbrSn" resultType="long">

@@ -59,6 +59,7 @@
 | community.blindDclrAcmlCnt | Long | Y | 블라인드 신고 누적 수 | SYS_STNG.BLIND_DCLR_ACML_CNT |
 | community.lostTpofExpryCrtrDayCnt | Long | Y | 실종 제보 만료 기준 일수 | SYS_STNG.LOST_TPOF_EXPRY_CRTR_DAY_CNT |
 | community.mtchNoRspnsEndCrtrDayCnt | Long | Y | 매칭 무응답 종료 기준 일수 | SYS_STNG.MTCH_NO_RSPNS_END_CRTR_DAY_CNT |
+| community.dlngCmptnHideCrtrDayCnt | Long | Y | 거래완료 글 숨김 기준 일수(기본 7). 거래완료가 된 지 이 일수가 지난 펫돌봄 글은 공개 목록에서 빠진다 | SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT |
 | community.lowstHrwgAplcnYr | String | Y | 최저시급 적용 연도 4자리 | SYS_STNG.LOWST_HRWG_APLCN_YR |
 | community.lowstHrwgAmt | Long | Y | 최저시급 금액 | SYS_STNG.LOWST_HRWG_AMT |
 | community.dscvAutoCmntCn | String | Y | 찾았어요 자동 댓글 내용 | SYS_STNG.DSCV_AUTO_CMNT_CN |
@@ -82,6 +83,7 @@
 | blindDclrAcmlCnt | Long | N | 1~100 | SYS_STNG.BLIND_DCLR_ACML_CNT |
 | lostTpofExpryCrtrDayCnt | Long | N | 1~99 | SYS_STNG.LOST_TPOF_EXPRY_CRTR_DAY_CNT |
 | mtchNoRspnsEndCrtrDayCnt | Long | N | 1~99 | SYS_STNG.MTCH_NO_RSPNS_END_CRTR_DAY_CNT |
+| dlngCmptnHideCrtrDayCnt | Long | N | 1~99 | SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT |
 | lowstHrwgAplcnYr | String | N | 2020~2100 (4자리 숫자) | SYS_STNG.LOWST_HRWG_APLCN_YR |
 | lowstHrwgAmt | Long | N | 0~1,000,000 | SYS_STNG.LOWST_HRWG_AMT |
 | dscvAutoCmntCn | String | N | 1~1000자, 공백만 불가 | SYS_STNG.DSCV_AUTO_CMNT_CN |

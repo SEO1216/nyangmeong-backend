@@ -1,13 +1,24 @@
 # SJM 핸드오프
 
 ## 지금 하는 것
-마이페이지 · 보낸 공동양육 초대 취소·삭제(SCR-MYP-005, 기능 ID는 FN-MYP-005-03·10에 붙임) — 끝남 (승인 2026-11-16 09:12). 검증 1회차 통과, 사람 확인 완료(Postman 29/29 통과, 이력 대기중→취소 확인), 공용 DB v0.14 (15)·(14) 실행 완료(2026-11-16)
+마이페이지 · 공동양육 포함 반려동물 10마리 한도(SCR-MYP-003, 기능 ID는 FN-MYP-003-01·FN-MYP-005-05에 붙임) — 끝남 (승인 2026-11-16 12:33). 검증 1회차 통과, 사람 확인 완료(Postman 24/24: user0006 등록 400·새 문구, 상세 남은 자리 0, 수락 400·대기중 유지·연동 없음, 시험 초대 241 취소·삭제)
 
-- 취소 `POST /caregiver-invitations/{sn}/cancel`: 발송자 본인의 만료 전 대기중 초대만(상태 PETC0035, 이력 대기중→취소, 알림 없음). 취소한 초대의 수락·거절은 409 `CAREGIVER_INVITATION_CANCELED`, 받는 쪽 상세는 상태만 내림
-- 삭제 `DELETE /caregiver-invitations/{sn}`: 취소한 초대만 `JNT_BRUP_INVTN.DEL_YN='Y'`로 숨김(1안, 이력·대상 반려동물은 남김). 보낸 목록·상세(404)·중복 검사에서 빠진다
-- DB: 기준 데이터 변경 절 v0.14 (14) PETC0035, 테이블 변경 절 v0.14 (15) DEL_YN. 새 의존성 없음
+확정 정책: 계정당 반려동물은 주양육 + 공동양육 합쳐 최대 10마리(`BRUP_REL.USE_YN='Y'`이고 `PET.DEL_YN='N'`인 관계 수). 초대 보내기는 막지 않는다. 이미 10마리를 넘은 회원(공용 DB user0006)의 데이터는 그대로 두고 새 등록·수락만 막는다. 남은 자리 = max(0, 10 − 합계). DMS 명세는 열지 않았다(정책은 사람이 확정, 명세 문구는 /end 문서 작업).
+
+- 공통(한도 계산·잠금): `pet/mapper/PetMapper.java`·`mapper/pet/PetMapper.xml`에 `countLinkedPets(mbrSn)`(역할 무관, `countPrimaryPets`는 첫 등록 대표 지정에 계속 쓴다)와 `lockMemberForPetLimit(mbrSn)`(`SELECT MBR_SN FROM MBR WHERE MBR_SN = ? FOR UPDATE`, 같은 회원의 등록·수락을 줄 세움). `pet/service/PetLimit`(패키지 전용 상수 10과 `remaining(count)`)을 두고 `PetService`·`CaregiverInvitationService`가 같이 쓴다. 잠금을 `MemberService`가 아니라 pet Mapper에 두는 이유: member는 다른 담당 도메인이고 잠금은 반려동물 한도 검사에만 쓴다. 완료 조건 `명령:` `./gradlew build -q`, `PetMapperXmlTest`에 두 SQL(`USE_YN = 'Y'`·`DEL_YN = 'N'`, `FOR UPDATE`) 검사
+- FN-MYP-003-01 등록 `POST /pets`(SJM): `PetService.createPet`이 잠금 → `countLinkedPets` ≥ 10이면 400 `PET_LIMIT_EXCEEDED`. `global/error/ErrorCode.java` 문구를 "반려동물은 공동양육을 포함해 계정당 10마리까지 함께할 수 있습니다."로(등록·수락 둘 다에 맞는 문구, 승인 때 확정. 공용 파일, `docs/convention/shared-files.md` 따름. `GlobalExceptionHandlerTest`가 `ErrorCode.PET_LIMIT_EXCEEDED.message()`를 쓰므로 문구 상수는 따라 바뀐다). 요청·응답 DTO는 api-row 그대로(PetCreateRequest·PetResponse). 완료 조건 `명령:` `PetServiceTest`(주양육 9 + 공동양육 1 → 거절, 주양육 10 + 공동양육 2 → 거절, 합계 9 → 등록, 잠금이 count보다 먼저 호출). `화면:` Postman으로 공동양육 포함 10마리 회원의 등록이 400과 새 문구
+- FN-MYP-005-05 수락 `POST /caregiver-invitations/{sn}/accept`(SJM): `CaregiverInvitationService.acceptInvitation`이 `checkRespondable`·대상 검사 뒤, `respond`·연동 전에 잠금 → 합계 + 고른 수(중복 제거) > 10이면 아무것도 바꾸지 않고 400 `PET_LIMIT_EXCEEDED`, data `{ "remainingPetCount": n }`. 발송 결과처럼 예외 대신 결과로 돌려준다: 반환형 `void` → 새 `pet/dto/CaregiverInvitationAcceptResult`(error·`PetLimitExceededResponse(int remainingPetCount)`), `CaregiverInvitationController.acceptInvitation`이 실패면 `ApiResponse.errorWithData`. 요청 DTO는 api-row 그대로, 성공 응답은 지금처럼 data 없음. 완료 조건 `명령:` `CaregiverInvitationServiceTest`(합계 8 + 2 → 수락, 8 + 3 → 실패·remaining 2·`respond`/`link`/이력 호출 없음, 합계 12 + 1 → remaining 0), `CaregiverInvitationControllerTest`(실패 결과 → 400, `$.data.remainingPetCount`). `화면:` Postman으로 넘치는 수락 400과 data, 초대 상태가 대기중 그대로
+- FN-MYP-005-05 받은 초대 상세 `GET /caregiver-invitations/{sn}`(SJM): `CaregiverInvitationResponse`에 `Integer remainingPetCount`를 더한다. 대기중이고 이메일이 맞을 때만 채우고(`pets`와 같은 조건, 아니면 JSON에서 빠짐) max(0, 10 − 로그인 회원 합계). 발송 응답(`POST /caregiver-invitations`)은 null로 빠진다. api-row와 다른 점이라 구현 전에 `docs/api/pet.md`의 CaregiverInvitationResponse 표에 행을 더한다. 완료 조건 `명령:` `CaregiverInvitationServiceTest`(합계 7 → 3, 합계 12 → 0, 이메일 불일치 → null). `화면:` Postman으로 user0006 로그인 상세의 `remainingPetCount` 0
+- 문서 `docs/api/pet.md`: POST /pets 행 "계정당 10마리" → "공동양육 포함 계정당 10마리", accept 행에 한도 400과 data, CaregiverInvitationResponse에 `remainingPetCount` 행. 구현 전에 고친다
+- 프론트 연결: FN-MYP-003-01 (프론트 연결 SCR-MYP-003 등록 카드 "모두 등록했어요"를 공동양육 포함 합계로 판정, 프론트 저장소에서 /start)
+- 프론트 연결: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면이 `remainingPetCount`만큼만 고르게 막고 안내, 400 data 처리, 프론트 저장소에서 /start)
+
+새 의존성: 없음
 
 ## 다음에 할 것
+- 프론트 연결(SCR-MYP-003, FN-MYP-003-01): 등록 카드 "모두 등록했어요"를 주양육 + 공동양육 합계 10으로 판정(백엔드 10마리 한도가 끝난 뒤 프론트 저장소에서 `/start`)
+- 프론트 연결(SCR-MYP-005, FN-MYP-005-05): 수락 화면에서 `remainingPetCount`를 넘게 고르지 못하게 막고 안내, 수락 400(`PET_LIMIT_EXCEEDED`, data `remainingPetCount`) 처리(프론트 저장소에서 `/start`)
+- 문서 작업(`/end` 때, 10마리 한도): 기능명세서 FN-MYP-003-01·FN-MYP-005-05에 "공동양육 포함 10마리" 문구
 - 프론트 연결(SCR-MYP-005, FN-MYP-005-03): 보낸 초대 목록 대기중 행 [취소] 버튼·확인, 취소 행 [삭제] 버튼(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
 - 프론트 연결(SCR-MYP-005, FN-MYP-005-10): 수락 화면에서 상태 `PETC0035`면 "취소된 초대예요" 안내(프론트 저장소에서 `/start`)
 - 문서 작업(`/end` 때): 기능명세서의 FN-MYP-005-03(보낸 초대는 조회 전용 → 취소·삭제 추가)·FN-MYP-005-10(취소 안내) 문구 수정. 최신 명세는 DMS 로그인이 풀려 못 봤고 v0.4 기준이다
@@ -35,3 +46,8 @@
 - KSJ·LJS에게 알리기(SCR-MYP-020): KSJ 펫이야기 글·댓글 → `PetService.reflectRepresentative`(아직 `community`에 호출 없음), LJS `pet/service/PointFake` → `PointService.use`(아직 `ItemService`가 `PointFake`를 씀)
 - JAJ 확인: 케어미션 `reflect` 중 일정은 직접 입력(`DIRECT`)일 때만 반영한다(`CareScheduleService.java:87`). 명세와 같은지 확인
 - 건강기록 기본 항목 "발 관리"의 이름을 JAJ와 정하기(후보: 발바닥 확인하기). 발톱 관리·발바닥 털 관리와 겹쳐 보이고 뜻이 넓다. 바뀌면 마이그레이션으로 `CARE_MSN` 미션 이름도 맞춘다
+
+## 중단 2026-11-16 12:51 (5시간 한도 97%)
+- 자동 커밋한 변경 14개: docs/api/pet.md, handoff/SJM.md, milestones/SJM.md, src/main/java/com/nyangmeong/global/error/ErrorCode.java, src/main/java/com/nyangmeong/pet/controller/CaregiverInvitationController.java, src/main/java/com/nyangmeong/pet/dto/CaregiverInvitationResponse.java, src/main/java/com/nyangmeong/pet/mapper/PetMapper.java, src/main/java/com/nyangmeong/pet/service/CaregiverInvitationService.java, src/main/java/com/nyangmeong/pet/service/PetService.java, src/main/resources/mapper/pet/PetMapper.xml, src/test/java/com/nyangmeong/pet/controller/CaregiverInvitationControllerTest.java, src/test/java/com/nyangmeong/pet/mapper/PetMapperXmlTest.java, src/test/java/com/nyangmeong/pet/service/CaregiverInvitationServiceTest.java, src/test/java/com/nyangmeong/pet/service/PetServiceTest.java
+- 커밋 안 한 새 파일 3개 (사람이 판단): src/main/java/com/nyangmeong/pet/dto/CaregiverInvitationAcceptResult.java, src/main/java/com/nyangmeong/pet/dto/PetLimitExceededResponse.java, src/main/java/com/nyangmeong/pet/service/PetLimit.java
+- 이어서: 이 파일의 "지금 하는 것" 과 `git log -1` 을 본다

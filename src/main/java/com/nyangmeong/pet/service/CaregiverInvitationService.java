@@ -33,6 +33,7 @@ import com.nyangmeong.pet.domain.JntBrupInvtnSttsHstry;
 import com.nyangmeong.pet.domain.LinkChangeType;
 import com.nyangmeong.pet.domain.Pet;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationConflictResponse;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
@@ -180,21 +181,29 @@ public class CaregiverInvitationService {
                     invitation.getInvtnExpryDt(), emailMask, emailMatched, null);
         }
         String sndrMbrNcnm = memberService.getMember(invitation.getSndrMbrSn()).mbrNcnm();
+        int remainingPetCount = PetLimit.remaining(petMapper.countLinkedPets(mbrSn));
         return new CaregiverInvitationResponse(jntBrupInvtnSn, sndrMbrNcnm, status.getCode(),
-                invitation.getInvtnExpryDt(), emailMask, true, loadPets(jntBrupInvtnSn, now));
+                invitation.getInvtnExpryDt(), emailMask, true, loadPets(jntBrupInvtnSn, now), remainingPetCount);
     }
 
     /**
      * 공동양육 초대 수락
      */
     @Transactional
-    public void acceptInvitation(Long mbrSn, Long jntBrupInvtnSn, CaregiverInvitationAcceptRequest req) {
+    public CaregiverInvitationAcceptResult acceptInvitation(Long mbrSn, Long jntBrupInvtnSn,
+            CaregiverInvitationAcceptRequest req) {
         JntBrupInvtn invitation = loadInvitation(jntBrupInvtnSn);
         checkRespondable(mbrSn, invitation);
 
         List<Long> acceptedPetSns = req.petSns().stream().distinct().toList();
         if (!invitationMapper.selectTargetPetSns(jntBrupInvtnSn).containsAll(acceptedPetSns)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        /** 한도는 응답 기록·연동보다 먼저 : 넘으면 아무것도 바꾸지 않는다. 같은 회원의 동시 등록·수락은 회원 행 잠금으로 줄 세운다 */
+        petMapper.lockMemberForPetLimit(mbrSn);
+        int linkedCount = petMapper.countLinkedPets(mbrSn);
+        if (linkedCount + acceptedPetSns.size() > PetLimit.MAX_PET_COUNT) {
+            return CaregiverInvitationAcceptResult.limitExceeded(PetLimit.remaining(linkedCount));
         }
         respond(mbrSn, jntBrupInvtnSn, InvitationStatus.ACCEPTED, acceptedPetSns);
 
@@ -213,6 +222,7 @@ public class CaregiverInvitationService {
             history.setLinkChgTypeCd(LinkChangeType.INVITATION_ACCEPTED.getCode());
             petMapper.insertLinkHistory(history);
         }
+        return CaregiverInvitationAcceptResult.success();
     }
 
     /**

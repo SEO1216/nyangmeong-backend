@@ -160,6 +160,14 @@
         <if test="mineYn">
            AND P.MBR_SN = #{mbrSn}
         </if>
+        <if test="!mineYn">
+           AND ( R.RCRT_STTS_CD <![CDATA[<>]]> #{completedCd}
+              OR COALESCE(( SELECT MAX(H.REG_DT)
+                              FROM PET_PRTC_RCRT_STTS_HSTRY H
+                             WHERE H.PET_PRTC_RCRT_SN = R.PET_PRTC_RCRT_SN
+                               AND H.AFTR_STTS_CD = #{completedCd} ), R.MDFCN_DT)
+                 <![CDATA[>]]> NOW() - INTERVAL #{hideDays} DAY )
+        </if>
         <if test="rgnSn != null">
            AND R.RGN_SN IN (WITH RECURSIVE T AS (SELECT RGN_SN
                                                    FROM RGN

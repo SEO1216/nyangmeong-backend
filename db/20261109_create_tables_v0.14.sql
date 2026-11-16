@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 냥멍케어 MySQL DDL v0.14  |  MySQL 8.0.16+ / InnoDB / utf8mb4_0900_ai_ci
 -- 대상: DBeaver (전체 선택 후 스크립트 실행 Alt+X, 또는 스키마 우클릭 → Tools → Execute script)
--- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1005 컬럼 / 관계 FK 156 / 공통코드 FK 120)
+-- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1006 컬럼 / 관계 FK 156 / 공통코드 FK 120)
 --       UK·INDEX·CHECK·생성열·공통코드 FK 는 v0.8 그대로 유지
 -- 구성: [1] DROP  [2] CREATE(PK·UK·INDEX·CHECK·생성열)  [3] 관계 FK  [4] 공통코드 FK
 -- 주의: 전체 DROP 후 재생성합니다. 기존 데이터가 있으면 먼저 백업하세요. 공용 DB에는 실행하지 않습니다.
@@ -56,6 +56,9 @@
 --   SET NAMES utf8mb4;
 --   ALTER TABLE `CARE_ARTCL` ADD COLUMN `INDCT_YN` char(1) NULL COMMENT '표시여부' AFTER `BSC_ARTCL_YN`;
 --   ALTER TABLE `CARE_ARTCL` ADD CONSTRAINT `CK_CARE_ARTCL_INDCT_YN` CHECK (`INDCT_YN` IS NULL OR `INDCT_YN` IN ('Y','N'));
+-- v0.14 (17) 시스템설정 거래완료 숨김 기준 일수 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 3번 사람 요청 2026-11-15, SCR-CMU-004 거래완료 글은 이 일수가 지나면 공개 목록에서 빠진다). 기존 행은 기본값 7로 채워진다
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `SYS_STNG` ADD COLUMN `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수' AFTER `MTCH_NO_RSPNS_END_CRTR_DAY_CNT`;
 -- =====================================================================
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -217,6 +220,7 @@ CREATE TABLE `SYS_STNG` (
   `MDFR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정자ID',
   `DSCV_AUTO_CMNT_CN` varchar(1000) NOT NULL DEFAULT '🎉 [펫이름]가 무사히 가족 품으로 돌아왔어요!' COMMENT '찾았어요자동댓글내용',
   `MTCH_NO_RSPNS_END_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '14' COMMENT '매칭무응답종료기준일수',
+  `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수',
   PRIMARY KEY (`SYS_STNG_SN`),
   CONSTRAINT `CK_SYS_STNG_ONE` CHECK (`SYS_STNG_SN` = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='시스템설정';

@@ -2,14 +2,14 @@
 
 ## 지금 하는 것
 
-SCR-ADM-051 약관 · 버전 이력 종류 키 누락 400 코드 맞추기 — 끝 (2026-11-16). `GET /api/admin/terms/history`의 `trmsFixIdntfKey`를 `@RequestParam(required = false)`로 바꿔 키 없음·공백이 문서대로 400 `INVALID_INPUT_VALUE`(서비스 검사). `AdminTermsControllerTest` 4건 추가. 문서 변경 없음. 검증 `통과`(1회차), 사람 확인 2026-11-16, 시작 2026-11-16 15:51
+SCR-ADM-050 펫뉴스 · 썸네일 파일 번호 검사 — 끝 (2026-11-17). `FileStore.requireStored` 추가, 관리자 뉴스 등록·수정의 `atchFileSn`이 사용 중인 `assets/news/` 또는 기존 `public/` 파일이 아니면 400 `INVALID_INPUT_VALUE`(수정은 없는 기사 404 다음). 새 테스트 `FileStoreRequireStoredTest`·`AdminNewsThumbnailTest`, `docs/api/community.md` 두 행에 400 조건. `byte[]` 저장의 `FILE_MAX_SZ` 검사는 하지 않기로 함(캐릭터 이미지·시트만 쓰고 `CharacterSpec`이 크기를 묶음). 검증 `통과`(1회차), 사람 확인 2026-11-17, 시작 2026-11-17 11:09
 
 ## 다음에 할 것
 
 - SCR-MYP-010 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-042 1:1 문의 · 캐릭터 무료 재생성 Python 호출 — 대기" 넣음)
 - SCR-MYP-010 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트(확장자 jpg·png·webp, 업로드 원본 그대로) 보내기와 사진 문제 failRsn `CHARACTER_INPUT_ERROR`, ai 저장소 다음 세션. 재생성 입구는 ai-39가 구현함). 백엔드 develop 병합 뒤 ai-39·frontend-07에 화면 확인해도 된다고 알린다
 - SCR-MYP-011 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx`가 `IDEMPOTENCY_KEY_REUSED`를 받으면 새 `idmptDmndId`를 만들고 상점을 다시 읽기, `PURCHASE_ERRORS` 문구, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 409 처리 — 대기" 넣음). 그 전까지는 이 오류를 받으면 모달을 닫았다 열어야 다시 살 수 있다
-- 남김(SCR-MYP-010 파일 저장 경로 재구성 범위 밖): 기존 공지·뉴스 이미지(`public/…`) 이동(파일 이동·`PHYS_STRG_PATH` UPDATE·공지 본문 URL 교체, 운영 디스크 작업이라 사람), 영수증 원본 저장 중단(따로 기획), 지운·교체한 파일 정리 배치, `AdminNewsService.create`의 `atchFileSn` 존재·위치 검사, `byte[]` 저장의 `FILE_MAX_SZ` 검사, 채팅·문의 이미지 상한 상수 10
+- 남김(SCR-MYP-010 파일 저장 경로 재구성 범위 밖): 기존 공지·뉴스 이미지(`public/…`) 이동(옮긴 뒤 `FileStore.requireStored`의 `public/` 허용을 뺀다. 지금은 `public/` 아래면 뉴스 이미지가 아니어도 뉴스 썸네일로 받는다, 파일 이동·`PHYS_STRG_PATH` UPDATE·공지 본문 URL 교체, 운영 디스크 작업이라 사람), 영수증 원본 저장 중단(따로 기획), 지운·교체한 파일 정리 배치, 채팅·문의 이미지 상한 상수 10
 - 정하기(사람): 기존 아이템을 그림 참고로 바꿀 때 이미 구운 착용 시트를 다시 굽게 할지(지금은 `bakeImgRefYn`을 바꿔도 시트를 지우지 않는다. 굽기 지시를 바꾸면 지우는 기존 동작과 다르다)
 - 사람: 관리자 기능명세서 FN-ADM-110-01 비고 "대시보드 케어 최대 노출 수 포함(2026-10-30 재결정)" 정리(ERDCloud 컬럼은 2026-11-16 삭제함). SCR-ADM-081 키워드 사전 삭제(2026-11-16)를 요구사항정의서·관리자 기능명세서·화면설계서·IA에 반영
 - 참고(검증 에이전트, 2026-11-10): `application-local.properties`의 `jdbc:log4jdbc:` 주소로 bootRun하면 "Failed to determine a suitable driver class"로 뜨지 않았다. 검증은 `--spring.datasource.url=jdbc:mysql://...`로 덮어써 띄웠다. 원인은 확인하지 않음

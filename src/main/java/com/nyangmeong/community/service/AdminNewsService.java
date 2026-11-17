@@ -93,6 +93,7 @@ public class AdminNewsService {
         news.setNewsCn(normalize(req.newsCn(), SUMMARY_MAX_LENGTH));
         news.setNewsClsfCd(requireCategory(req.newsClsfCd()));
         news.setNewsSrcCd(NewsSource.ADMIN.getCode());
+        requireThumbnail(req.atchFileSn());
         news.setAtchFileSn(req.atchFileSn());
         news.setPblcnDt(LocalDateTime.now());
         news.setUseYn("Y");
@@ -124,6 +125,7 @@ public class AdminNewsService {
         change.setNewsTtl(req.newsTtl() == null ? null : normalize(req.newsTtl(), TITLE_MAX_LENGTH));
         change.setNewsCn(req.newsCn() == null ? null : normalize(req.newsCn(), SUMMARY_MAX_LENGTH));
         change.setNewsClsfCd(req.newsClsfCd() == null ? null : requireCategory(req.newsClsfCd()));
+        requireThumbnail(req.atchFileSn());
         change.setAtchFileSn(req.atchFileSn());
         change.setUseYn(req.useYn() == null ? null : (req.useYn() ? "Y" : "N"));
         if (newsMapper.updateAdmin(change) != 1) {
@@ -206,6 +208,15 @@ public class AdminNewsService {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return stripped;
+    }
+
+    /**
+     * 썸네일 번호는 POST /admin/news/images 로 올린 사용 중인 파일만 (보내지 않으면 검사 없음)
+     */
+    private void requireThumbnail(Long atchFileSn) {
+        if (atchFileSn != null) {
+            fileStore.requireStored(atchFileSn, FileCategory.ASSET_NEWS, FileOwner.service());
+        }
     }
 
     private String requireCategory(String newsClsfCd) {

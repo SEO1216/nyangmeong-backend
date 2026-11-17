@@ -815,3 +815,11 @@
 - 완료 조건: `GET /api/admin/terms/history`에 `trmsFixIdntfKey`가 없거나 공백이면 400 `INVALID_INPUT_VALUE`(문서 `docs/api/member.md` 그대로), 키가 있으면 기존처럼 이력 목록
 - 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 컨트롤러 `@RequestParam(required = false)`, 새 `AdminTermsControllerTest` 4건. `docs/api/member.md` 변경 없음
 - 연결 남음: 없음
+
+## SCR-ADM-050 펫뉴스 · 썸네일 파일 번호 검사 — 끝
+- 기능: 명세 기능 ID 추가 없음(핸드오프 "남김" 항목, 사람 결정 2026-11-17: 뉴스 썸네일 검사만, `byte[]` 상한 검사는 하지 않는다), 걸치는 기능 FN-ADM-050-02
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `POST /api/admin/news`·`PATCH /api/admin/news/{newsSn}`의 `atchFileSn`이 사용 중인 뉴스 썸네일 파일(`assets/news/` 또는 기존 `public/`)이 아니면 400 `INVALID_INPUT_VALUE`, 맞으면 기존처럼 등록·수정
+- 완료 조건 결과: 검증 `통과`(2026-11-17, 1회차, 8082에서 없는 번호·프로필·새 경로 커뮤니티 사진 400, 업로드 번호 201·200, 없는 기사 404 확인), 사람 확인 2026-11-17. 새 `FileStoreRequireStoredTest`·`AdminNewsThumbnailTest`, `docs/api/community.md` 두 행 400 조건 추가. 기존 `public/` 파일은 통과(옛 커뮤니티 사진도 받음, 공개 파일 이동 때 뺀다)
+- 연결 남음: 없음

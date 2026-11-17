@@ -86,6 +86,22 @@ public class FileStore {
     }
 
     /**
+     * 요청이 가리키는 파일 번호 검사 : 사용 중이고 그 분류·소유자 폴더(또는 기존 공개 파일 public/)에 있어야 한다
+     * - 아니면 INVALID_INPUT_VALUE (요청 값이 틀린 것이라 404 가 아니다)
+     */
+    public void requireStored(Long atchFileSn, FileCategory category, FileOwner owner) {
+        String dir = dir(category, owner) + "/";
+        AtchFile atchFile = atchFileMapper.selectInUse(atchFileSn);
+        if (atchFile == null || atchFile.getPhysStrgPath() == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String path = atchFile.getPhysStrgPath();
+        if (!path.startsWith(dir) && !path.startsWith(PUBLIC_PREFIX)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    /**
      * 로그인 회원 누구나 여는 파일 읽기
      * - 경로의 도메인·용도 폴더로 찾은 분류가 SHARED 이거나 기존 공개 파일(public/)일 때만
      * - 그 밖(OWNER 분류·기존 비공개 날짜 폴더·분류 못 찾음)은 없는 파일과 똑같이 FILE_NOT_FOUND

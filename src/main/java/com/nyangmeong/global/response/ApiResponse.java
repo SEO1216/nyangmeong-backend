@@ -63,7 +63,14 @@ public record ApiResponse<T>(
      * 상세 목록(data)이 있는 실패 응답
      */
     public static <T> ApiResponse<T> errorWithData(ErrorCode errorCode, String path, T data) {
-        return new ApiResponse<>(LocalDateTime.now(), STATUS_ERROR, errorCode.code(), errorCode.message(), path,
+        return errorWithData(errorCode, errorCode.message(), path, data);
+    }
+
+    /**
+     * 메시지만 다르고 상세(data)가 있는 실패 응답
+     */
+    public static <T> ApiResponse<T> errorWithData(ErrorCode errorCode, String message, String path, T data) {
+        return new ApiResponse<>(LocalDateTime.now(), STATUS_ERROR, errorCode.code(), message, path,
                 errorCode.name(), data);
     }
 }

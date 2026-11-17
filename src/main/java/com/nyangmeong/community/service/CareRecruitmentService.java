@@ -3,6 +3,7 @@ package com.nyangmeong.community.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -18,6 +19,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.nyangmeong.community.domain.BoardType;
 import com.nyangmeong.community.domain.CareCostUnit;
+import com.nyangmeong.community.domain.CareMatchStatus;
 import com.nyangmeong.community.domain.CareRecruitment;
 import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentPet;
@@ -46,6 +48,8 @@ import com.nyangmeong.global.auth.OwnerAuthorizer;
 import com.nyangmeong.global.code.RegionService;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.file.FileCategory;
+import com.nyangmeong.global.file.FileOwner;
 import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
@@ -68,6 +72,13 @@ import lombok.RequiredArgsConstructor;
 public class CareRecruitmentService {
 
     static final int PAGE_SIZE = 10;
+    static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    /** 돌봄 시작일은 오늘부터 90일 이내, 종료일은 시작일부터 30일 이내 */
+    static final int START_LIMIT_DAYS = 90;
+    static final int PERIOD_LIMIT_DAYS = 30;
+    /** 일정 없는 모집중 글은 작성 후 30일이 지나면 자동 마감 */
+    static final int CLOSE_NO_SCHEDULE_DAYS = 30;
+    static final String CLOSE_REASON = "모집 기간 종료 자동 마감";
 
     private final CareRecruitmentMapper careRecruitmentMapper;
     private final PostMapper postMapper;
@@ -80,6 +91,7 @@ public class CareRecruitmentService {
 
     /**
      * 목록 조회 (최신순 10건, 반려동물·돌봄 형태는 목록 조회 뒤 한 번에 채움)
+     * - 「내 글만 보기」가 아니면 거래완료 후 설정 일수(SYS_STNG)가 지난 글은 공개 목록에서 뺀다
      */
     @Transactional(readOnly = true)
     public PageResponse<CareRecruitmentSummary> search(Long mbrSn, CareRecruitmentSearchCond cond, PageQuery pq) {
@@ -107,11 +119,14 @@ public class CareRecruitmentService {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
+        /** 설정 조회는 startPage 전에 : 뒤에 부르면 페이지 처리가 설정 쿼리에 붙음 */
+        long hideDays = systemSettingService.get().getDlngCmptnHideCrtrDayCnt();
         PageHelper.startPage(pq.pageOrDefault(), pq.sizeOr(PAGE_SIZE));
         List<CareRecruitmentSummary> rows = careRecruitmentMapper.selectList(mbrSn, PostStatus.NORMAL.getCode(),
                 rcrtSttsCd, cond.isMineYn(), cond.getRgnSn(), bgngDe == null ? null : bgngDe.atStartOfDay(),
                 endDe == null ? null : endDe.plusDays(1).atStartOfDay(), petSeCd, PetSe.DOG.getCode(), sizeFilter,
-                sizeFilter ? size.getMinBdwg() : null, sizeFilter ? size.getMaxBdwg() : null);
+                sizeFilter ? size.getMinBdwg() : null, sizeFilter ? size.getMaxBdwg() : null,
+                CareRecruitmentStatus.COMPLETED.getCode(), hideDays, ChatParticipantStatus.JOINED.getCode());
         PageInfo<CareRecruitmentSummary> pageInfo = new PageInfo<>(rows);
         fillChildren(rows);
         return PageResponse.of(pageInfo);
@@ -152,7 +167,7 @@ public class CareRecruitmentService {
         List<CareRecruitmentPet> pets = toPets(req.pets());
         List<String> shapes = checkShapes(req.prtcShpCds());
         checkCost(req.cstUnitCd(), req.cstAmt());
-        checkSchedule(schdlCnsltn, req.prtcBgngDt(), req.prtcEndDt());
+        checkSchedule(schdlCnsltn, req.prtcBgngDt(), req.prtcEndDt(), null, null);
         Long rgnSn = findRegionOrThrow(req.prtcPlcLat(), req.prtcPlcLot());
         List<MultipartFile> images = attached(req.images());
         if (images.size() > maxImages()) {
@@ -189,7 +204,7 @@ public class CareRecruitmentService {
         insertChildren(recruitment.getPetPrtcRcrtSn(), pets, shapes);
         int sortSeq = 0;
         for (MultipartFile image : images) {
-            insertImage(post.getPstSn(), fileStore.storePublic(image, actorId(mbrSn)), sortSeq++, mbrSn);
+            insertImage(post.getPstSn(), fileStore.store(image, FileCategory.COMMUNITY_POST, FileOwner.member(mbrSn), actorId(mbrSn)), sortSeq++, mbrSn);
         }
         return toResponse(mbrSn, getDetailOrThrow(recruitment.getPetPrtcRcrtSn()));
     }
@@ -221,7 +236,7 @@ public class CareRecruitmentService {
         LocalDateTime endDt = clearSchedule ? null
                 : req.prtcEndDt() != null ? req.prtcEndDt() : detail.getPrtcEndDt();
         checkCost(cstUnitCd, cstAmt);
-        checkSchedule(schdlCnsltn, bgngDt, endDt);
+        checkSchedule(schdlCnsltn, bgngDt, endDt, detail.getPrtcBgngDt(), detail.getPrtcEndDt());
         List<CareRecruitmentPet> pets = req.pets() == null ? null : toPets(req.pets());
         List<String> shapes = req.prtcShpCds() == null ? null : checkShapes(req.prtcShpCds());
 
@@ -278,7 +293,7 @@ public class CareRecruitmentService {
         }
         int sortSeq = remaining.stream().mapToInt(PostImage::getSortSeq).max().orElse(-1) + 1;
         for (MultipartFile image : images) {
-            insertImage(detail.getPstSn(), fileStore.storePublic(image, actorId(mbrSn)), sortSeq++, mbrSn);
+            insertImage(detail.getPstSn(), fileStore.store(image, FileCategory.COMMUNITY_POST, FileOwner.member(mbrSn), actorId(mbrSn)), sortSeq++, mbrSn);
         }
         return toResponse(mbrSn, getDetailOrThrow(petPrtcRcrtSn));
     }
@@ -298,11 +313,44 @@ public class CareRecruitmentService {
     }
 
     /**
+     * 자동 마감 대상 모집 번호 (배치)
+     * - 정상 게시글의 모집중 글 중 수락 대기 매칭이 없고, 일정이 있으면 종료 일시가 지났거나 일정이 없으면 작성 후 30일이 지난 글
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findCloseTargets() {
+        return careRecruitmentMapper.selectCloseTargets(CareRecruitmentStatus.RECRUITING.getCode(),
+                PostStatus.NORMAL.getCode(), CareMatchStatus.REQUESTED.getCode(), CLOSE_NO_SCHEDULE_DAYS);
+    }
+
+    /**
+     * 지난 모집 자동 마감 (배치, 처리자 없음) : 모집중 -> 거래완료, 확정 매칭 번호는 null 그대로
+     * - 모집 행을 잠근 뒤 대상 조건을 다시 확인해 그사이 매칭 요청·수정·삭제된 글은 건너뜀
+     *
+     * @return 마감했으면 true
+     */
+    @Transactional
+    public boolean closeExpired(Long petPrtcRcrtSn) {
+        CareRecruitment recruitment = careRecruitmentMapper.selectForUpdate(petPrtcRcrtSn);
+        if (recruitment == null || !careRecruitmentMapper.existsCloseTarget(petPrtcRcrtSn,
+                CareRecruitmentStatus.RECRUITING.getCode(), PostStatus.NORMAL.getCode(),
+                CareMatchStatus.REQUESTED.getCode(), CLOSE_NO_SCHEDULE_DAYS)) {
+            return false;
+        }
+        if (careRecruitmentMapper.updateStatus(petPrtcRcrtSn, CareRecruitmentStatus.RECRUITING.getCode(),
+                CareRecruitmentStatus.COMPLETED.getCode(), null) == 0) {
+            return false;
+        }
+        insertRecruitmentHistory(petPrtcRcrtSn, null, CareRecruitmentStatus.RECRUITING,
+                CareRecruitmentStatus.COMPLETED, CLOSE_REASON);
+        return true;
+    }
+
+    /**
      * 정상 게시글의 모집 조회
      */
     private CareRecruitmentDetail getDetailOrThrow(Long petPrtcRcrtSn) {
         CareRecruitmentDetail detail = careRecruitmentMapper.selectDetail(petPrtcRcrtSn,
-                PostStatus.NORMAL.getCode());
+                PostStatus.NORMAL.getCode(), ChatParticipantStatus.JOINED.getCode());
         if (detail == null) {
             throw new CustomException(ErrorCode.CARE_RECRUITMENT_NOT_FOUND);
         }
@@ -367,9 +415,16 @@ public class CareRecruitmentService {
     }
 
     /**
-     * 일정 검사 (일정 협의가 아니면 필수, 입력했으면 30분 단위·종료가 시작보다 뒤)
+     * 일정 검사 (일정 협의가 아니면 필수, 입력했으면 30분 단위·종료가 시작보다 뒤, 날짜 기한)
+     * - 수정이면 저장된 일정을 넘겨 바뀌지 않은 날짜는 기한 검사에서 뺀다
      */
-    private void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt) {
+    private void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt,
+            LocalDateTime savedBgngDt, LocalDateTime savedEndDt) {
+        checkSchedule(schdlCnsltn, bgngDt, endDt, savedBgngDt, savedEndDt, LocalDate.now(ZONE));
+    }
+
+    static void checkSchedule(boolean schdlCnsltn, LocalDateTime bgngDt, LocalDateTime endDt,
+            LocalDateTime savedBgngDt, LocalDateTime savedEndDt, LocalDate today) {
         if ((bgngDt == null) != (endDt == null) || (!schdlCnsltn && bgngDt == null)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -379,9 +434,19 @@ public class CareRecruitmentService {
         if (!endDt.isAfter(bgngDt) || !isHalfHour(bgngDt) || !isHalfHour(endDt)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        LocalDate bgngDe = bgngDt.toLocalDate();
+        LocalDate endDe = endDt.toLocalDate();
+        boolean bgngChanged = savedBgngDt == null || !bgngDe.equals(savedBgngDt.toLocalDate());
+        boolean endChanged = savedEndDt == null || !endDe.equals(savedEndDt.toLocalDate());
+        if (bgngChanged && (bgngDe.isBefore(today) || bgngDe.isAfter(today.plusDays(START_LIMIT_DAYS)))) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (endChanged && endDe.isAfter(bgngDe.plusDays(PERIOD_LIMIT_DAYS))) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
-    private boolean isHalfHour(LocalDateTime dateTime) {
+    private static boolean isHalfHour(LocalDateTime dateTime) {
         return dateTime.getMinute() % 30 == 0 && dateTime.getSecond() == 0 && dateTime.getNano() == 0;
     }
 
@@ -466,11 +531,17 @@ public class CareRecruitmentService {
 
     private void insertRecruitmentHistory(Long petPrtcRcrtSn, Long mbrSn, CareRecruitmentStatus before,
             CareRecruitmentStatus after) {
+        insertRecruitmentHistory(petPrtcRcrtSn, mbrSn, before, after, null);
+    }
+
+    private void insertRecruitmentHistory(Long petPrtcRcrtSn, Long mbrSn, CareRecruitmentStatus before,
+            CareRecruitmentStatus after, String chgRsn) {
         CareRecruitmentStatusHistory history = new CareRecruitmentStatusHistory();
         history.setPetPrtcRcrtSn(petPrtcRcrtSn);
         history.setMbrSn(mbrSn);
         history.setBfrSttsCd(before == null ? null : before.getCode());
         history.setAftrSttsCd(after.getCode());
+        history.setChgRsn(chgRsn);
         careRecruitmentMapper.insertStatusHistory(history);
     }
 

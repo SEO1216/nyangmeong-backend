@@ -1,20 +1,28 @@
 # SJM 핸드오프
 
 ## 지금 하는 것
-마이페이지 시드 정리 · PET·DAILY_HLTH_RCD 시드 원본 정리 — 끝남 (승인 2026-11-10 16:04). 검증 통과 1회차, 사람 확인 완료(빈 DB에 create_tables → base_data → seed 순서로 넣고 SQL 10단계 확인 쿼리 기대값 0/0/4/0/N/0/0/0/0/0 일치)
-
-기능 ID 없음(시드 SQL 정리). 근거: 마이페이지 시드 정리 SQL(사람이 준 파일) 1~9단계를 덤프에 그대로 적용. 대상은 `DEL_YN='N'`·`RGTR_ID='SEED'` 행만.
-
-- `db/seed/20261028_seed_data.sql`: PET 줄(593)과 DAILY_HLTH_RCD 줄(241~247)만 파싱 스크립트로 바꾼다. 품종명은 덤프 VRTY 줄 기준. 1단계 품종(코숏 믹스→VRTY_SN 24, 진도 믹스→진돗개 믹스, `믹스`는 시드에 없어 할 일 없음, 믹스묘·푸들 믹스·믹스견은 직접 입력 유지), 2·3단계 털색(품종명+MOD(PET_SN) 규칙 그대로), 4단계 털색 직접 입력 4마리(2·3단계 뒤), 5~8단계 체중 소수 첫째 자리·프로필 체중=최근 기록. 머리말에 날짜별 이력 한 줄(공용 DB는 2026-11-10 반영 완료)
-- `db/20261109_insert_base_data_v0.14.sql`: PETC0011(얼룩) INSERT에 `USE_YN='N'`, 맨 위 변경 절에 새 항목(UPDATE COM_CD … PETC0011) 주석으로 추가. 기존 항목은 고치지 않는다
-- 변환 스크립트는 scratchpad에만 두고 커밋하지 않는다. SQL 파일은 저장소로 복사하지 않는다
-- 완료 조건:
-  - 명령: `./gradlew build -q` 통과
-  - 확인: SQL 10단계 확인 항목 기대값 0/0/4/0/N/0/0/0/0/0, 줄 수 1146 유지, 바꾼 컬럼 외 바이트 동일, SQL 규칙 재계산과 PET_SN별 일치, 재실행해도 결과 같음
-- 프론트 연결: 없음
+SCR-MYP-003 반려동물 등록/수정 · 운영 설정값 연결(FN-MYP-003-01·FN-MYP-005-05·FN-MYP-005에 붙임) — 끝남 (승인 2026-11-17 11:16). 검증 1회차는 `화면:` 확인 못 함으로 보관, 사람이 Postman 16개 요청(테스트 33개)을 직접 확인해 통과(user0006 `GET /pets/limit` 10·12·0, 등록 400 "10마리"·`%d` 없음, 시험 초대 248 발송 201·만료일 지금+7일, 상세 `remainingPetCount` 0, 수락 400·대기중 그대로·연동 없음, 248 취소·삭제, 관리자 설정은 바꾸지 않음)
+정책: 반려동물 최대 수 `PET_MAX_CNT`·공동양육자 최대 인원 `JNT_BRUP_MAX_NOPE`·초대 유효 일수 `INVTN_VLD_DAY_CNT`를 `SystemSettingService.get()`으로 읽는다. 오류 문구 숫자는 `ErrorCode` 두 문구(`%d`)를 `CustomException.withMessage`로 채워 보낸다. 이미 넘은 회원의 데이터는 그대로 두고 새 등록·수락만 막는다. 반려동물 수 때문에 초대 보내기를 막지 않는 규칙은 그대로. 새 `GET /pets/limit`로 프론트가 최대 수를 안다.
 새 의존성: 없음
 
 ## 다음에 할 것
+- 프론트 연결(SCR-MYP-003·005, FN-MYP-003-01·FN-MYP-005-05): `PetListPage`·`PetSlide`·`PetEmpty`·수락 화면 안내 문구의 "10마리"를 `GET /pets/limit`의 `petMaxCnt`로 표시, `MAX_OWN_PETS = 10` 제거(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절 2개를 넣어 뒀다). 같은 상수를 쓰는 `PetSwitcher`(health)·`InvitationAccept`도 함께 본다
+- 문서 작업(`/end` 때, 운영 설정값 연결): 기능명세서 FN-MYP-003-01·FN-MYP-005-05의 "10마리"·FN-MYP-005의 공동양육 5명·초대 7일 문구를 "운영 설정값(기본 10·5·7)"으로
+- LJS에게 알리기(SCR-MYP-003 운영 설정값 연결): 공통 오류 처리 파일 4개를 바꾼다(`BaseException`·`CustomException`·`GlobalExceptionHandler`·`ApiResponse`, 문구를 받는 `withMessage`·`errorWithData` 오버로드 추가, 기존 동작은 그대로). 이 외에 공용 `ErrorCode`의 `PET_LIMIT_EXCEEDED`·`CAREGIVER_LIMIT_EXCEEDED` 문구가 `%d` 서식이 된다. PR 전에 알린다
+- 프론트 연결(SCR-MYP-003, FN-MYP-003-01): 등록 카드 "모두 등록했어요"를 주양육 + 공동양육 합계 10으로 판정(백엔드 10마리 한도가 끝난 뒤 프론트 저장소에서 `/start`)
+- 프론트 연결(SCR-MYP-005, FN-MYP-005-05): 수락 화면에서 `remainingPetCount`를 넘게 고르지 못하게 막고 안내, 수락 400(`PET_LIMIT_EXCEEDED`, data `remainingPetCount`) 처리(프론트 저장소에서 `/start`)
+- 문서 작업(`/end` 때, 10마리 한도): 기능명세서 FN-MYP-003-01·FN-MYP-005-05에 "공동양육 포함 10마리" 문구
+- 프론트 연결(SCR-MYP-005, FN-MYP-005-03): 보낸 초대 목록 대기중 행 [취소] 버튼·확인, 취소 행 [삭제] 버튼(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
+- 프론트 연결(SCR-MYP-005, FN-MYP-005-10): 수락 화면에서 상태 `PETC0035`면 "취소된 초대예요" 안내(프론트 저장소에서 `/start`)
+- 문서 작업(`/end` 때): 기능명세서의 FN-MYP-005-03(보낸 초대는 조회 전용 → 취소·삭제 추가)·FN-MYP-005-10(취소 안내) 문구 수정. 최신 명세는 DMS 로그인이 풀려 못 봤고 v0.4 기준이다
+- 받은 초대 목록 API를 만들 때: 취소·삭제된 초대는 넣지 않는다(대기 중만)
+- PR 본문에 "DB 변경 있음: v0.14 (14)·(15)", 범위는 "~" 대신 "–". 두 SQL은 공용 DB 실행 완료라 완료 댓글만 남기고, 병합 뒤 다시 실행하지 않는다(중복 오류)
+- 프론트 연결(SCR-MYP-003, FN-MYP-003-01·04): 등록·수정 모달의 체중·목표·최소·최대 체중 입력을 소수 둘째 자리·200kg 이하로 제한(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
+- JAJ에게 전달(SCR-HLT-002): `PetService.syncWeight`는 건강기록 체중을 `PET_BDWG`에 그대로 넣는다. 건강기록 체중 입력에도 소수 둘째 자리·200kg 이하 검증이 필요하다(회의 확정). 건강기록 체중 때 범위 갱신은 `PetBdwgRange.of()`가 200에서 자른다
+- 로컬 설정(SJM): `application.properties` permit-all-paths의 `/api/files/public/**`는 PR #234 병합 뒤 develop을 합칠 때 다시 지운다(git에 올라가지 않음)
+- 프론트 연결(SCR-MYP-003, FN-MYP-003-04): 등록·수정 모달이 `bdwgRngDrctInptYn`을 보내고 보여 주기(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
+- JAJ에게 전달(건강기록 체중 범위 갱신, FN-MYP-003-04): 정상 범위 계산은 `com.nyangmeong.pet.service.PetBdwgRange`(public record `min`·`max`)에 있다. 사용: `PetBdwgRange r = PetBdwgRange.of(기준체중);` 후 `r.min()`·`r.max()`를 `PET.MIN_BDWG`·`MAX_BDWG`에 저장한다(다른 도메인이므로 `pet/service` 클래스를 바로 쓴다). 규칙: 최소 = 기준 체중 × 0.9, 최대 = × 1.1, 둘 다 소수 둘째 자리 HALF_UP(4.25 → 3.83 ~ 4.68). 아주 작은 체중은 최소를 0.01 이상, 최대를 최소+0.01 이상으로 보정한다(`CK_PET_WGHT_RANGE` 유지). 체중이 null이거나 0 이하면 `IllegalArgumentException`. 최대는 200kg(`PetBdwgRange.MAX_BDWG_LIMIT`)에서 자른다. 최소가 200 이상이면 199.99로 자른다. 갱신 전에 `PET.BDWG_RNG_DRCT_INPT_YN`을 확인해 `'Y'`(사용자 직접 입력)이면 범위를 바꾸지 않는다. 마이페이지(등록·수정)는 이미 이 메서드를 쓴다
+- DB 공용 반영(SCR-MYP-003): `db/20261109_create_tables_v0.14.sql` 변경 절 v0.14 (12)는 공용 DB에 반영 완료(2026-11-13, 사람이 실행). 병합 뒤 다시 실행하지 않는다(중복 컬럼 오류). PR 본문에 "DB 변경 있음: v0.14 (12)"를 적고 완료 댓글을 남긴다. 기존 PET 행은 DEFAULT로 모두 'Y'
 - 팀에 알린다(시드): `db/seed/20261028_seed_data.sql`의 PET·체중 기록(HLTC0014)을 정리했고(품종 직접 입력명, 품종별 털색, 얼룩 미사용, 체중 소수 첫째 자리) `db/20261109_insert_base_data_v0.14.sql` 변경 절 v0.14 (8)로 얼룩(PETC0011)을 사용 중지했다. 공용 DB는 2026-11-10 반영 완료. 이미 시드를 넣은 로컬 DB는 시드를 다시 넣지 말고 팀에서 받은 정리 SQL로 맞춘다
 - 확인: 등록 직후 출제(`PetCreatedEventListener`)가 UK_DAY_MSN_1 등으로 실패하면 `issueFor`가 리스너의 REQUIRES_NEW 트랜잭션에 합류해 롤백 전용이 되어, 커밋 때 `UnexpectedRollbackException` 로그가 함께 찍힐 수 있다(등록 응답에는 영향 없음, 다음 정각 배치가 채움). 거슬리면 `issueFor`를 `REQUIRES_NEW`로 바꾸는 것을 고려
 - Postman 컬렉션: 3번 회원이 정지(`MEMBER_INACTIVE`)라 그 회원을 쓰는 변수(`mbrSnB`·`emailB`·`delCoMbrSn`·`delCoEmail`·`invReceiverMbrSn`·`infoOtherMbrSn`)가 있는 폴더는 403. 돌릴 때 정상 회원으로 바꾼다(이메일은 `GET /members/me`의 `acntEml`)
@@ -31,3 +39,4 @@
 - KSJ·LJS에게 알리기(SCR-MYP-020): KSJ 펫이야기 글·댓글 → `PetService.reflectRepresentative`(아직 `community`에 호출 없음), LJS `pet/service/PointFake` → `PointService.use`(아직 `ItemService`가 `PointFake`를 씀)
 - JAJ 확인: 케어미션 `reflect` 중 일정은 직접 입력(`DIRECT`)일 때만 반영한다(`CareScheduleService.java:87`). 명세와 같은지 확인
 - 건강기록 기본 항목 "발 관리"의 이름을 JAJ와 정하기(후보: 발바닥 확인하기). 발톱 관리·발바닥 털 관리와 겹쳐 보이고 뜻이 넓다. 바뀌면 마이그레이션으로 `CARE_MSN` 미션 이름도 맞춘다
+

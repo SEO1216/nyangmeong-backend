@@ -25,6 +25,7 @@
         <result column="MDFR_ID" property="mdfrId" />
         <result column="DSCV_AUTO_CMNT_CN" property="dscvAutoCmntCn" />
         <result column="MTCH_NO_RSPNS_END_CRTR_DAY_CNT" property="mtchNoRspnsEndCrtrDayCnt" />
+        <result column="DLNG_CMPTN_HIDE_CRTR_DAY_CNT" property="dlngCmptnHideCrtrDayCnt" />
     </resultMap>
 
     <select id="selectCurrent" resultMap="systemSettingResultMap">
@@ -51,6 +52,7 @@
              , MDFR_ID
              , DSCV_AUTO_CMNT_CN
              , MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+             , DLNG_CMPTN_HIDE_CRTR_DAY_CNT
           FROM SYS_STNG
          ORDER BY SYS_STNG_SN
          LIMIT 1
@@ -76,6 +78,7 @@
                             , AI_CMTRY_BSC_CN
                             , DSCV_AUTO_CMNT_CN
                             , MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+                            , DLNG_CMPTN_HIDE_CRTR_DAY_CNT
                             , RGTR_ID
                             , MDFR_ID)
         VALUES (1
@@ -96,6 +99,7 @@
               , #{setting.aiCmtryBscCn}
               , #{setting.dscvAutoCmntCn}
               , #{setting.mtchNoRspnsEndCrtrDayCnt}
+              , #{setting.dlngCmptnHideCrtrDayCnt}
               , #{actorId}
               , #{actorId}) AS NEW_ROW
         ON DUPLICATE KEY UPDATE PET_MAX_CNT = NEW_ROW.PET_MAX_CNT
@@ -115,6 +119,7 @@
                               , AI_CMTRY_BSC_CN = NEW_ROW.AI_CMTRY_BSC_CN
                               , DSCV_AUTO_CMNT_CN = NEW_ROW.DSCV_AUTO_CMNT_CN
                               , MTCH_NO_RSPNS_END_CRTR_DAY_CNT = NEW_ROW.MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+                              , DLNG_CMPTN_HIDE_CRTR_DAY_CNT = NEW_ROW.DLNG_CMPTN_HIDE_CRTR_DAY_CNT
                               , MDFR_ID = NEW_ROW.MDFR_ID
                               , MDFCN_DT = NOW()
     </insert>

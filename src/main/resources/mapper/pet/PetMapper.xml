@@ -15,6 +15,7 @@
         <result column="NUTR_YN"           property="nutrYn" />
         <result column="MIN_BDWG"          property="minBdwg" />
         <result column="MAX_BDWG"          property="maxBdwg" />
+        <result column="BDWG_RNG_DRCT_INPT_YN" property="bdwgRngDrctInptYn" />
         <result column="COLR_CD"           property="colrCd" />
         <result column="COLR_DRCT_INPT_NM" property="colrDrctInptNm" />
         <result column="CHIP_NO"           property="chipNo" />
@@ -77,6 +78,7 @@
              , CASE WHEN P.NUTR_YN = 'Y' THEN TRUE ELSE FALSE END AS NUTR_YN
              , P.MIN_BDWG
              , P.MAX_BDWG
+             , P.BDWG_RNG_DRCT_INPT_YN
              , P.COLR_CD
              , P.COLR_DRCT_INPT_NM
              , P.CHIP_NO
@@ -123,6 +125,7 @@
         <result column="GOAL_BDWG"         property="goalBdwg" />
         <result column="MIN_BDWG"          property="minBdwg" />
         <result column="MAX_BDWG"          property="maxBdwg" />
+        <result column="BDWG_RNG_DRCT_INPT_YN" property="bdwgRngDrctInptYn" />
         <result column="MIN_MEAL_QTY"      property="minMealQty" />
         <result column="MAX_MEAL_QTY"      property="maxMealQty" />
         <result column="MIN_WATR_QTY"      property="minWatrQty" />
@@ -174,6 +177,7 @@
              , GOAL_BDWG
              , MIN_BDWG
              , MAX_BDWG
+             , BDWG_RNG_DRCT_INPT_YN
              , MIN_MEAL_QTY
              , MAX_MEAL_QTY
              , MIN_WATR_QTY
@@ -320,7 +324,7 @@
     </select>
 
     <select id="countPrimaryPets" resultType="int">
-        /* 주양육 반려동물 수 조회 */
+        /* 주양육 반려동물 수 조회 : 첫 등록 대표 지정 판단용 */
         SELECT COUNT(*)
           FROM BRUP_REL R
           JOIN PET P
@@ -329,6 +333,38 @@
          WHERE R.MBR_SN = #{mbrSn}
            AND R.BRUP_ROLE_CD = #{primaryRoleCd}
            AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="countLinkedPets" resultType="int">
+        /* 함께하는 반려동물 수 조회 : 주양육 + 공동양육 */
+        SELECT COUNT(*)
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.MBR_SN = #{mbrSn}
+           AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="lockMemberForPetLimit" resultType="long">
+        /* 반려동물 한도 검사용 회원 행 잠금 */
+        SELECT MBR_SN
+          FROM MBR
+         WHERE MBR_SN = #{mbrSn}
+           FOR UPDATE
+    </select>
+
+    <select id="selectPrimaryCaregiverMbrSn" resultType="long">
+        /* 반려동물 주양육자 회원 번호 조회 */
+        SELECT R.MBR_SN
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.PET_SN = #{petSn}
+           AND R.BRUP_ROLE_CD = #{primaryRoleCd}
+           AND R.USE_YN = 'Y'
+         LIMIT 1
     </select>
 
     <insert id="insertPet" parameterType="com.nyangmeong.pet.domain.Pet"
@@ -351,6 +387,7 @@
              , GOAL_BDWG
              , MIN_BDWG
              , MAX_BDWG
+             , BDWG_RNG_DRCT_INPT_YN
              , NUTR_YN
              , RGTR_ID
              , MDFR_ID
@@ -372,6 +409,7 @@
              , #{goalBdwg}
              , #{minBdwg}
              , #{maxBdwg}
+             , #{bdwgRngDrctInptYn}
              , #{nutrYn}
              , #{rgtrId}
              , #{mdfrId}
@@ -416,6 +454,7 @@
              , GOAL_BDWG         = #{pet.goalBdwg}
              , MIN_BDWG          = #{pet.minBdwg}
              , MAX_BDWG          = #{pet.maxBdwg}
+             , BDWG_RNG_DRCT_INPT_YN = #{pet.bdwgRngDrctInptYn}
              , NUTR_YN           = #{pet.nutrYn}
              , MDFR_ID           = #{actorId}
              , MDFCN_DT          = NOW()

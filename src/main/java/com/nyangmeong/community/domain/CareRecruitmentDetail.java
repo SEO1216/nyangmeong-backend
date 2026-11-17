@@ -8,7 +8,7 @@ import lombok.Setter;
 /**
  * [펫돌봄 모집 상세 조회 결과]
  * - PET_PRTC_RCRT 에 게시글·작성자를 조인한 서비스 내부용, 응답으로 그대로 반환하지 않는다
- * - aplcntCnt : 메시지가 1건 이상 오간 이 글의 채팅방 수
+ * - aplcntCnt : 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 남아 있는 이 글의 채팅방 수
  */
 @Getter
 @Setter

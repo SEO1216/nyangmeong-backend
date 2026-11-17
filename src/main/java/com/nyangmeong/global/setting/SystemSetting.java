@@ -54,4 +54,6 @@ public class SystemSetting {
     private String dscvAutoCmntCn = "🎉 [펫이름]가 무사히 가족 품으로 돌아왔어요!";
     /** 매칭무응답종료기준일수 */
     private Long mtchNoRspnsEndCrtrDayCnt = 14L;
+    /** 거래완료숨김기준일수 */
+    private Long dlngCmptnHideCrtrDayCnt = 7L;
 }

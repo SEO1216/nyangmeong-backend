@@ -19,6 +19,7 @@ public record AdminSettingUpdateRequest(
         @Min(1) @Max(100) Long blindDclrAcmlCnt,
         @Min(1) @Max(99) Long lostTpofExpryCrtrDayCnt,
         @Min(1) @Max(99) Long mtchNoRspnsEndCrtrDayCnt,
+        @Min(1) @Max(99) Long dlngCmptnHideCrtrDayCnt,
         @Pattern(regexp = "^(20[2-9][0-9]|2100)$") String lowstHrwgAplcnYr,
         @Min(0) @Max(1_000_000) Long lowstHrwgAmt,
         @Size(min = 1, max = 1000) @Pattern(regexp = "(?s).*\\S.*") String dscvAutoCmntCn,

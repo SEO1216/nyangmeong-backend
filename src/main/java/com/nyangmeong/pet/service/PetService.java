@@ -24,6 +24,7 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.member.service.MemberService;
 import com.nyangmeong.pet.domain.BrupLinkSttsHstry;
 import com.nyangmeong.pet.domain.BrupRel;
@@ -37,6 +38,7 @@ import com.nyangmeong.pet.dto.AdminPetDistributionSummary;
 import com.nyangmeong.pet.dto.AdminPetSummary;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
@@ -67,9 +69,6 @@ public class PetService {
     /** 케어미션 기준일 시간대 */
     private static final ZoneId MISSION_ZONE = ZoneId.of("Asia/Seoul");
 
-    /** 계정당 주양육 반려동물 상한 */
-    private static final int MAX_PET_COUNT = 10;
-
     /** 삭제 해제 알림 이동 경로 */
     private static final String PET_LIST_PATH = "/mypage/pets";
 
@@ -82,6 +81,7 @@ public class PetService {
     private final CaregiverInvitationMapper invitationMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final MemberService memberService;
+    private final SystemSettingService systemSettingService;
 
     /**
      * 관리자 회원 상세 반려동물 목록 조회
@@ -111,14 +111,35 @@ public class PetService {
     }
 
     /**
+     * 내 반려동물 한도 조회 (운영 설정 최대 수, 공동양육 포함 합계, 남은 자리)
+     */
+    @Transactional(readOnly = true)
+    public PetLimitResponse getPetLimit(Long mbrSn) {
+        int max = maxPetCount();
+        int linked = petMapper.countLinkedPets(mbrSn);
+        return new PetLimitResponse(max, linked, PetLimit.remaining(max, linked));
+    }
+
+    /**
+     * 운영 설정의 계정당 반려동물 최대 수
+     */
+    private int maxPetCount() {
+        return systemSettingService.get().getPetMaxCnt().intValue();
+    }
+
+    /**
      * 반려동물 등록
      */
     @Transactional
     public PetResponse createPet(Long mbrSn, PetCreateRequest req) {
-        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
-        if (primaryCount >= MAX_PET_COUNT) {
-            throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
+        /** 같은 회원의 동시 등록·수락이 한도를 넘지 않게 회원 행을 잠근 뒤 센다 */
+        petMapper.lockMemberForPetLimit(mbrSn);
+        int maxPetCount = maxPetCount();
+        if (petMapper.countLinkedPets(mbrSn) >= maxPetCount) {
+            throw PetLimit.exceeded(maxPetCount);
         }
+
+        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
 
         Pet pet = new Pet();
         pet.setPetNm(req.petNm());
@@ -131,8 +152,17 @@ public class PetService {
         pet.setNutrYn(Boolean.TRUE.equals(req.nutrYn()) ? "Y" : "N");
         pet.setPetBdwg(req.petBdwg());
         pet.setGoalBdwg(req.goalBdwg());
-        pet.setMinBdwg(req.minBdwg());
-        pet.setMaxBdwg(req.maxBdwg());
+        /** 정상 범위 : 'N' 이면 서버가 petBdwg 로 계산(보낸 값 무시), 'Y'(기본) 이면 보낸 값 그대로 (FN-MYP-003-04) */
+        pet.setBdwgRngDrctInptYn(req.bdwgRngDrctInptYn() == null ? "Y" : req.bdwgRngDrctInptYn());
+        if ("N".equals(pet.getBdwgRngDrctInptYn())) {
+            applyAutoBdwgRange(pet);
+        } else {
+            if (req.minBdwg() == null || req.maxBdwg() == null) {
+                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "minBdwg", "maxBdwg");
+            }
+            pet.setMinBdwg(req.minBdwg());
+            pet.setMaxBdwg(req.maxBdwg());
+        }
         pet.setColrCd(req.colrCd());
         pet.setColrDrctInptNm(emptyToNull(req.colrDrctInptNm()));
         pet.setChrcCn(emptyToNull(req.chrcCn()));
@@ -211,11 +241,27 @@ public class PetService {
         if (goalBdwgReset) {
             pet.setGoalBdwg(null);
         }
-        if (req.minBdwg() != null) {
-            pet.setMinBdwg(req.minBdwg());
-        }
-        if (req.maxBdwg() != null) {
-            pet.setMaxBdwg(req.maxBdwg());
+        /**
+         * 정상 범위 (FN-MYP-003-04)
+         * - 플래그를 안 보냈는데 범위를 보내면 직접 입력('Y')으로 바꾸고 보낸 값을 저장
+         * - 'N' 이면 현재(같이 보낸 petBdwg 가 있으면 그 값) 체중으로 다시 계산, 보낸 범위는 무시
+         * - 플래그 없이 petBdwg 만 보내면 현재 'N' 일 때만 다시 계산, 'Y' 는 범위 유지
+         */
+        boolean rangeSent = req.minBdwg() != null || req.maxBdwg() != null;
+        String nextYn = req.bdwgRngDrctInptYn() != null ? req.bdwgRngDrctInptYn()
+                : (rangeSent ? "Y" : pet.getBdwgRngDrctInptYn());
+        pet.setBdwgRngDrctInptYn(nextYn);
+        if ("N".equals(nextYn)) {
+            if (req.bdwgRngDrctInptYn() != null || req.petBdwg() != null) {
+                applyAutoBdwgRange(pet);
+            }
+        } else {
+            if (req.minBdwg() != null) {
+                pet.setMinBdwg(req.minBdwg());
+            }
+            if (req.maxBdwg() != null) {
+                pet.setMaxBdwg(req.maxBdwg());
+            }
         }
         if (req.colrCd() != null) {
             pet.setColrCd(req.colrCd());
@@ -352,6 +398,20 @@ public class PetService {
     }
 
     /**
+     * 주양육자 회원 번호 조회 (반려동물 파일 저장 폴더)
+     * - 권한 검사는 하지 않는다. 호출하는 쪽이 먼저 검사할 것
+     * - 삭제됐거나 없는 반려동물이면 404
+     */
+    @Transactional(readOnly = true)
+    public Long getPrimaryCaregiverMbrSn(Long petSn) {
+        Long mbrSn = petMapper.selectPrimaryCaregiverMbrSn(petSn, BrupRole.PRIMARY.getCode());
+        if (mbrSn == null) {
+            throw new CustomException(ErrorCode.PET_NOT_FOUND);
+        }
+        return mbrSn;
+    }
+
+    /**
      * 프로필 체중 동기화
      * - PET_BDWG만 바꾼다 (정상·목표 체중 범위는 그대로)
      * - 권한 검사는 하지 않는다. 호출하는 쪽(건강기록)이 먼저 검사하고, 그 트랜잭션 안에서 부를 것
@@ -429,6 +489,15 @@ public class PetService {
         if (pet.getMinBdwg().compareTo(pet.getMaxBdwg()) >= 0) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "minBdwg", "maxBdwg");
         }
+    }
+
+    /**
+     * 정상 범위를 현재 체중으로 계산해 채운다 (PetBdwgRange)
+     */
+    private void applyAutoBdwgRange(Pet pet) {
+        PetBdwgRange range = PetBdwgRange.of(pet.getPetBdwg());
+        pet.setMinBdwg(range.min());
+        pet.setMaxBdwg(range.max());
     }
 
     /**

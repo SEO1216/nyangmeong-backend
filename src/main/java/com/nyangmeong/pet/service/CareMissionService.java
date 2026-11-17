@@ -62,6 +62,15 @@ public class CareMissionService {
     }
 
     /**
+     * 반려동물의 그날 케어미션 목록 조회 (읽기 전용)
+     * - 케어리스트의 미션 표시용 : 공동양육자도 보므로 권한은 호출하는 쪽에서 검사 (※신규 정책)
+     */
+    @Transactional(readOnly = true)
+    public List<DailyMissionSummary> searchByPet(Long petSn, LocalDate msnCrtrYmd) {
+        return careMissionMapper.selectDailyMissions(petSn, msnCrtrYmd);
+    }
+
+    /**
      * 그날 케어미션 출제
      */
     @Transactional

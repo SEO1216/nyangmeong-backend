@@ -67,6 +67,19 @@ class ChatRoomMapperSqlTest {
     }
 
     @Test
+    void 채팅_목록은_글쓴이에게만_사람_메시지가_없는_방을_뺀다() {
+        Map<String, Object> param = new HashMap<>();
+        param.put("mbrSn", 2L);
+        param.put("cond", new ChatRoomSearchCond());
+        param.put("joinedCd", "CHTC0003");
+        param.put("guardianRole", "GUARDIAN");
+        param.put("sitterRole", "SITTER");
+
+        assertThat(sql("selectList", param)).contains("AND ( C.CTPT_MBR_SN = ? OR EXISTS ( SELECT 1 FROM CHAT_MSG HM"
+                + " WHERE HM.OTO_CHAT_ROOM_SN = C.OTO_CHAT_ROOM_SN AND HM.MBR_SN IS NOT NULL ) )");
+    }
+
+    @Test
     void 채팅방_조회는_글쓴이와_지원자_닉네임과_사진을_공통_조각으로_고른다() {
         Map<String, Object> param = new HashMap<>();
         param.put("otoChatRoomSn", 5L);

@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,7 +30,9 @@ import com.nyangmeong.community.domain.CareMatch;
 import com.nyangmeong.community.domain.ChatMessage;
 import com.nyangmeong.community.domain.ChatMessagePhoto;
 import com.nyangmeong.community.domain.ChatParticipant;
+import com.nyangmeong.community.domain.ChatRoom;
 import com.nyangmeong.community.domain.ChatRoomDetail;
+import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.dto.ChatMessageCreateRequest;
 import com.nyangmeong.community.dto.ChatMessageResponse;
 import com.nyangmeong.community.dto.ChatMessageSliceResponse;
@@ -78,7 +82,7 @@ class ChatMessageServiceTest {
             return 1;
         }).when(chatMessageMapper).insertMessage(any(ChatMessage.class));
         AtomicLong fileSn = new AtomicLong(500);
-        when(fileStore.store(any(MultipartFile.class), anyString())).thenAnswer(inv -> fileSn.getAndIncrement());
+        when(fileStore.store(any(MultipartFile.class), any(), any(), anyString())).thenAnswer(inv -> fileSn.getAndIncrement());
     }
 
     private void stubParticipant(String ptcpSttsCd) {
@@ -131,6 +135,47 @@ class ChatMessageServiceTest {
         ArgumentCaptor<ChatMessageSummary> pushed = ArgumentCaptor.forClass(ChatMessageSummary.class);
         verify(chatRealtimePublisher).publishMessage(eq(ROOM), eq(List.of(OWNER, SITTER)), pushed.capture());
         assertThat(pushed.getValue().getChatMsgSn()).isEqualTo(77L);
+    }
+
+    @Test
+    void 상대가_나간_방에_보내면_상대를_참여로_되돌리고_실시간으로_보낸다() {
+        ChatParticipant left = new ChatParticipant();
+        left.setChatPrtpntSn(101L);
+        left.setPtcpSttsCd("CHTC0004");
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(left);
+
+        service.send(SITTER, ROOM, text("다시 연락드려요", "m-9"));
+
+        InOrder order = inOrder(chatRoomMapper, chatRealtimePublisher);
+        order.verify(chatRoomMapper).updateParticipantStatus(ROOM, OWNER, "CHTC0003");
+        order.verify(chatRealtimePublisher).publishMessage(eq(ROOM), any(), any());
+        ArgumentCaptor<ChatStatusHistory> history = ArgumentCaptor.forClass(ChatStatusHistory.class);
+        verify(chatRoomMapper).insertParticipantStatusHistory(history.capture());
+        assertThat(history.getValue().getRefSn()).isEqualTo(101L);
+        assertThat(history.getValue().getMbrSn()).isEqualTo(SITTER);
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0004");
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0003");
+    }
+
+    @Test
+    void 상대가_참여_중이면_보내도_참여_상태를_바꾸지_않는다() {
+        service.send(SITTER, ROOM, text("안녕하세요", "m-10"));
+
+        verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
+        verify(chatRoomMapper, never()).insertParticipantStatusHistory(any());
+    }
+
+    @Test
+    void 닫힌_방에_보내면_상대를_되돌리지_않는다() {
+        ChatRoom readOnly = new ChatRoom();
+        readOnly.setChatRoomSttsCd("CHTC0002");
+        when(chatRoomMapper.selectRoomForUpdate(ROOM)).thenReturn(readOnly);
+        ChatParticipant left = new ChatParticipant();
+        left.setPtcpSttsCd("CHTC0004");
+        when(chatRoomMapper.selectParticipant(ROOM, OWNER)).thenReturn(left);
+
+        assertError(() -> service.send(SITTER, ROOM, text("안녕하세요", "m-11")), ErrorCode.CHAT_ROOM_CLOSED);
+        verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
     }
 
     @Test
@@ -194,7 +239,7 @@ class ChatMessageServiceTest {
     void 사진이_없거나_열한_장이면_거부한다() {
         assertError(() -> service.send(OWNER, ROOM, photos(0)), ErrorCode.INVALID_INPUT_VALUE);
         assertError(() -> service.send(OWNER, ROOM, photos(11)), ErrorCode.INVALID_INPUT_VALUE);
-        verify(fileStore, never()).store(any(MultipartFile.class), anyString());
+        verify(fileStore, never()).store(any(MultipartFile.class), any(), any(), anyString());
         verify(chatMessageMapper, never()).insertMessage(any());
     }
 
@@ -298,5 +343,62 @@ class ChatMessageServiceTest {
         verify(chatMessageMapper).selectList(ROOM, null, 51);
 
         assertError(() -> service.search(99L, ROOM, null, null), ErrorCode.CHAT_ROOM_ACCESS_DENIED);
+    }
+
+    // 종료 방 차단
+
+    private void stubRoomStatus(String chatRoomSttsCd) {
+        ChatRoom locked = new ChatRoom();
+        locked.setChatRoomSttsCd(chatRoomSttsCd);
+        when(chatRoomMapper.selectRoomForUpdate(ROOM)).thenReturn(locked);
+    }
+
+    @Test
+    void 읽기_전용_방에는_텍스트_사진_주소를_보낼_수_없고_저장하지_않는다() {
+        /** 실제 읽기 전용 방은 다른 분 매칭으로 요청이 취소됐거나 매칭이 없다 */
+        stubRoomStatus("CHTC0002");
+        stubMatchStatus("PCAC0017");
+
+        assertError(() -> service.send(OWNER, ROOM, text("안녕하세요", "m-9")), ErrorCode.CHAT_ROOM_CLOSED);
+        assertError(() -> service.send(OWNER, ROOM, photos(1)), ErrorCode.CHAT_ROOM_CLOSED);
+        /** 주소는 기존 검사(매칭 확정 전 주소 공유 불가)가 먼저 막는다 (사람 결정 2026-11-16) */
+        assertError(() -> service.send(OWNER, ROOM, address("서곡공원", null)), ErrorCode.CHAT_ADDRESS_NOT_ALLOWED);
+        verify(chatMessageMapper, never()).insertMessage(any());
+    }
+
+    @Test
+    void 무응답_종료된_매칭_방에는_텍스트를_보낼_수_없다() {
+        stubRoomStatus("CHTC0001");
+        stubMatchStatus("PCAC0018");
+
+        assertError(() -> service.send(OWNER, ROOM, text("안녕하세요", "m-9")), ErrorCode.CHAT_ROOM_CLOSED);
+        verify(chatMessageMapper, never()).insertMessage(any());
+    }
+
+    @Test
+    void 활성_방은_매칭이_없거나_거래_완료여도_보낼_수_있다() {
+        stubRoomStatus("CHTC0001");
+        assertThat(service.send(OWNER, ROOM, text("안녕하세요", "m-1")).created()).isTrue();
+
+        stubMatchStatus("PCAC0016");
+        assertThat(service.send(OWNER, ROOM, text("고마워요", "m-2")).created()).isTrue();
+    }
+
+    @Test
+    void 읽기_전용_방이어도_이미_저장된_요청_ID_재전송은_기존_메시지를_돌려준다() {
+        stubRoomStatus("CHTC0002");
+        ChatMessage existing = new ChatMessage();
+        existing.setChatMsgSn(70L);
+        existing.setOtoChatRoomSn(ROOM);
+        existing.setMbrSn(OWNER);
+        existing.setMsgTypeCd("CHTC0005");
+        existing.setMsgSeq(4);
+        existing.setMsgCnEnc("ENC:처음 보낸 글");
+        when(chatMessageMapper.selectByIdmptDmndIdForShare("m-1")).thenReturn(existing);
+
+        ChatMessageResponse res = service.send(OWNER, ROOM, text("다시 보낸 글", "m-1"));
+
+        assertThat(res.created()).isFalse();
+        verify(chatMessageMapper, never()).insertMessage(any());
     }
 }

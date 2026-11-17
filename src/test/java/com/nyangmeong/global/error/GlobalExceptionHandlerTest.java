@@ -48,7 +48,13 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/business")
         String business() {
-            throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
+            throw new CustomException(ErrorCode.PET_WEIGHT_LOCKED);
+        }
+
+        @GetMapping("/test/business-message")
+        String businessMessage() {
+            throw CustomException.withMessage(ErrorCode.PET_LIMIT_EXCEEDED,
+                    ErrorCode.PET_LIMIT_EXCEEDED.message().formatted(10));
         }
 
         @GetMapping("/test/business-field")
@@ -91,9 +97,20 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("error"))
                 .andExpect(jsonPath("$.httpCode").value(400))
-                .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.PET_LIMIT_EXCEEDED.message()))
+                .andExpect(jsonPath("$.code").value("PET_WEIGHT_LOCKED"))
+                .andExpect(jsonPath("$.message").value(ErrorCode.PET_WEIGHT_LOCKED.message()))
                 .andExpect(jsonPath("$.path").value("/test/business"));
+    }
+
+    @Test
+    void withMessage로_정한_문구가_message로_나가고_서식_기호가_남지_않는다() throws Exception {
+        mockMvc.perform(get("/test/business-message"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.message").value(ErrorCode.PET_LIMIT_EXCEEDED.message().formatted(10)))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("%"))))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

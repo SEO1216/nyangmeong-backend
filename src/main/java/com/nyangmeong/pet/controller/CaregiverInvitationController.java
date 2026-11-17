@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +18,7 @@ import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationResponse;
@@ -70,9 +72,16 @@ public class CaregiverInvitationController {
 
     @Operation(summary = "공동양육 초대 수락")
     @PostMapping("/{jntBrupInvtnSn}/accept")
-    public ResponseEntity<ApiResponse<Void>> acceptInvitation(@AuthenticationPrincipal LoginMember me,
-            @PathVariable Long jntBrupInvtnSn, @Valid @RequestBody CaregiverInvitationAcceptRequest req) {
-        caregiverInvitationService.acceptInvitation(me.id(), jntBrupInvtnSn, req);
+    public ResponseEntity<ApiResponse<?>> acceptInvitation(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long jntBrupInvtnSn, @Valid @RequestBody CaregiverInvitationAcceptRequest req,
+            HttpServletRequest request) {
+        CaregiverInvitationAcceptResult result = caregiverInvitationService.acceptInvitation(me.id(), jntBrupInvtnSn,
+                req);
+        if (!result.succeeded()) {
+            return ResponseEntity.status(result.error().status())
+                    .<ApiResponse<?>>body(ApiResponse.errorWithData(result.error(), result.message(),
+                            request.getRequestURI(), result.limit()));
+        }
         return ResponseEntity.ok(ApiResponse.success());
     }
 
@@ -81,6 +90,22 @@ public class CaregiverInvitationController {
     public ResponseEntity<ApiResponse<Void>> rejectInvitation(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long jntBrupInvtnSn) {
         caregiverInvitationService.rejectInvitation(me.id(), jntBrupInvtnSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "보낸 공동양육 초대 취소")
+    @PostMapping("/{jntBrupInvtnSn}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelInvitation(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long jntBrupInvtnSn) {
+        caregiverInvitationService.cancelInvitation(me.id(), jntBrupInvtnSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "취소한 공동양육 초대 삭제")
+    @DeleteMapping("/{jntBrupInvtnSn}")
+    public ResponseEntity<ApiResponse<Void>> deleteInvitation(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long jntBrupInvtnSn) {
+        caregiverInvitationService.deleteInvitation(me.id(), jntBrupInvtnSn);
         return ResponseEntity.ok(ApiResponse.success());
     }
 }

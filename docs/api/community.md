@@ -10,7 +10,7 @@
 | GET | /care-recruitments | 펫돌봄 모집 목록(상태·지역·기간·동물 구분·크기 필터, 10건) | CMU-004-01·02 | KSJ | - | Page<CareRecruitmentSummary> |
 | GET | /care-recruitments/minimum-wage | 최저시급 조회(로그인 회원, 관리자 설정의 현재 값을 매번 읽는다. 등록·수정 화면의 시급 안내) | CMU-004-08 | KSJ | - | MinimumWageResponse |
 | GET | /care-recruitments/{petPrtcRcrtSn} | 펫돌봄 모집 상세(상세 주소·정확 좌표 제외, 내 채팅 여부·매칭 돌보미 포함) | CMU-004-04·05 | KSJ | - | CareRecruitmentResponse |
-| GET | /chat-rooms | 내 채팅 목록(`?tab=&unreadOnly=&pstSn=`. `tab`은 ALL(기본)·MINE(내 글)·APPLIED(지원한 글), 마지막 대화 최신순, 나간 방 제외) | CMU-005-02, COM-009 | KSJ | - | List<ChatRoomSummary> |
+| GET | /chat-rooms | 내 채팅 목록(`?tab=&unreadOnly=&pstSn=`. `tab`은 ALL(기본)·MINE(내 글)·APPLIED(지원한 글), 마지막 대화 최신순, 나간 방 제외. 내 글의 방은 사람이 보낸 메시지가 있는 방만) | CMU-005-02, COM-009 | KSJ | - | List<ChatRoomSummary> |
 | GET | /chat-rooms/unread-count | 읽지 않은 메시지 총수(채팅 메뉴·헤더 배지) | CMU-005-03, COM-009 | KSJ | - | ChatUnreadCountResponse |
 | GET | /chat-rooms/{otoChatRoomSn} | 채팅방 상단 게시글 카드·매칭 진행 상태·내 역할 조회(참여자만) | CMU-005-01·11, COM-009 | KSJ | - | ChatRoomResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/messages | 대화 메시지 조회(커서 방식, 최신순). `?beforeChatMsgSn=&size=30` — 처음은 `beforeChatMsgSn` 없이, 위로 스크롤하면 받은 것 중 가장 오래된 `chatMsgSn`을 넘긴다. `size` 최대 50 | CMU-005-04, COM-009 | KSJ | - | ChatMessageSliceResponse |
@@ -25,15 +25,15 @@
 | GET | /posts/{pstSn} | 게시글 상세(조회수 동일 사용자 1일 1회 증가) | CMU-001-10 | KSJ | - | PostResponse |
 | GET | /posts/{pstSn}/comments | 댓글·대댓글 목록(삭제 댓글 대체 문구) | CMU-001-11, CMU-002-07 | KSJ | - | List<CommentSummary> |
 | POST | /care-matches | 매칭 요청(채팅방 기준, 보호자만. 요청 시점의 모집글 조건을 복사해 조건 버전을 만든다. 요청 취소된 매칭은 같은 행으로 다시 요청해 조건 버전이 늘어난다) | CMU-005-06 | KSJ | CareMatchCreateRequest | CareMatchResponse |
-| POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내) | CMU-005-07 | KSJ | - | - |
+| POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내를 받고 읽기 전용(CHTC0002)이 됨) | CMU-005-07 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel | 수락 전 매칭 요청 취소(보호자만, 사유 필수) | CMU-005-06 | KSJ | CareMatchCancelRequest | - |
 | POST | /care-matches/{petPrtcMtchSn}/completion-requests | 돌봄 완료 요청(제공자만. 별도 입력 없음, 서버가 회차·요청 시각을 기록. 201) | CMU-005-08 | KSJ | CareCompletionRequestCreateRequest | CareCompletionRequestResponse |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-completion | 보호자 돌봄 완료 확정 | CMU-005-09 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-receipt | 제공자 비용 수령 확인(양측 충족 시 거래 완료) | CMU-005-10 | KSJ | CareMatchReceiptConfirmRequest | - |
 | POST | /care-recruitments | 펫돌봄 모집 등록(multipart/form-data. 반려동물·돌봄 형태·일정·비용 최저시급 검증·장소·사진·동의) | CMU-004-06~11·13 | KSJ | CareRecruitmentCreateRequest | CareRecruitmentResponse |
 | POST | /chat-rooms | 게시글·보호자·지원자 조합 채팅방 생성 또는 기존 방 반환(새 방 201, 기존 방 200) | CMU-004-05, CMU-005-01 | KSJ | ChatRoomCreateRequest | ChatRoomResponse |
-| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 진행 중 매칭은 요청 취소로 바뀌고 매칭 완료 이후였으면 모집글이 모집중으로 돌아감). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
-| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
+| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 진행 중 매칭은 요청 취소로 바뀌고 매칭 완료 이후였으면 모집글이 모집중으로 돌아가고, 그 글의 읽기 전용 방은 다시 열리며 「모집이 다시 열렸어요.」 안내). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
+| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 방이 읽기 전용(CHTC0002)이거나 매칭이 무응답 종료(PCAC0018)면 409 `CHAT_ROOM_CLOSED`(이미 저장된 `idmptDmndId` 재전송은 200). 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/images/{atchFileSn} | 채팅 사진 보기(참여자만, 그 방 메시지에 붙은 사진만) | CMU-005-05 | KSJ | - | 이미지 바이너리 |
 | POST | /chat-rooms/{otoChatRoomSn}/read | 활성 대화창에 표시된 메시지까지 읽음 처리 | CMU-005-03, COM-009 | KSJ | ChatRoomReadRequest | - |
 | POST | /lost-reports | 실종 제보 등록(게시글+제보, 품종 마스터/직접입력, 목격 좌표, 개인정보 동의) | CMU-002-10·13 | KSJ | LostReportCreateRequest | LostReportResponse |
@@ -59,7 +59,7 @@
 | GET | /admin/lost-reports/{lostTpofSn} | 관리자 실종제보 상세. 실종·만료는 본문·사진·만료 기준일, 찾았어요는 제목·상태·처리 시각만(결정 13). 조회수는 올리지 않는다. 없거나 정상 글이 아니면 404 LOST_REPORT_NOT_FOUND | ADM-021-02 | LJS | - | AdminLostReportResponse |
 | GET | /admin/care-matches | 관리자 펫돌봄 모집글 목록. 정상 게시글만(블라인드·삭제 글은 `/admin/posts`), 최신순 20건씩. 모르는 상태 코드 400 INVALID_INPUT_VALUE, 일반 회원 403 ADMIN_ONLY | ADM-022-01 | LJS | AdminCareMatchSearchCond | PageResponse<AdminCareMatchSummary> |
 | GET | /admin/care-matches/{petPrtcRcrtSn} | 관리자 펫돌봄 매칭 상세(분쟁 대응, 1:1 문의의 `?rcrtSn=`도 이 번호). 모집글 정보 + 매칭 목록(최신순, 매칭마다 합의 조건 버전·상태 이력·완료 요청 회차와 사진·보호자 확인 결과). 블라인드 글도 열고, 없거나 삭제 글이면 404 CARE_RECRUITMENT_NOT_FOUND. 채팅 메시지·채팅방 번호는 주지 않는다(ADM-022-03, 결정 14·26) | ADM-022-02·03 | LJS | - | AdminCareMatchResponse |
-| GET | /admin/care-matches/{petPrtcRcrtSn}/images/{atchFileSn} | 관리자 펫돌봄 완료 사진 이미지. 완료 사진은 비공개 저장이라 공개 주소(`/files/public/…`)로 열리지 않으므로 이 경로로 연다(상세 응답 `cmptnDmnds[].imgs[].atchFileSn`을 쓴다). 관리자만(일반 회원 403, 비로그인 401). 이 모집글 매칭의 완료 요청 회차 사진이 아니면 파일이 있어도 404 `FILE_NOT_FOUND`, 없거나 삭제된 모집글은 404 `CARE_RECRUITMENT_NOT_FOUND`. 응답은 이미지 바이트(`Cache-Control: no-cache`)이고 `ApiResponse`로 감싸지 않는다(문의 첨부 이미지와 같은 방식) | ADM-022-02 | KSJ | - | (이미지) |
+| GET | /admin/care-matches/{petPrtcRcrtSn}/images/{atchFileSn} | 관리자 펫돌봄 완료 사진 이미지. 완료 사진은 도메인 API 전용 파일이라 공통 주소(`/files/{atchFileSn}`)로 열리지 않으므로 이 경로로 연다(상세 응답 `cmptnDmnds[].imgs[].atchFileSn`을 쓴다). 관리자만(일반 회원 403, 비로그인 401). 이 모집글 매칭의 완료 요청 회차 사진이 아니면 파일이 있어도 404 `FILE_NOT_FOUND`, 없거나 삭제된 모집글은 404 `CARE_RECRUITMENT_NOT_FOUND`. 응답은 이미지 바이트(`Cache-Control: no-cache`)이고 `ApiResponse`로 감싸지 않는다(문의 첨부 이미지와 같은 방식) | ADM-022-02 | KSJ | - | (이미지) |
 | GET | /admin/community/exposure/health-tips | 관리자 오늘의 건강팁 현황. 노출 자리 순서 최대 3건. 지정 글(정상 펫정보, 자리 1~3)은 그 자리에, 빈 자리는 자동 선정 글(지정 안 된 정상 펫정보 글 중 제목·본문에 건강 키워드가 든 글, 좋아요순·최신순)로 앞에서부터 채운다. 건강 키워드는 `KWRD_DICT` 뉴스 분류(AIMC0039)의 건강(CMUC0018) 행(SCR-ADM-050에서 편집). 일반 회원 403 ADMIN_ONLY | ADM-023-01·03 | LJS | - | List<AdminHealthTipResponse> |
 | PUT | /admin/community/exposure/health-tips/{pstSn} | 건강팁 지정(감사 로그). 같은 자리의 기존 지정은 풀리고, 다른 자리에 지정된 글이면 옮긴다. 글 검색은 `GET /admin/posts?bbsCd=CMUC0001`. 자리가 1~3이 아니거나 펫정보 글이 아니면 400 INVALID_INPUT_VALUE, 없거나 정상 글이 아니면 404 POST_NOT_FOUND | ADM-023-02 | LJS | AdminHealthTipAssignRequest | - |
 | DELETE | /admin/community/exposure/health-tips/{pstSn} | 건강팁 지정 해제(감사 로그). 지정 안 된 글 409 ALREADY_PROCESSED, 없는 글 404 POST_NOT_FOUND. 지정 글이 삭제·블라인드되면 지정은 자동으로 풀린다(ADM-023-03, 복구해도 돌아오지 않음) | ADM-023-02·03 | LJS | - | - |
@@ -69,9 +69,9 @@
 | GET | /admin/community/exposure/commentaries | 관리자 AI 코멘트 목록. 사용 안 함 포함, 최근 일자순 20건씩 | ADM-023-06 | LJS | PageQuery | PageResponse<AdminCommentarySummary> |
 | PATCH | /admin/community/exposure/commentaries/{cmntyAiCmtrySn} | AI 코멘트 사용 여부 변경(감사 로그). 끄면 사용자 `GET /community-ai-commentaries`는 운영 설정 기본 문구. 없는 번호 404 AI_COMMENTARY_NOT_FOUND | ADM-023-06 | LJS | AdminCommentaryUseRequest | - |
 | GET | /admin/news | 관리자 뉴스 목록. 숨긴 기사(`useYn=false`) 포함, 등록 최신순 20건씩. 쿼리 `newsSrcCd`(CMUG07)·`newsClsfCd`(CMUG06), 없거나 공백이면 전체. 모르는 코드 400 INVALID_INPUT_VALUE, 일반 회원 403 ADMIN_ONLY | ADM-050-01 | LJS | AdminNewsSearchCond | PageResponse<AdminNewsSummary> |
-| POST | /admin/news | 관리자 뉴스 등록(201, 감사 로그). 출처 관리자 등록(CMUC0023), 발행일시는 지금, 원문 경로 없음. 썸네일은 먼저 `POST /admin/news/images`로 올린다. 제목 1~200자·요약 1~1000자(앞뒤 공백 지운 뒤)가 아니거나 카테고리 코드가 틀리면 400 INVALID_INPUT_VALUE | ADM-050-02 | LJS | AdminNewsCreateRequest | AdminNewsCreateResponse |
-| PATCH | /admin/news/{newsSn} | 뉴스 수정(보낸 칸만, 감사 로그). 제목·요약·썸네일은 관리자 등록 기사만(수집 기사에 보내면 400), 카테고리·사용 여부는 모든 기사. 숨긴 기사는 사용자 `GET /news` 목록·상세에서 빠진다. 아무 칸도 없으면 400 INVALID_INPUT_VALUE, 없는 기사 404 NEWS_NOT_FOUND | ADM-050-02·03 | LJS | AdminNewsUpdateRequest | - |
-| POST | /admin/news/images | 관리자 뉴스 썸네일 업로드(201, multipart `image`). 공개 파일이라 `/api/files/public/{atchFileSn}`으로 열린다. 파일이 없으면 400 INVALID_INPUT_VALUE | ADM-050-02 | LJS | - | AdminNewsImageResponse |
+| POST | /admin/news | 관리자 뉴스 등록(201, 감사 로그). 출처 관리자 등록(CMUC0023), 발행일시는 지금, 원문 경로 없음. 썸네일은 먼저 `POST /admin/news/images`로 올린다. 제목 1~200자·요약 1~1000자(앞뒤 공백 지운 뒤)가 아니거나 카테고리 코드가 틀리거나 `atchFileSn`이 `POST /admin/news/images`로 올린 사용 중인 파일이 아니면 400 INVALID_INPUT_VALUE | ADM-050-02 | LJS | AdminNewsCreateRequest | AdminNewsCreateResponse |
+| PATCH | /admin/news/{newsSn} | 뉴스 수정(보낸 칸만, 감사 로그). 제목·요약·썸네일은 관리자 등록 기사만(수집 기사에 보내면 400), 카테고리·사용 여부는 모든 기사. 숨긴 기사는 사용자 `GET /news` 목록·상세에서 빠진다. 아무 칸도 없거나 `atchFileSn`이 `POST /admin/news/images`로 올린 사용 중인 파일이 아니면 400 INVALID_INPUT_VALUE, 없는 기사 404 NEWS_NOT_FOUND | ADM-050-02·03 | LJS | AdminNewsUpdateRequest | - |
+| POST | /admin/news/images | 관리자 뉴스 썸네일 업로드(201, multipart `image`). 로그인 회원 누구나 `/api/files/{atchFileSn}`으로 연다(`assets/news/`에 저장). 파일이 없으면 400 INVALID_INPUT_VALUE | ADM-050-02 | LJS | - | AdminNewsImageResponse |
 | GET | /admin/news/keywords | 뉴스 분류 키워드 목록(`KWRD_DICT` 뉴스 분류 AIMC0039, 정렬순). 키워드 하나가 한 행. 수집 때 제목에 든 키워드 중 정렬 순서가 앞선 카테고리로 분류하고, 건강(CMUC0018) 키워드는 건강팁 자동 선정에도 쓴다 | ADM-050-05 | LJS | - | List<AdminNewsKeywordResponse> |
 | POST | /admin/news/keywords | 뉴스 분류 키워드 등록(201, 감사 로그). 정렬 순서는 그 카테고리 기존 행과 같다(없으면 뉴스 분류 최대 + 10). 키워드 1~50자(앞뒤 공백 지운 뒤)·쉼표 없음·카테고리 CMUG06 4종이 아니면 400 INVALID_INPUT_VALUE, 같은 카테고리에 같은 키워드(대소문자 무시) 409 DUPLICATE_NEWS_KEYWORD | ADM-050-05 | LJS | AdminNewsKeywordCreateRequest | AdminNewsKeywordCreateResponse |
 | DELETE | /admin/news/keywords/{kwrdDictSn} | 뉴스 분류 키워드 삭제(`DEL_YN='Y'`, 감사 로그). 다음 수집부터 쓰이지 않는다. 없거나 이미 삭제 404 NEWS_KEYWORD_NOT_FOUND | ADM-050-05 | LJS | - | - |
@@ -203,7 +203,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | 필드 | 타입 | 필수 | 설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | newsSn | Long | Y | | NEWS.NEWS_SN |
-| atchFileSn | Long | N | 관리자 등록 썸네일(`/api/files/public/{atchFileSn}`) | NEWS.ATCH_FILE_SN |
+| atchFileSn | Long | N | 관리자 등록 썸네일(`/api/files/{atchFileSn}`) | NEWS.ATCH_FILE_SN |
 | newsClsfCd | String | Y | 공통코드 CMUG06 | NEWS.NEWS_CLSF_CD |
 | newsSrcCd | String | Y | 공통코드 CMUG07 | NEWS.NEWS_SRC_CD |
 | newsSrcCdNm | String | Y | 출처 이름 | COM_CD.COM_CD_NM |
@@ -566,7 +566,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 #### ImageItem (응답 record. 펫이야기는 접미어 규칙에 맞춰 `PostImageSummary`로 쓴다. 쓰는 DTO: CareRecruitmentResponse, ChatMessageResponse, ChatMessageSummary, LostReportResponse, PostResponse)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| atchFileSn | Long | Y | 공개 사진(펫이야기 등)은 `GET /api/files/public/{atchFileSn}`, 1:1 문의 사진은 `GET /api/inquiries/{otoInqrySn}/images/{atchFileSn}`(본인만), 채팅 사진은 `GET /api/chat-rooms/{otoChatRoomSn}/images/{atchFileSn}`(방 참여자만) | PST_IMG·CHAT_MSG_PHOTO·INQRY_ATCH_PHOTO의 ATCH_FILE_SN |
+| atchFileSn | Long | Y | 게시글 사진(펫이야기 등)은 `GET /api/files/{atchFileSn}`, 1:1 문의 사진은 `GET /api/inquiries/{otoInqrySn}/images/{atchFileSn}`(본인만), 채팅 사진은 `GET /api/chat-rooms/{otoChatRoomSn}/images/{atchFileSn}`(방 참여자만) | PST_IMG·CHAT_MSG_PHOTO·INQRY_ATCH_PHOTO의 ATCH_FILE_SN |
 | sortSeq | Integer | Y | | 같은 테이블들의 SORT_SEQ |
 
 ### CareMatchCancelRequest
@@ -619,8 +619,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | pets | List<CareRecruitmentPetRequestItem> | Y | 1개 이상. 강아지·고양이 동시 선택 허용 | RCRT_PET_KND, CMU-004-06 |
 | prtcShpCds | List<String> | Y | 1개 이상 복수 선택. 공통코드 PCAG03(방문돌봄·위탁돌봄·산책·놀이·훈련·그 외) | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-06 |
-| prtcBgngDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시간은 30분 단위 | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
-| prtcEndDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시작 일시보다 뒤, 30분 단위 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
+| prtcBgngDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시간은 30분 단위. 시작일은 오늘(KST)부터 90일 이내(오늘·90일째 포함), 어기면 `INVALID_INPUT_VALUE`(400) | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
+| prtcEndDt | LocalDateTime | N | 일정 협의 가능이 아니면 필수. 시작 일시보다 뒤, 30분 단위. 종료일은 시작일부터 30일 이내(30일째 포함), 어기면 `INVALID_INPUT_VALUE`(400) | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
 | schdlCnsltnPsbltyYn | Boolean | Y | true면 일정 미정 등록 허용, 입력한 일정은 희망 일정 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-07 |
 | cstUnitCd | String | Y | 공통코드 PCAG02(시급·건당) | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-08 |
 | cstAmt | Integer | Y | 원 단위 양의 정수. 시급이면 최저시급(설정값) 이상. 건당은 비교하지 않는다 | PET_PRTC_RCRT.CST_AMT, SYS_STNG.LOWST_HRWG_AMT, CMU-004-08 |
@@ -668,11 +668,12 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | rlsRgnNm | String | Y | 대략적인 장소. 상세 주소·정확 좌표는 넣지 않는다 | PET_PRTC_RCRT.RLS_RGN_NM, CMU-004-10 |
 | imgs | List<ImageItem> | Y | 없으면 빈 목록 | PST_IMG, CMU-004-04 |
 | rcmdtnCnt | Integer | Y | | PST.RCMDTN_CNT, CMU-004-12 |
-| aplcntCnt | Integer | N | 「지금 n명과 채팅 중」. 메시지가 1건 이상 오간 채팅방 수. 작성자에게만 주고 그 밖에는 null | OTO_CHAT_ROOM.PST_SN, CMU-004-05 |
+| aplcntCnt | Integer | N | 「지금 n명과 채팅 중」. 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 나가지 않은 채팅방 수. 작성자에게만 주고 그 밖에는 null | OTO_CHAT_ROOM.PST_SN, CMU-004-05 |
 | liked | Boolean | Y | 내가 좋아요했는지 | PST_RCMDTN.USE_YN, CMU-004-12 |
 | owner | Boolean | Y | 작성자 본인인지(수정·삭제 버튼) | PST.MBR_SN, CMU-004-11 |
-| chatting | Boolean | Y | 내가 이 글로 채팅 중인지. 나가지 않은 참여 방 중 메시지가 1건 이상 오간 방이 있으면 true(지원자 수 `aplcntCnt`와 같은 기준, 작성자도 같은 규칙). 목록 응답에는 없다 | OTO_CHAT_ROOM.PST_SN, CHAT_PRTPNT.PTCP_STTS_CD, CMU-004-05 |
+| chatting | Boolean | Y | 내가 이 글로 채팅 중인지. 내가 나가지 않은 방 중 사람이 보낸 메시지가 있는 방이 있으면 true(상대가 나갔는지는 보지 않는다. `aplcntCnt`는 둘 다 남은 방만 센다. 작성자도 같은 규칙). 목록 응답에는 없다 | OTO_CHAT_ROOM.PST_SN, CHAT_PRTPNT.PTCP_STTS_CD, CMU-004-05 |
 | mtchSitterNcnm | String | N | 매칭 완료·거래 완료일 때 확정된 매칭의 돌보미(채팅을 건 지원자) 닉네임. 모집중이거나 확정 매칭이 없으면 null. 돌보미가 파기된 회원(이메일 HMAC `PURGED`)이면 「탈퇴한 회원」. 상세를 보는 로그인 회원 모두에게 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, MBR.MBR_NCNM, CMU-004-05 |
+| matched | Boolean | Y | 확정된 매칭이 있었으면 true(매칭완료, 실제 거래로 끝난 거래완료). 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
 #### CareRecruitmentPetItem (응답 record, 쓰는 DTO: CareRecruitmentResponse)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -696,7 +697,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | rlsRgnNm | String | Y | 지역 | PET_PRTC_RCRT.RLS_RGN_NM, CMU-004-01 |
 | cstUnitCd | String | Y | 공통코드 PCAG02 | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-01 |
 | cstAmt | Integer | Y | 보수 | PET_PRTC_RCRT.CST_AMT, CMU-004-01 |
-| aplcntCnt | Integer | Y | 「채팅 n명」. 메시지가 1건 이상 오간 이 게시글의 채팅방 수 | OTO_CHAT_ROOM.PST_SN, CMU-004-01 |
+| aplcntCnt | Integer | Y | 「채팅 n명」. 사람이 보낸 메시지가 있고 보호자·지원자 둘 다 나가지 않은 이 게시글의 채팅방 수 | OTO_CHAT_ROOM.PST_SN, CMU-004-01 |
 | rcrtSttsCd | String | Y | 상태 배지. 공통코드 PCAG01 | PET_PRTC_RCRT.RCRT_STTS_CD, CMU-004-01 |
 | pets | List<CareRecruitmentPetItem> | Y | 반려동물 배지(구분·크기) | RCRT_PET_KND, CMU-004-01 |
 | prtcShpCds | List<String> | Y | 돌봄 형태 배지. 공통코드 PCAG03 | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-01 |
@@ -705,8 +706,11 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | schdlCnsltnPsbltyYn | Boolean | Y | 일정 협의 가능 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-01 |
 | regDt | LocalDateTime | Y | 경과 시간 표시 | PST.REG_DT, CMU-004-01 |
 | owner | Boolean | Y | 내 글 배지 | PST.MBR_SN, CMU-004-01 |
+| matched | Boolean | Y | 확정된 매칭이 있었으면 true. 매칭 없이 자동 마감된 거래완료는 false라 화면이 「모집 종료」로 보인다 | PET_PRTC_RCRT.CFMTN_PET_PRTC_MTCH_SN, 프론트 요청 2026-11-15 |
 
-목록 검색 조건(`CareRecruitmentSearchCond`, 쿼리): `rcrtSttsCd`(없으면 전체, `PCAC0001`이면 모집중), `mineYn`, `rgnSn`(하위 지역 포함), `prtcBgngDe`~`prtcEndDe`(일정이 기간과 겹치는 글, 일정 없는 글은 제외), `petSeCd`, `petSizeCd`(고양이만 고르면 무시). 모두 AND, 10건 최신순.
+목록 검색 조건(`CareRecruitmentSearchCond`, 쿼리): `rcrtSttsCd`(없으면 전체, `PCAC0001`이면 모집중), `mineYn`, `rgnSn`(하위 지역 포함), `prtcBgngDe`~`prtcEndDe`(일정이 기간과 겹치는 글, 일정 없는 글은 제외), `petSeCd`, `petSizeCd`(고양이만 고르면 무시). 모두 AND, 10건. 기본 정렬은 모집 상태 코드 오름차순(PCAC0001 모집중 → 0002 매칭완료 → 0003 거래완료), 같은 상태 안에서는 최신순. `mineYn`이 아니면 거래완료(PCAC0003)가 된 지 `SYS_STNG.DLNG_CMPTN_HIDE_CRTR_DAY_CNT`(기본 7)일이 지난 글은 빠진다(상태 필터와 관계없이). `mineYn=true`면 기간과 관계없이 나온다. 상세 조회는 그대로.
+
+자동 마감: 매일 00:00 KST 배치(SYSC0033)가 수락 대기 매칭이 없는 모집중 글 중 일정 종료 일시가 지난 글과, 일정 없이 작성 후 30일이 지난 글을 거래완료(PCAC0003, `matched=false`)로 바꾸고 상태 이력을 남긴다.
 ### MinimumWageResponse
 쓰는 API: GET /care-recruitments/minimum-wage
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -720,8 +724,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | pets | List<CareRecruitmentPetRequestItem> | N | 보내면 1개 이상. 목록 교체 방식(issues 2) | RCRT_PET_KND, CMU-004-06·11 |
 | prtcShpCds | List<String> | N | 보내면 1개 이상. 목록 교체 방식 | RCRT_PRTC_SHP.PRTC_SHP_CD, CMU-004-06·11 |
-| prtcBgngDt | LocalDateTime | N | 30분 단위 | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
-| prtcEndDt | LocalDateTime | N | 시작 일시보다 뒤, 30분 단위 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
+| prtcBgngDt | LocalDateTime | N | 30분 단위. 시작일은 오늘(KST)부터 90일 이내. 저장된 날짜와 같은 날짜는 검사하지 않는다(이미 지난 날짜여도 통과) | PET_PRTC_RCRT.PRTC_BGNG_DT, CMU-004-07 |
+| prtcEndDt | LocalDateTime | N | 시작 일시보다 뒤, 30분 단위. 종료일은 시작일부터 30일 이내. 저장된 날짜와 같은 날짜는 검사하지 않는다 | PET_PRTC_RCRT.PRTC_END_DT, CMU-004-07 |
 | schdlCnsltnPsbltyYn | Boolean | N | `true`이고 `prtcBgngDt`·`prtcEndDt`를 둘 다 보내지 않으면 기존 일정을 비운다(일정 미정). 일정을 보내면 희망 일정으로 저장한다. `false`인데 보낸 값과 저장된 값을 합친 일정이 없으면 400. 보내지 않으면 일정을 그대로 둔다 | PET_PRTC_RCRT.SCHDL_CNSLTN_PSBLTY_YN, CMU-004-07 |
 | cstUnitCd | String | N | 공통코드 PCAG02 | PET_PRTC_RCRT.CST_UNIT_CD, CMU-004-08 |
 | cstAmt | Integer | N | 원 단위 양의 정수. 시급이면 최저시급 이상 | PET_PRTC_RCRT.CST_AMT, CMU-004-08 |
@@ -856,7 +860,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | cmntCn | String | Y | | CMNT.CMNT_CN |
 | mbrSn | Long | Y | | CMNT.MBR_SN |
 | mbrNcnm | String | Y | | MBR.MBR_NCNM |
-| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/public/{번호}`). 사진이 없으면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
+| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/{번호}`). 사진이 없으면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
 | regDt | LocalDateTime | Y | 화면의 "1시간 전" 표시용 | CMNT.REG_DT, CMU-001-11 |
 
 ### CommentSummary
@@ -869,7 +873,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | cmntCn | String | N | 삭제된 댓글이면 null | CMNT.CMNT_CN |
 | mbrSn | Long | N | 삭제된 댓글이면 null | CMNT.MBR_SN |
 | mbrNcnm | String | N | 삭제된 댓글이면 null. 파기된 회원(이메일 HMAC `PURGED`)은 「탈퇴한 회원」(탈퇴했지만 파기 전이면 원래 닉네임) | MBR.MBR_NCNM |
-| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/public/{번호}`). 사진이 없거나 삭제된 댓글이면 null. 파기된 회원이면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
+| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/{번호}`). 사진이 없거나 삭제된 댓글이면 null. 파기된 회원이면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
 | sysAutoCrtYn | boolean | Y | 찾았어요 완료 안내 자동 댓글 | CMNT.SYS_AUTO_CRT_YN, CMU-002-09 |
 | owner | Boolean | Y | 내 댓글인지(삭제 버튼) | CMNT.MBR_SN, CMU-001-11 |
 | regDt | LocalDateTime | Y | 화면의 "1시간 전" 표시용 | CMNT.REG_DT, CMU-001-11 |
@@ -919,7 +923,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | pstSn | Long | Y | 좋아요·댓글·신고에 쓴다 | LOST_TPOF.PST_SN |
 | mbrSn | Long | N | 작성자 회원 번호(댓글 「작성자」 배지). 찾았어요로 닫힌 응답은 null | PST.MBR_SN, CMU-002-07, 추가 요청 2026-10-30 |
 | mbrNcnm | String | N | 작성자 닉네임(화면 "토리맘 · 등록일시"). 파기된 회원(이메일 HMAC `PURGED`)은 「탈퇴한 회원」(탈퇴했지만 파기 전이면 원래 닉네임) | MBR.MBR_NCNM, 화면설계서 SCR-CMU-002-02 |
-| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/public/{번호}`). 사진이 없거나 찾았어요로 닫힌 응답이면 null. 파기된 회원이면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
+| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/{번호}`). 사진이 없거나 찾았어요로 닫힌 응답이면 null. 파기된 회원이면 null | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
 | regDt | LocalDateTime | N | 게시글 등록 일시 | PST.REG_DT, 화면설계서 SCR-CMU-002-02 |
 | pstTtl | String | Y | | PST.PST_TTL, CMU-002-09 |
 | lostTpofSttsCd | String | Y | 공통코드 CMUG03(실종·찾았어요) | LOST_TPOF.LOST_TPOF_STTS_CD, CMU-002-09 |
@@ -1021,7 +1025,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | pstCn | String | Y | | PST.PST_CN, CMU-001-10 |
 | mbrSn | Long | Y | 작성자 | PST.MBR_SN, CMU-001-10 |
 | mbrNcnm | String | Y | 작성자. 파기된 회원(이메일 HMAC `PURGED`)은 「탈퇴한 회원」(탈퇴했지만 파기 전이면 원래 닉네임) | MBR.MBR_NCNM, CMU-001-10 |
-| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/public/{번호}`). 사진이 없으면 null. 파기된 회원이면 null(정지 회원, 탈퇴했지만 파기 전인 회원은 그대로) | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
+| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/{번호}`). 사진이 없으면 null. 파기된 회원이면 null(정지 회원, 탈퇴했지만 파기 전인 회원은 그대로) | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
 | regDt | LocalDateTime | Y | 작성일 | 공통 감사 컬럼 REG_DT, CMU-001-10 |
 | inqCnt | Integer | Y | | PST.INQ_CNT, CMU-001-10 |
 | rcmdtnCnt | Integer | Y | | PST.RCMDTN_CNT, CMU-001-09 |
@@ -1039,7 +1043,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | pstTtl | String | Y | 1행 말줄임 | PST.PST_TTL, CMU-001-01 |
 | pstCn | String | Y | 2행 말줄임 | PST.PST_CN, CMU-001-01 |
 | mbrNcnm | String | Y | 작성자. 파기된 회원(이메일 HMAC `PURGED`)은 「탈퇴한 회원」(탈퇴했지만 파기 전이면 원래 닉네임) | MBR.MBR_NCNM, CMU-001-01 |
-| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/public/{번호}`). 사진이 없으면 null. 파기된 회원이면 null(정지 회원, 탈퇴했지만 파기 전인 회원은 그대로) | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
+| mbrAtchFileSn | Long | N | 작성자 프로필 사진 번호(`GET /files/{번호}`). 사진이 없으면 null. 파기된 회원이면 null(정지 회원, 탈퇴했지만 파기 전인 회원은 그대로) | MBR.ATCH_FILE_SN, 추가 요청 2026-10-30 |
 | regDt | LocalDateTime | Y | 작성일("1시간 전" 표시용) | 공통 감사 컬럼 REG_DT, CMU-001-01 |
 | thumbAtchFileSn | Long | N | 대표 사진(첫 장). 사진이 없으면 null | PST_IMG.ATCH_FILE_SN, CMU-001-01 |
 | rcmdtnCnt | Integer | Y | | PST.RCMDTN_CNT, CMU-001-03 |

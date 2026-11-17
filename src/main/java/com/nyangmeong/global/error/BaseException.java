@@ -26,4 +26,14 @@ public class BaseException extends RuntimeException {
         this.errorCode = errorCode;
         this.fields = List.of(fields);
     }
+
+    /**
+     * 문구를 따로 정하는 예외 (문구에 운영 설정값 같은 숫자가 들어갈 때)
+     * - 인자 순서를 바꿔 fields 가변 인자 생성자와 섞이지 않게 한다
+     */
+    protected BaseException(String message, ErrorCode errorCode) {
+        super(message);
+        this.errorCode = errorCode;
+        this.fields = List.of();
+    }
 }

@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 냥멍케어 MySQL DDL v0.14  |  MySQL 8.0.16+ / InnoDB / utf8mb4_0900_ai_ci
 -- 대상: DBeaver (전체 선택 후 스크립트 실행 Alt+X, 또는 스키마 우클릭 → Tools → Execute script)
--- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1004 컬럼 / 관계 FK 156 / 공통코드 FK 120)
+-- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1006 컬럼 / 관계 FK 156 / 공통코드 FK 120)
 --       UK·INDEX·CHECK·생성열·공통코드 FK 는 v0.8 그대로 유지
 -- 구성: [1] DROP  [2] CREATE(PK·UK·INDEX·CHECK·생성열)  [3] 관계 FK  [4] 공통코드 FK
 -- 주의: 전체 DROP 후 재생성합니다. 기존 데이터가 있으면 먼저 백업하세요. 공용 DB에는 실행하지 않습니다.
@@ -40,6 +40,25 @@
 --   ALTER TABLE `CARE_ARTCL` DROP CHECK `CK_CARE_ARTCL_MAIN_EXPSR_YN`;
 --   ALTER TABLE `CARE_ARTCL` DROP INDEX `IDX_CARE_ARTCL_1`, ADD INDEX `IDX_CARE_ARTCL_1` (`PET_SN`, `DEL_YN`);
 --   ALTER TABLE `CARE_ARTCL` DROP COLUMN `MAIN_EXPSR_YN`, DROP COLUMN `MAIN_SORT_SEQ`;
+-- v0.14 (11) 아이템 그림 참고 굽기 여부 (2026-11-11, LJS, 근거: 사람 결정 2026-11-11 "굽기에 상점 그림을 둘째 그림으로", ai 저장소 docs/design/pixel-character-engine.md 9절, SCR-MYP-011). 'Y'면 굽기 지시 없이도 굽기 대상이고 AI 서버가 아이템 그림을 참고로 굽는다. 기존 아이템은 'N'(굽기 지시 방식 그대로)
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `ITEM` ADD COLUMN `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '그림참고굽기여부' AFTER `BAKE_HINT`;
+--   ALTER TABLE `ITEM` ADD CONSTRAINT `CK_ITEM_BAKE_IMG_REF_YN` CHECK (`BAKE_IMG_REF_YN` IN ('Y','N'));
+-- v0.14 (12) 반려동물 체중 정상범위 직접 입력 여부 (2026-11-13, SJM, 근거: 사람 결정 2026-11-13 정상범위 = 기준 체중 × 0.9 ~ × 1.1 자동 계산, SCR-MYP-003 FN-MYP-003-04). 'Y'면 사용자가 범위를 직접 입력한 것이라 자동으로 바꾸지 않고, 'N'이면 기준 체중으로 자동 계산한다. 기존 행은 지금까지 사용자가 직접 넣었으므로 모두 'Y'(DEFAULT). 공용 DB 실행함(2026-11-13)
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `PET` ADD COLUMN `BDWG_RNG_DRCT_INPT_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '체중범위직접입력여부' AFTER `MAX_BDWG`;
+--   ALTER TABLE `PET` ADD CONSTRAINT `CK_PET_BDWG_RNG_DRCT_INPT_YN` CHECK (`BDWG_RNG_DRCT_INPT_YN` IN ('Y','N'));
+-- v0.14 (15) 공동양육 초대 삭제 여부 (2026-11-16, SJM, 근거: 사람 결정 2026-11-16 취소한 초대는 보낸 초대 목록에서 삭제, 삭제는 DEL_YN 숨김이라 상태 이력·대상 반려동물은 그대로 남는다, SCR-MYP-004·005 FN-MYP-005-03). 기존 행은 모두 'N'(DEFAULT). 공용 DB 실행 전(사람이 실행)
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `JNT_BRUP_INVTN` ADD COLUMN `DEL_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부' AFTER `INVTN_TKN_HASH`;
+--   ALTER TABLE `JNT_BRUP_INVTN` ADD CONSTRAINT `CK_JNT_BRUP_INVTN_DEL_YN` CHECK (`DEL_YN` IN ('Y','N'));
+-- v0.14 (16) 케어리스트 표시 여부 (2026-11-16, JAJ, 근거: 사람 결정 2026-11-16 ※신규 정책 고른 케어 항목 5개 이상, 마일스톤 JAJ SCR-HLT-003 케어리스트 개편, FN-HLT-003-12). NULL = 고른 적 없음(기본 항목은 추천 5개 화장실 청소·양치·빗질·놀이·귀 청소만, 직접 추가 항목은 보임), 고르면 그 반려동물의 항목을 모두 Y/N으로 저장. 처방·반복 예방 연동 항목은 값과 관계없이 항상 보임. 기존 행은 모두 NULL이라 UPDATE 없음. 공용 DB 반영 완료(2026-11-16)
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `CARE_ARTCL` ADD COLUMN `INDCT_YN` char(1) NULL COMMENT '표시여부' AFTER `BSC_ARTCL_YN`;
+--   ALTER TABLE `CARE_ARTCL` ADD CONSTRAINT `CK_CARE_ARTCL_INDCT_YN` CHECK (`INDCT_YN` IS NULL OR `INDCT_YN` IN ('Y','N'));
+-- v0.14 (17) 시스템설정 거래완료 숨김 기준 일수 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 3번 사람 요청 2026-11-15, SCR-CMU-004 거래완료 글은 이 일수가 지나면 공개 목록에서 빠진다). 기존 행은 기본값 7로 채워진다
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `SYS_STNG` ADD COLUMN `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수' AFTER `MTCH_NO_RSPNS_END_CRTR_DAY_CNT`;
 -- =====================================================================
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -201,6 +220,7 @@ CREATE TABLE `SYS_STNG` (
   `MDFR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정자ID',
   `DSCV_AUTO_CMNT_CN` varchar(1000) NOT NULL DEFAULT '🎉 [펫이름]가 무사히 가족 품으로 돌아왔어요!' COMMENT '찾았어요자동댓글내용',
   `MTCH_NO_RSPNS_END_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '14' COMMENT '매칭무응답종료기준일수',
+  `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수',
   PRIMARY KEY (`SYS_STNG_SN`),
   CONSTRAINT `CK_SYS_STNG_ONE` CHECK (`SYS_STNG_SN` = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='시스템설정';
@@ -445,6 +465,7 @@ CREATE TABLE `PET` (
   `GOAL_BDWG` decimal(8,3) NULL COMMENT '목표체중',
   `MIN_BDWG` decimal(8,3) NOT NULL COMMENT '최소체중',
   `MAX_BDWG` decimal(8,3) NOT NULL COMMENT '최대체중',
+  `BDWG_RNG_DRCT_INPT_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '체중범위직접입력여부',
   `MIN_MEAL_QTY` decimal(8,3) NULL COMMENT '최소식사량',
   `MAX_MEAL_QTY` decimal(8,3) NULL COMMENT '최대식사량',
   `MIN_WATR_QTY` decimal(8,3) NULL COMMENT '최소음수량',
@@ -463,6 +484,7 @@ CREATE TABLE `PET` (
   CONSTRAINT `CK_PET_NUTR_YN` CHECK (`NUTR_YN` IN ('Y','N')),
   CONSTRAINT `CK_PET_DEL_YN` CHECK (`DEL_YN` IN ('Y','N')),
   CONSTRAINT `CK_PET_WGHT_RANGE` CHECK (`MIN_BDWG` > 0 AND `MIN_BDWG` < `MAX_BDWG`),
+  CONSTRAINT `CK_PET_BDWG_RNG_DRCT_INPT_YN` CHECK (`BDWG_RNG_DRCT_INPT_YN` IN ('Y','N')),
   CONSTRAINT `CK_PET_FOOD_RANGE` CHECK ((`MIN_MEAL_QTY` IS NULL) = (`MAX_MEAL_QTY` IS NULL)),
   CONSTRAINT `CK_PET_WATR_RANGE` CHECK ((`MIN_WATR_QTY` IS NULL) = (`MAX_WATR_QTY` IS NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='반려동물';
@@ -526,6 +548,7 @@ CREATE TABLE `JNT_BRUP_INVTN` (
   `INVTN_EXPRY_DT` datetime NOT NULL COMMENT '초대만료일시',
   `ACPT_RFSL_RSPNS_DT` datetime NULL COMMENT '수락거절응답일시',
   `INVTN_TKN_HASH` char(64) NOT NULL COMMENT '초대토큰해시',
+  `DEL_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부',
   `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
   `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
   `MDFR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정자ID',
@@ -535,7 +558,8 @@ CREATE TABLE `JNT_BRUP_INVTN` (
   KEY `IDX_JNT_BRUP_INVTN_2` (`INVTN_TRGT_EML_HMAC`),
   KEY `IDX_JNT_BRUP_INVTN_3` (`INVTN_EXPRY_DT`),
   KEY `IDX_JNT_BRUP_INVTN_4` (`RCVR_MBR_SN`),
-  KEY `IDX_JNT_BRUP_INVTN_5` (`INVTN_STTS_CD`)
+  KEY `IDX_JNT_BRUP_INVTN_5` (`INVTN_STTS_CD`),
+  CONSTRAINT `CK_JNT_BRUP_INVTN_DEL_YN` CHECK (`DEL_YN` IN ('Y','N'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='공동양육초대';
 
 CREATE TABLE `INVTN_TRGT_PET` (
@@ -764,6 +788,7 @@ CREATE TABLE `ITEM` (
   `SORT_SEQ` decimal(10,0) NOT NULL DEFAULT '0' COMMENT '정렬순서',
   `NTSL_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '판매여부',
   `BAKE_HINT` varchar(300) NULL COMMENT '굽기지시',
+  `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '그림참고굽기여부',
   `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
   `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
   `RGTR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '등록자ID',
@@ -772,7 +797,8 @@ CREATE TABLE `ITEM` (
   UNIQUE KEY `UK_ITEM_1` (`ITEM_NM`),
   KEY `IDX_ITEM_1` (`ITEM_REGN_CD`, `SORT_SEQ`),
   KEY `IDX_ITEM_2` (`ATCH_FILE_SN`),
-  CONSTRAINT `CK_ITEM_NTSL_YN` CHECK (`NTSL_YN` IN ('Y','N'))
+  CONSTRAINT `CK_ITEM_NTSL_YN` CHECK (`NTSL_YN` IN ('Y','N')),
+  CONSTRAINT `CK_ITEM_BAKE_IMG_REF_YN` CHECK (`BAKE_IMG_REF_YN` IN ('Y','N'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='아이템';
 
 CREATE TABLE `HLD_ITEM` (
@@ -1787,6 +1813,7 @@ CREATE TABLE `CARE_ARTCL` (
   `RGTR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '등록자ID',
   `MDFR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정자ID',
   `BSC_ARTCL_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '기본항목여부',
+  `INDCT_YN` char(1) NULL COMMENT '표시여부',
   PRIMARY KEY (`CARE_ARTCL_SN`),
   KEY `IDX_CARE_ARTCL_1` (`PET_SN`, `DEL_YN`),
   KEY `IDX_CARE_ARTCL_2` (`PRSC_SN`),
@@ -1795,6 +1822,7 @@ CREATE TABLE `CARE_ARTCL` (
   KEY `IDX_CARE_ARTCL_5` (`CARE_CYCLE_CD`),
   CONSTRAINT `CK_CARE_ARTCL_DEL_YN` CHECK (`DEL_YN` IN ('Y','N')),
   CONSTRAINT `CK_CARE_ARTCL_BSC_ARTCL_YN` CHECK (`BSC_ARTCL_YN` IN ('Y','N')),
+  CONSTRAINT `CK_CARE_ARTCL_INDCT_YN` CHECK (`INDCT_YN` IS NULL OR `INDCT_YN` IN ('Y','N')),
   CONSTRAINT `CK_CARE_ARTCL_ORGN_ONE` CHECK (((`PRSC_SN` IS NOT NULL) + (`REPT_PRVNT_MNG_SN` IS NOT NULL)) <= 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='케어항목';
 

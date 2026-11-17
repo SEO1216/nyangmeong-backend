@@ -21,6 +21,8 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.security.crypto.TokenHashUtil;
+import com.nyangmeong.global.setting.SystemSetting;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.member.domain.Member;
 import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.service.MemberService;
@@ -33,6 +35,7 @@ import com.nyangmeong.pet.domain.JntBrupInvtnSttsHstry;
 import com.nyangmeong.pet.domain.LinkChangeType;
 import com.nyangmeong.pet.domain.Pet;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationConflictResponse;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
@@ -53,10 +56,6 @@ import com.nyangmeong.pet.mapper.PetMapper;
 @Service
 public class CaregiverInvitationService {
 
-    /** 초대 유효 기간 (FN-MYP-005-04) */
-    private static final int VALID_DAYS = 7;
-    /** 반려동물당 공동양육자 상한 */
-    private static final int MAX_CAREGIVER_COUNT = 5;
     private static final int TOKEN_BYTES = 32;
     private static final String INVITATION_PATH = "/mypage/invitations/";
     private static final DateTimeFormatter EXPIRY_FORMAT = DateTimeFormatter.ofPattern("MM-dd");
@@ -68,17 +67,20 @@ public class CaregiverInvitationService {
     private final FieldCryptoService fieldCryptoService;
     private final TokenHashUtil tokenHashUtil;
     private final EventPublisher eventPublisher;
+    private final SystemSettingService systemSettingService;
     private final String frontBaseUrl;
 
     public CaregiverInvitationService(CaregiverInvitationMapper invitationMapper, PetMapper petMapper,
             MemberService memberService, FieldCryptoService fieldCryptoService, TokenHashUtil tokenHashUtil,
-            EventPublisher eventPublisher, @Value("${app.front-base-url:http://localhost:5173}") String frontBaseUrl) {
+            EventPublisher eventPublisher, SystemSettingService systemSettingService,
+            @Value("${app.front-base-url:http://localhost:5173}") String frontBaseUrl) {
         this.invitationMapper = invitationMapper;
         this.petMapper = petMapper;
         this.memberService = memberService;
         this.fieldCryptoService = fieldCryptoService;
         this.tokenHashUtil = tokenHashUtil;
         this.eventPublisher = eventPublisher;
+        this.systemSettingService = systemSettingService;
         this.frontBaseUrl = frontBaseUrl;
     }
 
@@ -119,8 +121,9 @@ public class CaregiverInvitationService {
             return CaregiverInvitationCreateResult.fail(error,
                     new CaregiverInvitationConflictResponse(linkedPets, pendingPets));
         }
+        SystemSetting setting = systemSettingService.get();
         for (Pet pet : pets) {
-            checkCaregiverLimit(pet.getPetSn());
+            checkCaregiverLimit(pet.getPetSn(), setting);
         }
 
         JntBrupInvtn invitation = new JntBrupInvtn();
@@ -130,7 +133,8 @@ public class CaregiverInvitationService {
         invitation.setInvtnTrgtEmlEnc(fieldCryptoService.encrypt(targetEmail));
         invitation.setInvtnTrgtEmlHmac(targetHmac);
         invitation.setRegDt(now);
-        invitation.setInvtnExpryDt(now.plusDays(VALID_DAYS));
+        /** 초대 유효 기간 : 운영 설정 (FN-MYP-005-04). 이미 보낸 초대의 만료일은 바뀌지 않는다 */
+        invitation.setInvtnExpryDt(now.plusDays(setting.getInvtnVldDayCnt()));
         invitation.setInvtnTknHash(tokenHashUtil.hash(createToken()));
         invitation.setMdfrId(String.valueOf(mbrSn));
         invitationMapper.insertInvitation(invitation);
@@ -180,21 +184,33 @@ public class CaregiverInvitationService {
                     invitation.getInvtnExpryDt(), emailMask, emailMatched, null);
         }
         String sndrMbrNcnm = memberService.getMember(invitation.getSndrMbrSn()).mbrNcnm();
+        int remainingPetCount = PetLimit.remaining(systemSettingService.get().getPetMaxCnt().intValue(),
+                petMapper.countLinkedPets(mbrSn));
         return new CaregiverInvitationResponse(jntBrupInvtnSn, sndrMbrNcnm, status.getCode(),
-                invitation.getInvtnExpryDt(), emailMask, true, loadPets(jntBrupInvtnSn, now));
+                invitation.getInvtnExpryDt(), emailMask, true, loadPets(jntBrupInvtnSn, now), remainingPetCount);
     }
 
     /**
      * 공동양육 초대 수락
      */
     @Transactional
-    public void acceptInvitation(Long mbrSn, Long jntBrupInvtnSn, CaregiverInvitationAcceptRequest req) {
+    public CaregiverInvitationAcceptResult acceptInvitation(Long mbrSn, Long jntBrupInvtnSn,
+            CaregiverInvitationAcceptRequest req) {
         JntBrupInvtn invitation = loadInvitation(jntBrupInvtnSn);
         checkRespondable(mbrSn, invitation);
 
         List<Long> acceptedPetSns = req.petSns().stream().distinct().toList();
         if (!invitationMapper.selectTargetPetSns(jntBrupInvtnSn).containsAll(acceptedPetSns)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        /** 한도는 응답 기록·연동보다 먼저 : 넘으면 아무것도 바꾸지 않는다. 같은 회원의 동시 등록·수락은 회원 행 잠금으로 줄 세운다 */
+        petMapper.lockMemberForPetLimit(mbrSn);
+        SystemSetting setting = systemSettingService.get();
+        int maxPetCount = setting.getPetMaxCnt().intValue();
+        int linkedCount = petMapper.countLinkedPets(mbrSn);
+        if (linkedCount + acceptedPetSns.size() > maxPetCount) {
+            return CaregiverInvitationAcceptResult.limitExceeded(PetLimit.message(maxPetCount),
+                    PetLimit.remaining(maxPetCount, linkedCount));
         }
         respond(mbrSn, jntBrupInvtnSn, InvitationStatus.ACCEPTED, acceptedPetSns);
 
@@ -204,7 +220,7 @@ public class CaregiverInvitationService {
             if (petMapper.selectBrupRel(mbrSn, petSn) != null) {
                 throw new CustomException(ErrorCode.CAREGIVER_ALREADY_LINKED);
             }
-            checkCaregiverLimit(petSn);
+            checkCaregiverLimit(petSn, setting);
             Long brupRelSn = link(mbrSn, petSn, actorId);
 
             BrupLinkSttsHstry history = new BrupLinkSttsHstry();
@@ -213,6 +229,7 @@ public class CaregiverInvitationService {
             history.setLinkChgTypeCd(LinkChangeType.INVITATION_ACCEPTED.getCode());
             petMapper.insertLinkHistory(history);
         }
+        return CaregiverInvitationAcceptResult.success();
     }
 
     /**
@@ -223,6 +240,57 @@ public class CaregiverInvitationService {
         JntBrupInvtn invitation = loadInvitation(jntBrupInvtnSn);
         checkRespondable(mbrSn, invitation);
         respond(mbrSn, jntBrupInvtnSn, InvitationStatus.REJECTED, List.of());
+    }
+
+    /**
+     * 보낸 공동양육 초대 취소 (대기 중인 초대만)
+     * - 받는 사람 알림은 새로 보내지 않는다. 알림을 눌러 상세를 열면 취소 상태로 보인다
+     */
+    @Transactional
+    public void cancelInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadSentInvitation(mbrSn, jntBrupInvtnSn);
+        InvitationStatus status = effectiveStatus(invitation, LocalDateTime.now());
+        if (status == InvitationStatus.CANCELED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        }
+        if (status == InvitationStatus.EXPIRED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_EXPIRED);
+        }
+        if (status != InvitationStatus.PENDING) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        }
+        /** 동시에 응답했거나 만료된 경우 먼저 바꾼 쪽만 */
+        if (invitationMapper.updateCancel(jntBrupInvtnSn, mbrSn, InvitationStatus.PENDING.getCode(),
+                InvitationStatus.CANCELED.getCode(), LocalDateTime.now(), String.valueOf(mbrSn)) == 0) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        }
+        insertHistory(jntBrupInvtnSn, mbrSn, InvitationStatus.PENDING, InvitationStatus.CANCELED);
+    }
+
+    /**
+     * 취소한 공동양육 초대 삭제 (보낸 목록에서 숨김, 이력은 남긴다)
+     */
+    @Transactional
+    public void deleteInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadSentInvitation(mbrSn, jntBrupInvtnSn);
+        if (!InvitationStatus.CANCELED.is(invitation.getInvtnSttsCd())) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_CANCELED);
+        }
+        if (invitationMapper.updateDelete(jntBrupInvtnSn, mbrSn, InvitationStatus.CANCELED.getCode(),
+                String.valueOf(mbrSn)) == 0) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 내가 보낸 초대 조회 (삭제된 초대는 없는 초대)
+     */
+    private JntBrupInvtn loadSentInvitation(Long mbrSn, Long jntBrupInvtnSn) {
+        JntBrupInvtn invitation = loadInvitation(jntBrupInvtnSn);
+        if (!mbrSn.equals(invitation.getSndrMbrSn())) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        }
+        return invitation;
     }
 
     /**
@@ -262,9 +330,11 @@ public class CaregiverInvitationService {
     /**
      * 공동양육자 상한 검사
      */
-    private void checkCaregiverLimit(Long petSn) {
-        if (petMapper.countLinkedCaregivers(petSn, BrupRole.CO_PARENT.getCode()) >= MAX_CAREGIVER_COUNT) {
-            throw new CustomException(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+    private void checkCaregiverLimit(Long petSn, SystemSetting setting) {
+        int max = setting.getJntBrupMaxNope().intValue();
+        if (petMapper.countLinkedCaregivers(petSn, BrupRole.CO_PARENT.getCode()) >= max) {
+            throw CustomException.withMessage(ErrorCode.CAREGIVER_LIMIT_EXCEEDED,
+                    ErrorCode.CAREGIVER_LIMIT_EXCEEDED.message().formatted(max));
         }
     }
 
@@ -273,6 +343,9 @@ public class CaregiverInvitationService {
      */
     private void checkRespondable(Long mbrSn, JntBrupInvtn invitation) {
         InvitationStatus status = effectiveStatus(invitation, LocalDateTime.now());
+        if (status == InvitationStatus.CANCELED) {
+            throw new CustomException(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        }
         if (status == InvitationStatus.ACCEPTED || status == InvitationStatus.REJECTED) {
             throw new CustomException(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
         }

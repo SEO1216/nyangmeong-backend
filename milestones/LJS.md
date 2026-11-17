@@ -538,8 +538,7 @@
 - 기다리는 것: 프론트 SCR-ADM-081(끝, 가짜 응답 `features/adminAiKeyword/api.js`)
 - 완료 조건: `GET /api/admin/ai/keywords?dictUsgCd=&kwrdClsfNm=`(용도·분류가 같은 행, `sortSeq`·`kwrdDictSn` 순, 한 줄은 `KWRD_DICT` 필드 `kwrdDictSn`·`dictUsgCd`·`kwrdClsfNm`·`artclNm`·`kwrdCn`·`intrpRsltCn`·`mpngCd`·`sortSeq`·`rmrkCn`·`useYn`), `POST /api/admin/ai/keywords`(본문 `dictUsgCd`·`kwrdClsfNm`·`artclNm`·`kwrdCn`·`intrpRsltCn`·`mpngCd`·`rmrkCn`, 새 행 `sortSeq`는 프론트 가정 그 탭 맨 아래), `PATCH`·`DELETE /api/admin/ai/keywords/{kwrdDictSn}`, 감사 로그. 프론트 탭은 AIMC0037의 등록 동사·날짜·주기·일정 종류·검진유형(판정 규칙·시간 행은 뺌)과 AIMC0038 "가계부 카테고리". 가계부 분류(AIMC0038) 초기 키워드 INSERT. AI 서버·대화창용 조회 API: 예시 문구 형식 차이: AI 서버 `ai/data/register_dict.yaml`은 정규식(`(잡아|등록해)(줘|주|줄)`·`\d+일후`), DB `KWRD_CN`은 부록 B 예시 문구(`잡아줘, 등록해줘`·`○일 후`)라 그대로 못 쓴다. 사전에 정규식을 저장할지, 예시를 정규식으로 바꾸는 규칙을 둘지 정한다
 - 완료 조건 결과: 검증 `확인 못 함 있음`(2026-11-05, 2회차. 1회차는 공용 DB에 v0.13 (2) 미실행 → 사람이 실행 뒤 재검증, 내 몫 확인 못 함 없음), 사람 확인 2026-11-05. 정한 것: `useYn`은 true/false, 행에 `mpngCdNm` 추가, 404 `AI_KEYWORD_NOT_FOUND`, 다루는 분류는 AIMC0037 등록 동사·날짜·주기·일정 종류·검진유형과 AIMC0038 가계부 카테고리('판정 규칙'·'시간'은 목록에 없고 수정·삭제 404, 그 분류로 등록하면 400), 새 행 `sortSeq`는 탭 최댓값+1(빈 탭 10), 가계부 분류 초기 데이터 6건(v0.13 (2), 기타 없음). AI 서버용 `GET /internal/ai/keywords?dictUsgCd=`는 사용 중 행을 예시 문구 그대로 준다(결정 ① 추천안). 계약은 `docs/api/ai.md`
-- 연결 남음: FN-ADM-081-01·02 (프론트 연결 `features/adminAiKeyword/api.js` 목록·등록/수정 모달·삭제, 프론트 저장소에서 /start)
-- 연결 남음: FN-ADM-081-01 내부 제공 (ai 연결 `app/chat/rules.py`가 `register_dict.yaml` 대신 `GET /internal/ai/keywords`를 읽게, 정규식 변환 규칙은 ai가 정함, ai 저장소에서 /start)
+- 연결 남음: 없음(2026-11-16 키워드 사전 삭제로 프론트·ai 연결 둘 다 필요 없어짐, 아래 "API 삭제" 절)
 
 ## SCR-ADM-082 처리 현황 · 영수증 OCR 현황 API — 끝
 - 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-082-01
@@ -647,6 +646,26 @@
 - 추가: 추가-1 `FakePlaceSearchClient` 좌표 없음 처리, 추가-2 `PlaceAiToolCatalogTest` required 표시, 추가-3 `PlaceControllerTest` 좌표 없이 분류만 → 서비스로 넘김
 - 연결 남음: 걸치는 기능 FN-AIM-004-02 (ai 저장소 `tool_prompts.yaml`의 `list_places`·`list_place_bookmarks` skip 해제·스냅샷 갱신, ai-cb)
 
+## SCR-MAN-001 메인페이지 · 새 반려동물 기본 바로가기 없애기 — 끝
+- 기능: 명세 기능 ID 추가 없음(사람 요청 2026-11-12, 걸치는 기능 FN-MAN-008). `PetShortcutService.search`가 바로가기 행이 없는 반려동물에 MANC0008(종합 건강기록)을 기본으로 넣는 것을 빼고 빈 목록을 준다
+- 기다리는 것: 없음(프론트 작업 2026-11-13 끝, 주석 정리만, 프론트 코드 변경 없음)
+- 완료 조건: `GET /api/pets/main-shortcuts`에서 바로가기를 저장한 적 없는 반려동물이 `shrtcCds: []`로 온다. 새로 등록한 반려동물 타일이 메인에 안 생긴다. 이미 행 없이 기본값을 받던 반려동물의 종합 건강기록도 사라져도 된다(사람 결정 2026-11-12, 데이터 옮기기 없음)
+- 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차, 8082에서 저장 안 한 반려동물 `[]`·저장 순서·PUT 400·403·404 확인), 사람 확인 2026-11-13. `MainShortcut` enum은 쓰는 곳이 없어져 지움. 계약은 `docs/api/pet.md` GET 행
+- 연결 남음: 없음
+
+## SCR-MAN-001 메인페이지 · 바로가기 예전 기본값 설명 정리 — 끝
+- 기능: 명세 기능 ID 추가 없음(검증 에이전트 지적 2026-11-13, 걸치는 기능 FN-MAN-008). 저장한 적 없는 반려동물에 종합 건강기록을 준다는 예전 설명을 Swagger summary·클래스 주석·테스트 주석에서 지운다. 동작 변경 없음
+- 기다리는 것: 없음
+- 완료 조건: 세 파일에 "저장한 적 없으면 종합 건강기록" 뜻의 문장이 없고 `[]`를 준다고 적혀 있다. `./gradlew build -q` 통과
+- 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차, 8082에서 `/v3/api-docs` summary 새 문구 확인), 사람 확인 2026-11-13. pet 패키지 `grep "종합 건강기록"` 결과 없음, `PetShortcutServiceTest` 통과
+- 연결 남음: 없음
+
+## SCR-ADM-110 운영 설정 · 거래완료 글 숨김 기준 일수 검토·검증 서버 반영 — 끝
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-ADM-110-01~04
+- 기다리는 것: 프론트 SCR-ADM-110 거래완료 글 숨김 기준 칸(끝 2026-11-16, 프론트 `features/setting/shared/settingFields.js`)
+- 완료 조건: KSJ가 고친 global/setting의 `dlngCmptnHideCrtrDayCnt`를 담당자로서 검토한다(1~99 검증, 400 칸 오류 field 이름이 `dlngCmptnHideCrtrDayCnt`, 감사 로그 포함, 값이 null이면 7). 검증 백엔드 8081을 이 코드로 다시 띄우고 프론트 세션에 알린다
+- 이미 바뀐 것: `global/setting/AdminSettingResponse.java`·`AdminSettingUpdateRequest.java`·`AdminSystemSettingService.java`·`SystemSetting.java`, `mapper/global/SystemSettingMapper.xml`, 테스트 `AdminSettingHideDaysTest`(KSJ, `13794f1`)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)
@@ -725,3 +744,82 @@
 - 완료 조건 결과: 검증 `통과`(2026-11-06, 1회차), 사람 확인 2026-11-06(Postman: 쿠키 없이 `GET /internal/ai/tools` 200·도구 15개, 카드 2개는 바뀌기 전과 같음, 기동·첫 호출 뒤 `[AiTool] 제외` 없음). 정한 것: 경로 변수와 같은 이름의 검색 조건 필드는 뺌(서비스가 덮어씀), `PageQuery`는 `page`·`size`(max 50)만, 읽기 결과 자르기는 Java 기존 상한 그대로·나머지 Python 요약, 기존 테스트 `search_fake` 기대값 변경(사람 결정, 별도 커밋). 계약은 `docs/api/ai.md`
 - 추가: 없음
 - 연결 남음: 걸치는 기능 FN-AIM-004-02 (ai 저장소 ① READ 실행 경로 → ② `data/tool_prompts.yaml` 13개 설명·스냅샷 갱신, ai 세션)
+
+## SCR-MYP-011 아이템 상점 모달 · 픽셀 아이템 그림 참고 굽기 내부 API — 끝
+- 기능: 명세 기능 ID 추가 없음(ai 저장소 설계 `docs/design/pixel-character-engine.md` 9절, 사람 결정 2026-11-11 "굽기에 상점 그림을 둘째 그림으로"), 걸치는 기능 FN-MYP-011-01, FN-ADM-070-02
+- 기다리는 것: 없음. AI 서버 마일스톤 "SCR-MYP-011 아이템 굽기 · 픽셀 아이템 그림을 참고로 굽기 — 대기"가 이 작업을 기다린다
+- 완료 조건: 그림 참고로 등록한 아이템(`bakeHint` 없음, `bakeImgRefYn` true)이 `GET /internal/ai/characters/bake-items`에 `bakeImgRefYn: true`·`atchFileSn`과 함께 나오고, `GET /internal/ai/items/{itemSn}/bake-image`가 그 그림 바이트를 준다. 기존 아이템은 `bakeImgRefYn: false`로 늘어난 칸 말고 그대로다. 굽기 지시도 그림 참고도 없는 아이템은 목록에 없고 `bake-image`·착용 시트 저장이 404 `ITEM_NOT_FOUND`다. DB 기준 SQL v0.14 (11) `ITEM.BAKE_IMG_REF_YN`
+- 완료 조건 결과: 검증 `통과`(2026-11-12, 3회차. 1회차는 서버가 바뀌기 전 코드, 2회차는 공용 DB에 그림 참고 아이템이 없어 실측 못 함 — 둘 다 코드 수정 없음), 사람 확인 2026-11-12(공용 DB 8080). 정한 것: 판별 컬럼 `ITEM.BAKE_IMG_REF_YN`(기존 아이템 'N'), 그림은 새 내부 API `GET /internal/ai/items/{itemSn}/bake-image`(회원·관리자 쿠키, 저장된 형식 그대로 응답), 그림 참고 아이템의 `bakeHint`는 선택, `bakeImgRefYn`을 바꿔도 이미 구운 착용 시트는 지우지 않음(다시 굽기 범위 밖). 기존 테스트 `AdminItemServiceTest` 생성자 호출 6곳에 `null` 인자 추가(사람 승인, 기대값 그대로). 확인용 아이템 47·48은 공용 DB에서 지움(첨부 4531·4532 기록은 남음)
+- 추가: 없음
+- 연결 남음: FN-ADM-070-02 (프론트 연결 관리자 아이템 등록·수정 화면 "그림 참고 굽기" 칸, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-011-01 (ai 연결 `docs/api/internal.md` bake-items 행·새 `bake-image` 행과 그림 참고 굽기 구현, LJS ai 저장소에서 /start)
+
+## SCR-MYP-010 픽셀 캐릭터 관리 · 파일 저장 경로 재구성 — 끝
+- 기능: 명세 기능 ID 추가 없음(공통 모듈 정리, 2026-11-12 설계·2026-11-13 기획 대화). 저장 경로를 회원 > 도메인 > 용도로 바꾸고(공개·비공개 접두어 없음), 열람 범위는 코드(`FileCategory`)가 정한다. 공지·뉴스·아이템은 `assets/`
+- 완료 조건: 새로 올린 파일의 `ATCH_FILE.PHYS_STRG_PATH`가 `{회원번호}/{도메인}/…`(반려동물 파일은 주양육자 번호), `assets/{item|notice|news}/…`를 따르고 기존 파일은 그대로 열린다. `GET /api/files/{atchFileSn}`은 로그인해야 열리고 도메인 API 전용 파일(채팅·문의·영수증·검진·관찰·시트)은 404 `FILE_NOT_FOUND`다. 로그인 없이 열리는 파일 주소가 없다
+- 완료 조건 결과: 검증 `확인 못 함 있음`(2026-11-13, 1회차, 연결 남음만), 사람 확인 2026-11-13(8080). 정한 것: 공개·비공개 접두어 없음, 로그인 없이 여는 파일 없음, 공통 주소 `/api/files/{atchFileSn}`, 예전 `/api/files/public/{atchFileSn}`은 프론트가 옮길 때까지 같은 동작(로그인 필요), `assets` 안은 `item`·`notice`·`news`, 아이템 URL 유지. 기존 테스트 17개는 새 `store` 시그니처·`PetService` 목 인자·`loadShared` 기대로 바꿈(사람 승인, 기대값 그대로). 로컬 `application.properties`의 permit-all에서 `/api/files/public/**`를 사람이 뺌
+- 추가: 없음
+- 연결 남음: 파일 저장 경로 재구성 (프론트 연결 이미지 URL `/api/files/public/{번호}` → `/api/files/{번호}`, 공통 파일 이미지 컴포넌트·관리자 공지 편집기·뉴스 등록·사용자 공지·뉴스 화면, 프론트 저장소에서 /start)
+
+## SCR-MYP-011 아이템 상점 모달 · 포인트·연동 양육자 가짜 연결 — 끝
+- 기능: 명세 기능 ID 추가 없음(연결 남음 정리, 2026-11-13 대화). 걸치는 기능 FN-MYP-011-05 구매(포인트 차감), FN-AIM-006-01·02·20 사전 알림 수신자(화면은 SCR-AIM-006)
+- 기다리는 것: 없음. SJM의 `PointService.use`·`getHldPnt`, `PetService.searchCaregiverMbrSns`가 이미 있다
+- 완료 조건: 아이템 구매가 실제 보유 포인트를 깎고 `PNT_GNLGR`에 구매 원장(`ITEM_PURCHASE`)을 남긴다. 상점 목록의 보유 포인트가 실제 값이다. 09:00 사전 알림이 주양육자와 연동 중 공동양육자에게 간다. `PointFake`·`CaregiverFake`가 없다
+- 완료 조건 결과: 검증 `통과`(2026-11-13, 1회차), 사람 확인 2026-11-13(8080). 정한 것: 구매 원장 메모 `아이템 구매 · {이름들}`(1000자에서 자름), `PointService`·`PetService`는 고치지 않음. 이미 쓴 `idmptDmndId`로 다른 아이템을 사면 포인트 없이 아이템이 생기는 문제는 사람이 직접 확인·수정하기로 범위 밖으로 뺌. 기존 테스트 4개는 목 인자만 실제 서비스로 바꿈(사람 승인, 기대값 그대로)
+- 추가: 없음
+
+## SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 막기 — 끝
+- 기능: 명세 기능 ID 추가 없음(버그 수정, 2026-11-13 대화). 걸치는 기능 FN-MYP-011-05 구매
+- 기다리는 것: 없음. `PointService`는 SJM 코드라 PR 전에 알린다
+- 완료 조건: 이미 원장에 있는 `idmptDmndId`로 내용(회원·거래 종류·금액·메모)이 다른 구매를 보내면 409 `IDEMPOTENCY_KEY_REUSED`이고 포인트·보유 아이템이 그대로다. 같은 내용으로 다시 보내면 지금처럼 한 번만 차감한다. 미션·검진 적립은 그대로
+- 완료 조건 결과: 검증 `통과`(2026-11-13, 2회차. 1회차는 새 조회를 `resultType`으로 받아 늘 null → 같은 키 다른 아이템이 500, `resultMap`으로 고침), 사람 확인 2026-11-13(8080). 정한 것: 같은 키·같은 내용이면 지금처럼 건너뜀, 적립(미션·검진)은 손대지 않음, 동시 두 요청은 범위 밖(원장 유니크 키로 전체 롤백). 기존 테스트 1개는 목만 새 조회로 바꿈(사람 승인, 기대값 그대로)
+- 추가: 없음
+- 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx` `IDEMPOTENCY_KEY_REUSED` 처리, 프론트 저장소에서 /start)
+
+## SCR-MYP-010 픽셀 캐릭터 관리 · 예전 공용 파일 주소 삭제 — 끝
+- 기능: 명세 기능 ID 추가 없음(파일 저장 경로 재구성의 후속). 프론트가 공용 파일 이미지 주소를 `/api/files/{atchFileSn}`로 옮겨(프론트 PR #383, develop 병합 확인 2026-11-16) 예전 주소 `GET /api/files/public/{atchFileSn}`을 지운다
+- 완료 조건: 로그인해서 `GET /api/files/public/{번호}`를 부르면 404 `NOT_FOUND`, `GET /api/files/{번호}`는 그대로 200·비로그인 401·전용 파일 404 `FILE_NOT_FOUND`
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16(8080). `FileControllerTest`의 예전 주소 검사 삭제·404 검사 추가는 사람 승인(없앤 기능의 검사). 검증 중 8082 서버가 기본 프로필로 떠 공용 DB 회원 1 프로필 사진이 바뀌었고 사람이 되돌린다
+- 추가: 없음
+- 연결 남음: 없음
+
+## SCR-MYP-010 픽셀 캐릭터 관리 · 무료 재생성 Python 연결 — 끝
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-010-23 무료 재생성, FN-ADM-042-07(화면은 SCR-ADM-042)
+- 기다리는 것: 없음. Python 재생성 API와 원본 사진 보내기는 ai 저장소, 관리자 화면 호출은 프론트 저장소
+- 완료 조건: 가짜 생성기(`CharacterCreationWorker`·`CharacterGenerator`·`FakeCharacterGenerator`·`app.character.generator`) 삭제, 무료 재생성이 regen-start·original-photo·success/failure로 동작
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 2회차. 1회차는 공용 DB 정상 흐름 확인 못 함으로 실패, 사람이 확인용 데이터 생성 허용), 사람 확인 2026-11-16. 기존 테스트 변경(가짜 생성기·`start`·`complete`·Worker 테스트 삭제, 나머지 시그니처)은 사람 확인. 기획의 `CharacterRegenStartResponse`는 필드가 같은 `CharacterJobResponse`를 그대로 씀. 검증 서버 기동 때 새 시간 초과 규칙이 공용 DB의 오래된 REQUESTED 작업 44건(2026-09~10월)을 `CHARACTER_TIMEOUT`으로 실패 처리함
+- 추가: 추가-1 무료 재생성 멱등 ID `REGEN-{직전 작업 번호}`(동시 다시 처리 409 `PIXEL_CHARACTER_CREATING`), 검증 통과
+- 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태(`regenJobSttsCd`) 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트 보내기, ai 저장소에서 /start. 재생성 입구 regenerate·regen-start·original-photo 호출은 ai-39가 구현함)
+
+## SCR-ADM-110 운영 설정 · 거래완료 숨김 일수 검토 — 끝
+- 기능: FN-ADM-110-01 설정 조회, FN-ADM-110-02 설정 수정(KSJ 13794f1이 `community.dlngCmptnHideCrtrDayCnt`를 넣음, `global/setting` 담당 LJS 검토. frontend-07 요청, 사람 합의 2026-11-16)
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `PATCH /api/admin/settings`가 `dlngCmptnHideCrtrDayCnt` 0·100을 400 `data[0].field`=`dlngCmptnHideCrtrDayCnt`로 막고 1·99는 받는다. 바뀐 값이 감사 로그에 남고, 값이 없으면 7이다
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 코드 수정 없음, `AdminSystemSettingControllerTest` 경계값 테스트 2개 추가
+- 연결 남음: 없음(프론트 입력칸은 handoff/KSJ.md·milestones/KSJ.md의 연결 남음 그대로)
+
+## SCR-ADM-081 키워드 사전 · 관리자·내부 키워드 사전 API 삭제 — 끝
+- 기능: 명세 기능 ID 추가 없음(frontend-07 요청, 사람 결정 2026-11-16), 걸치는 기능 FN-ADM-081-01·02·03
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음(프론트 화면 삭제는 따로, 순서 의존 없음)
+- 완료 조건: `/api/admin/ai/keywords`·`/internal/ai/keywords` 코드와 `docs/api/ai.md` 행·DTO 절이 없어지고, `KWRD_DICT`를 쓰는 커뮤니티 뉴스 키워드(`/api/admin/news/keywords`)와 라우팅 매핑표(`/api/admin/ai/routes`)는 그대로 동작한다
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 정한 것: AIMC0037·0038 공통코드와 그 `KWRD_DICT` 행은 DB에 남김(추천안대로, `db/` SQL 변경 없음). 기능명세서·화면설계서 반영은 사람
+- 연결 남음: 없음(프론트 화면 삭제는 프론트 저장소가 따로 진행)
+
+## SCR-ADM-051 약관 · 버전 이력 종류 키 누락 400 코드 맞추기 — 끝
+- 기능: 명세 기능 ID 추가 없음(핸드오프 판단 필요 항목, 사람 결정 2026-11-16: B 코드를 고친다), 걸치는 기능 FN-ADM-051-03
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `GET /api/admin/terms/history`에 `trmsFixIdntfKey`가 없거나 공백이면 400 `INVALID_INPUT_VALUE`(문서 `docs/api/member.md` 그대로), 키가 있으면 기존처럼 이력 목록
+- 완료 조건 결과: 검증 `통과`(2026-11-16, 1회차), 사람 확인 2026-11-16. 컨트롤러 `@RequestParam(required = false)`, 새 `AdminTermsControllerTest` 4건. `docs/api/member.md` 변경 없음
+- 연결 남음: 없음
+
+## SCR-ADM-050 펫뉴스 · 썸네일 파일 번호 검사 — 끝
+- 기능: 명세 기능 ID 추가 없음(핸드오프 "남김" 항목, 사람 결정 2026-11-17: 뉴스 썸네일 검사만, `byte[]` 상한 검사는 하지 않는다), 걸치는 기능 FN-ADM-050-02
+- 함께 만드는 것: 없음
+- 기다리는 것: 없음
+- 완료 조건: `POST /api/admin/news`·`PATCH /api/admin/news/{newsSn}`의 `atchFileSn`이 사용 중인 뉴스 썸네일 파일(`assets/news/` 또는 기존 `public/`)이 아니면 400 `INVALID_INPUT_VALUE`, 맞으면 기존처럼 등록·수정
+- 완료 조건 결과: 검증 `통과`(2026-11-17, 1회차, 8082에서 없는 번호·프로필·새 경로 커뮤니티 사진 400, 업로드 번호 201·200, 없는 기사 404 확인), 사람 확인 2026-11-17. 새 `FileStoreRequireStoredTest`·`AdminNewsThumbnailTest`, `docs/api/community.md` 두 행 400 조건 추가. 기존 `public/` 파일은 통과(옛 커뮤니티 사진도 받음, 공개 파일 이동 때 뺀다)
+- 연결 남음: 없음

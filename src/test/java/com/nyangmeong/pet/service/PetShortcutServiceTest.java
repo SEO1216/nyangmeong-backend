@@ -30,7 +30,7 @@ import com.nyangmeong.pet.mapper.PetShortcutMapper;
 
 /**
  * [검사 - 반려동물 메인 바로가기]
- * - 저장한 적 없는 반려동물은 종합 건강기록, 전부 숨기면 빈 목록
+ * - 저장한 적 없거나 전부 숨기면 빈 목록
  * - 형식이 틀리거나 남의 반려동물이면 아무것도 저장하지 않음
  */
 class PetShortcutServiceTest {
@@ -55,9 +55,9 @@ class PetShortcutServiceTest {
     }
 
     @Test
-    void 저장한_적_없는_반려동물은_종합_건강기록이다() {
-        assertThat(service.search(MBR)).containsExactly(new PetShortcutSummary(1L, List.of(HEALTH)),
-                new PetShortcutSummary(2L, List.of(HEALTH)));
+    void 저장한_적_없는_반려동물은_빈_목록이다() {
+        assertThat(service.search(MBR)).containsExactly(new PetShortcutSummary(1L, List.of()),
+                new PetShortcutSummary(2L, List.of()));
     }
 
     @Test

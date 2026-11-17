@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -29,6 +30,8 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.security.crypto.TokenHashUtil;
+import com.nyangmeong.global.setting.SystemSetting;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.member.domain.Member;
 import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.service.MemberService;
@@ -39,6 +42,7 @@ import com.nyangmeong.pet.domain.JntBrupInvtn;
 import com.nyangmeong.pet.domain.JntBrupInvtnSttsHstry;
 import com.nyangmeong.pet.domain.Pet;
 import com.nyangmeong.pet.dto.CaregiverInvitationAcceptRequest;
+import com.nyangmeong.pet.dto.CaregiverInvitationAcceptResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateRequest;
 import com.nyangmeong.pet.dto.CaregiverInvitationCreateResult;
 import com.nyangmeong.pet.dto.CaregiverInvitationLinkedPet;
@@ -67,6 +71,7 @@ class CaregiverInvitationServiceTest {
     private static final String ACCEPTED = "PETC0021";
     private static final String REJECTED = "PETC0022";
     private static final String EXPIRED = "PETC0023";
+    private static final String CANCELED = "PETC0035";
     private static final String PRIMARY = "PETC0018";
     private static final String CO_PARENT = "PETC0019";
     private static final String LINK_ACCEPTED = "PETC0024";
@@ -77,11 +82,14 @@ class CaregiverInvitationServiceTest {
     private final FieldCryptoService crypto = mock(FieldCryptoService.class);
     private final TokenHashUtil tokenHashUtil = mock(TokenHashUtil.class);
     private final EventPublisher eventPublisher = mock(EventPublisher.class);
+    private final SystemSettingService settingService = mock(SystemSettingService.class);
+    private final SystemSetting setting = new SystemSetting();
     private final CaregiverInvitationService service = new CaregiverInvitationService(invitationMapper, petMapper,
-            memberService, crypto, tokenHashUtil, eventPublisher, "http://front.test");
+            memberService, crypto, tokenHashUtil, eventPublisher, settingService, "http://front.test");
 
     @BeforeEach
     void setUp() {
+        when(settingService.get()).thenReturn(setting);
         when(crypto.normalizeEmail(anyString())).thenAnswer(inv -> inv.<String>getArgument(0).trim().toLowerCase());
         when(crypto.emailHmac(anyString())).thenAnswer(inv -> "h:" + inv.<String>getArgument(0).trim().toLowerCase());
         when(crypto.encrypt(anyString())).thenAnswer(inv -> "enc:" + inv.getArgument(0));
@@ -266,6 +274,56 @@ class CaregiverInvitationServiceTest {
     }
 
     @Test
+    void 초대_유효_일수가_설정값_3이면_만료일은_지금_더하기_3일이다() {
+        setting.setInvtnVldDayCnt(3L);
+        when(memberService.findForLogin("h:" + TARGET_EMAIL)).thenReturn(memberVo(RECEIVER));
+
+        service.createInvitation(SENDER, new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        ArgumentCaptor<JntBrupInvtn> invitation = ArgumentCaptor.forClass(JntBrupInvtn.class);
+        verify(invitationMapper).insertInvitation(invitation.capture());
+        assertThat(invitation.getValue().getInvtnExpryDt())
+                .isEqualTo(invitation.getValue().getRegDt().plusDays(3));
+    }
+
+    @Test
+    void 공동양육_최대_인원이_설정값_2이면_2명인_반려동물은_거절되고_문구에_2명이_나온다() {
+        setting.setJntBrupMaxNope(2L);
+        when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(2);
+
+        assertThatThrownBy(() -> service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A))))
+                .isInstanceOfSatisfying(CustomException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                    assertThat(e.getMessage()).contains("2명").doesNotContain("%");
+                });
+        verify(invitationMapper, never()).insertInvitation(any());
+    }
+
+    @Test
+    void 공동양육_최대_인원이_설정값_2이면_1명인_반려동물은_초대된다() {
+        setting.setJntBrupMaxNope(2L);
+        when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(1);
+
+        CaregiverInvitationCreateResult result = service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+    }
+
+    @Test
+    void 받는_사람의_반려동물_수가_한도를_넘어도_초대_보내기는_막히지_않는다() {
+        when(memberService.findForLogin("h:" + TARGET_EMAIL)).thenReturn(memberVo(RECEIVER));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        CaregiverInvitationCreateResult result = service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, never()).countLinkedPets(RECEIVER);
+    }
+
+    @Test
     void 공동양육자가_5명인_반려동물은_초대할_수_없다() {
         when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(5);
 
@@ -379,6 +437,139 @@ class CaregiverInvitationServiceTest {
     }
 
     @Test
+    void 반려동물_최대_수가_설정값_5이면_합계_4에_2마리를_고르면_막히고_문구에_5마리가_나온다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(4);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.message()).contains("5마리").doesNotContain("%");
+        assertThat(result.limit().remainingPetCount()).isEqualTo(1);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_5이면_합계_3에_2마리를_고르면_수락된다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(3);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, times(2)).insertBrupRel(any());
+    }
+
+    @Test
+    void 합계와_고른_수가_10이면_수락된다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(8);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, times(2)).insertBrupRel(any());
+    }
+
+    @Test
+    void 합계와_고른_수가_10을_넘으면_아무것도_연동하지_않고_남은_자리를_돌려준다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(9);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isFalse();
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.limit().remainingPetCount()).isEqualTo(1);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(invitationMapper, never()).updateTargetPetsAcceptance(anyLong(), any());
+        verify(invitationMapper, never()).insertStatusHistory(any());
+        verify(petMapper, never()).insertBrupRel(any());
+        verify(petMapper, never()).insertLinkHistory(any());
+    }
+
+    @Test
+    void 이미_10마리를_넘은_회원의_수락은_남은_자리_0으로_막힌다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A)));
+
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.message()).contains("10마리").doesNotContain("%");
+        assertThat(result.limit().remainingPetCount()).isZero();
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 같은_반려동물을_중복해서_골라도_한_마리로_센다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(9);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+    }
+
+    @Test
+    void 수락은_회원_행을_잠근_뒤_센다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+
+        service.acceptInvitation(RECEIVER, INVITATION, new CaregiverInvitationAcceptRequest(List.of(PET_A)));
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(petMapper);
+        order.verify(petMapper).lockMemberForPetLimit(RECEIVER);
+        order.verify(petMapper).countLinkedPets(RECEIVER);
+        order.verify(petMapper).insertBrupRel(any());
+    }
+
+    @Test
+    void 대기_초대_상세는_남은_자리_수를_내린다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(7);
+
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isEqualTo(3);
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_5이면_상세_남은_자리는_5에서_합계를_뺀_수다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(3);
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isEqualTo(2);
+
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(7);
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isZero();
+    }
+
+    @Test
+    void 이미_10마리를_넘은_회원의_상세_남은_자리는_음수가_아니라_0이다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isZero();
+    }
+
+    @Test
+    void 이메일이_다르거나_대기가_아닌_초대_상세에는_남은_자리가_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        assertThat(service.getInvitation(OTHER, INVITATION).remainingPetCount()).isNull();
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(REJECTED, 3));
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isNull();
+    }
+
+    @Test
     void 해제했던_반려동물을_다시_수락하면_기존_양육관계를_되살린다() {
         when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
         BrupRel unlinked = rel(PET_A, RECEIVER, CO_PARENT);
@@ -446,8 +637,10 @@ class CaregiverInvitationServiceTest {
 
         assertThatThrownBy(() -> service.acceptInvitation(RECEIVER, INVITATION,
                 new CaregiverInvitationAcceptRequest(List.of(PET_A))))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                .isInstanceOfSatisfying(CustomException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                    assertThat(e.getMessage()).contains("5명").doesNotContain("%");
+                });
         verify(petMapper, never()).insertBrupRel(any());
     }
 
@@ -484,6 +677,141 @@ class CaregiverInvitationServiceTest {
         assertThatThrownBy(() -> service.rejectInvitation(RECEIVER, INVITATION))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+    }
+
+    @Test
+    void 대기_중인_초대를_취소하면_상태를_바꾸고_이력을_남기고_알림은_보내지_않는다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(invitationMapper.updateCancel(eq(INVITATION), eq(SENDER), eq(PENDING), eq(CANCELED), any(), eq("1")))
+                .thenReturn(1);
+
+        service.cancelInvitation(SENDER, INVITATION);
+
+        ArgumentCaptor<JntBrupInvtnSttsHstry> history = ArgumentCaptor.forClass(JntBrupInvtnSttsHstry.class);
+        verify(invitationMapper).insertStatusHistory(history.capture());
+        assertThat(history.getValue().getJntBrupInvtnSn()).isEqualTo(INVITATION);
+        assertThat(history.getValue().getMbrSn()).isEqualTo(SENDER);
+        assertThat(history.getValue().getBfrSttsCd()).isEqualTo(PENDING);
+        assertThat(history.getValue().getAftrSttsCd()).isEqualTo(CANCELED);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void 남이_보낸_초대는_취소할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+
+        assertThatThrownBy(() -> service.cancelInvitation(OTHER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        verify(invitationMapper, never()).updateCancel(anyLong(), anyLong(), any(), any(), any(), any());
+    }
+
+    @Test
+    void 없거나_삭제한_초대는_취소할_수_없다() {
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, 999L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+    }
+
+    @Test
+    void 수락_거절_만료_취소한_초대는_다시_취소할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(ACCEPTED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(REJECTED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, -1));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_EXPIRED);
+
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+
+        verify(invitationMapper, never()).updateCancel(anyLong(), anyLong(), any(), any(), any(), any());
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소하는_사이_받는_사람이_먼저_응답했으면_409이고_이력을_남기지_않는다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(invitationMapper.updateCancel(anyLong(), anyLong(), any(), any(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.cancelInvitation(SENDER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_ALREADY_PROCESSED);
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소한_초대는_수락도_거절도_할_수_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        assertThatThrownBy(() -> service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        assertThatThrownBy(() -> service.rejectInvitation(RECEIVER, INVITATION))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_CANCELED);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 알림을_눌러_취소한_초대를_열면_취소_상태만_보이고_반려동물은_없다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        CaregiverInvitationResponse response = service.getInvitation(RECEIVER, INVITATION);
+
+        assertThat(response.invtnSttsCd()).isEqualTo(CANCELED);
+        assertThat(response.pets()).isNull();
+        assertThat(response.sndrMbrNcnm()).isNull();
+    }
+
+    @Test
+    void 취소한_초대는_삭제할_수_있다() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        when(invitationMapper.updateDelete(INVITATION, SENDER, CANCELED, "1")).thenReturn(1);
+
+        service.deleteInvitation(SENDER, INVITATION);
+
+        verify(invitationMapper).updateDelete(INVITATION, SENDER, CANCELED, "1");
+        verify(invitationMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 취소하지_않은_초대는_삭제할_수_없다() {
+        for (String statusCd : List.of(PENDING, ACCEPTED, REJECTED, EXPIRED)) {
+            when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(statusCd, 3));
+            assertThatThrownBy(() -> service.deleteInvitation(SENDER, INVITATION))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_CANCELED);
+        }
+        verify(invitationMapper, never()).updateDelete(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void 남이_보낸_초대는_삭제할_수_없고_없는_초대는_404() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+
+        assertThatThrownBy(() -> service.deleteInvitation(OTHER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_SENDER);
+        assertThatThrownBy(() -> service.deleteInvitation(SENDER, 999L))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
+        verify(invitationMapper, never()).updateDelete(anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void 삭제하는_사이_이미_삭제됐으면_404() {
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(CANCELED, 3));
+        when(invitationMapper.updateDelete(anyLong(), anyLong(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.deleteInvitation(SENDER, INVITATION))
+                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_INVITATION_NOT_FOUND);
     }
 
     private MemberResponse member(String email, String nickname) {

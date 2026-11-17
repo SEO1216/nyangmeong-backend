@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -58,17 +59,21 @@ class CareRecruitmentServiceTest {
     private static final Long PST = 7L;
     private static final Long RCRT = 5L;
     private static final String NORMAL = "CMUC0003";
+    private static final String JOINED = "CHTC0003";
     private static final String DELETED = "CMUC0005";
     private static final String RECRUITING = "PCAC0001";
     private static final String MATCHED = "PCAC0002";
+    private static final String COMPLETED = "PCAC0003";
     private static final String HOURLY = "PCAC0004";
     private static final String PER_CASE = "PCAC0005";
     private static final String DOG = "PETC0001";
     private static final String CAT = "PETC0002";
     private static final BigDecimal LAT = new BigDecimal("35.8242000000");
     private static final BigDecimal LOT = new BigDecimal("127.1480000000");
-    private static final LocalDateTime BGNG = LocalDateTime.of(2026, 11, 10, 19, 0);
-    private static final LocalDateTime END = LocalDateTime.of(2026, 11, 10, 19, 30);
+    /** 날짜 기한(오늘부터 90일, 기간 30일) 검증이 있어 오늘(KST) 기준으로 잡는다 */
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    private static final LocalDateTime BGNG = TODAY.plusDays(5).atTime(19, 0);
+    private static final LocalDateTime END = TODAY.plusDays(5).atTime(19, 30);
 
     private final CareRecruitmentMapper careRecruitmentMapper = mock(CareRecruitmentMapper.class);
     private final PostMapper postMapper = mock(PostMapper.class);
@@ -159,21 +164,37 @@ class CareRecruitmentServiceTest {
             inv.<CareRecruitment>getArgument(0).setPetPrtcRcrtSn(RCRT);
             return 1;
         }).when(careRecruitmentMapper).insertRecruitment(any(CareRecruitment.class));
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
     }
 
     /** 목록 */
 
     @Test
     void 목록은_정상_글을_기본_10건으로_조회한다() {
+        stubSystemSetting();
         service.search(MBR, new CareRecruitmentSearchCond(), new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, false, null,
-                null);
+                null, COMPLETED, 7L, JOINED);
+    }
+
+    @Test
+    void 숨김_일수는_운영_설정_값을_넘긴다() {
+        SystemSetting setting = new SystemSetting();
+        setting.setDlngCmptnHideCrtrDayCnt(3L);
+        when(systemSettingService.get()).thenReturn(setting);
+        CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
+        cond.setMineYn(true);
+
+        service.search(MBR, cond, new PageQuery(null, null, null));
+
+        verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, true, null, null, null, null, DOG, false, null,
+                null, COMPLETED, 3L, JOINED);
     }
 
     @Test
     void 조건을_모두_넘기고_날짜_상한은_다음날_0시다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setRcrtSttsCd(RECRUITING);
         cond.setMineYn(true);
@@ -188,22 +209,24 @@ class CareRecruitmentServiceTest {
         verify(breedService).checkPetSe(DOG);
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, RECRUITING, true, 10L,
                 LocalDateTime.of(2026, 11, 10, 0, 0), LocalDateTime.of(2026, 11, 13, 0, 0), DOG, DOG, true,
-                new BigDecimal("10"), new BigDecimal("25"));
+                new BigDecimal("10"), new BigDecimal("25"), COMPLETED, 7L, JOINED);
     }
 
     @Test
     void 대형은_상한_없이_하한만_넘긴다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setPetSizeCd("LARGE");
 
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, null, DOG, true,
-                new BigDecimal("25"), null);
+                new BigDecimal("25"), null, COMPLETED, 7L, JOINED);
     }
 
     @Test
     void 고양이를_고르면_크기_조건은_무시한다() {
+        stubSystemSetting();
         CareRecruitmentSearchCond cond = new CareRecruitmentSearchCond();
         cond.setPetSeCd(CAT);
         cond.setPetSizeCd("SMALL");
@@ -211,7 +234,7 @@ class CareRecruitmentServiceTest {
         service.search(MBR, cond, new PageQuery(null, null, null));
 
         verify(careRecruitmentMapper).selectList(MBR, NORMAL, null, false, null, null, null, CAT, DOG, false, null,
-                null);
+                null, COMPLETED, 7L, JOINED);
     }
 
     @Test
@@ -236,7 +259,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 상세는_조회수를_올리고_작성자에게만_채팅_인원수를_준다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(postMapper.insertViewIgnore(PST, OTHER)).thenReturn(1);
 
         CareRecruitmentResponse res = service.getRecruitment(OTHER, RCRT);
@@ -249,7 +272,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_보면_조회_이력도_조회수도_건드리지_않는다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         CareRecruitmentResponse res = service.getRecruitment(MBR, RCRT);
 
@@ -260,7 +283,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 같은_날_다시_보면_조회수는_그대로이고_작성자는_채팅_인원수를_본다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         CareRecruitmentResponse res = service.getRecruitment(MBR, RCRT);
 
@@ -272,7 +295,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 상세는_로그인_회원이_채팅_중인지를_나가지_않은_참여_기준으로_준다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.existsChatting(PST, OTHER, "CHTC0003")).thenReturn(true);
 
         assertThat(service.getRecruitment(OTHER, RCRT).chatting()).isTrue();
@@ -284,7 +307,7 @@ class CareRecruitmentServiceTest {
         for (String sttsCd : new String[] { MATCHED, "PCAC0003" }) {
             CareRecruitmentDetail matched = detail(sttsCd);
             matched.setCfmtnPetPrtcMtchSn(30L);
-            when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(matched);
+            when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(matched);
             when(careRecruitmentMapper.selectMatchedSitterNcnm(30L)).thenReturn("돌보미");
 
             assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isEqualTo("돌보미");
@@ -295,13 +318,65 @@ class CareRecruitmentServiceTest {
     void 모집중이거나_확정된_매칭이_없으면_돌보미_닉네임은_null이고_조회하지_않는다() {
         CareRecruitmentDetail recruiting = detail(RECRUITING);
         recruiting.setCfmtnPetPrtcMtchSn(30L);
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(recruiting);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(recruiting);
         assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isNull();
 
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
         assertThat(service.getRecruitment(OTHER, RCRT).mtchSitterNcnm()).isNull();
 
         verify(careRecruitmentMapper, never()).selectMatchedSitterNcnm(anyLong());
+    }
+
+    @Test
+    void 상세는_확정된_매칭이_있었는지를_준다() {
+        CareRecruitmentDetail dealt = detail("PCAC0003");
+        dealt.setCfmtnPetPrtcMtchSn(30L);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(dealt);
+        assertThat(service.getRecruitment(OTHER, RCRT).matched()).isTrue();
+
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail("PCAC0003"));
+        assertThat(service.getRecruitment(OTHER, RCRT).matched()).isFalse();
+    }
+
+    @Test
+    void 자동_마감_대상은_모집중_정상글_수락_대기_코드와_30일로_찾는다() {
+        when(careRecruitmentMapper.selectCloseTargets(RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(List.of(5L));
+
+        assertThat(service.findCloseTargets()).containsExactly(5L);
+    }
+
+    @Test
+    void 자동_마감은_거래완료로_바꾸고_처리자_없이_사유와_이력을_남긴다() {
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(new CareRecruitment());
+        when(careRecruitmentMapper.existsCloseTarget(RCRT, RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(true);
+        when(careRecruitmentMapper.updateStatus(RCRT, RECRUITING, "PCAC0003", null)).thenReturn(1);
+
+        assertThat(service.closeExpired(RCRT)).isTrue();
+
+        ArgumentCaptor<com.nyangmeong.community.domain.CareRecruitmentStatusHistory> captor = ArgumentCaptor
+                .forClass(com.nyangmeong.community.domain.CareRecruitmentStatusHistory.class);
+        verify(careRecruitmentMapper).insertStatusHistory(captor.capture());
+        assertThat(captor.getValue().getPetPrtcRcrtSn()).isEqualTo(RCRT);
+        assertThat(captor.getValue().getMbrSn()).isNull();
+        assertThat(captor.getValue().getBfrSttsCd()).isEqualTo(RECRUITING);
+        assertThat(captor.getValue().getAftrSttsCd()).isEqualTo("PCAC0003");
+        assertThat(captor.getValue().getChgRsn()).isEqualTo("모집 기간 종료 자동 마감");
+    }
+
+    @Test
+    void 잠근_뒤_대상에서_빠졌으면_바꾸지_않는다() {
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(new CareRecruitment());
+        when(careRecruitmentMapper.existsCloseTarget(RCRT, RECRUITING, NORMAL, "PCAC0012", 30)).thenReturn(false);
+
+        assertThat(service.closeExpired(RCRT)).isFalse();
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
+        verify(careRecruitmentMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 없는_모집은_마감하지_않는다() {
+        assertThat(service.closeExpired(9L)).isFalse();
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -491,14 +566,14 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_아니면_수정할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.update(OTHER, RCRT, update(null, null, null, null, null)), ErrorCode.NOT_OWNER);
     }
 
     @Test
     void 모집중이_아니면_수정할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
 
         assertError(() -> service.update(MBR, RCRT, update(null, null, null, null, null)),
                 ErrorCode.CARE_RECRUITMENT_NOT_EDITABLE);
@@ -507,7 +582,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 비용만_바꿔도_합친_값으로_최저시급을_검사한다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.update(MBR, RCRT, update(null, 9000, null, null, null)),
                 ErrorCode.CARE_MIN_WAGE_NOT_MET);
@@ -517,7 +592,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 보낸_필드만_바꾸고_나머지는_그대로_둔다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
 
@@ -542,7 +617,7 @@ class CareRecruitmentServiceTest {
 
     private void stubUpdate() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
     }
@@ -562,8 +637,8 @@ class CareRecruitmentServiceTest {
     @Test
     void 일정_협의_가능이면서_일정을_보내면_희망_일정으로_저장한다() {
         stubUpdate();
-        LocalDateTime newBgng = LocalDateTime.of(2026, 11, 12, 10, 0);
-        LocalDateTime newEnd = LocalDateTime.of(2026, 11, 12, 12, 0);
+        LocalDateTime newBgng = TODAY.plusDays(7).atTime(10, 0);
+        LocalDateTime newEnd = TODAY.plusDays(7).atTime(12, 0);
 
         service.update(MBR, RCRT, update(null, null, true, newBgng, newEnd));
 
@@ -589,7 +664,7 @@ class CareRecruitmentServiceTest {
         noSchedule.setPrtcBgngDt(null);
         noSchedule.setPrtcEndDt(null);
         noSchedule.setSchdlCnsltnPsbltyYn("Y");
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(noSchedule);
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(noSchedule);
 
         assertError(() -> service.update(MBR, RCRT, update(null, null, false, null, null)),
                 ErrorCode.INVALID_INPUT_VALUE);
@@ -611,7 +686,7 @@ class CareRecruitmentServiceTest {
     @Test
     void 반려동물을_보내면_목록을_교체한다() {
         stubSystemSetting();
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         when(careRecruitmentMapper.updateRecruitment(any(), eq(RECRUITING))).thenReturn(1);
         when(postMapper.updatePost(eq(PST), any(), any(), any(), anyString(), eq(NORMAL))).thenReturn(1);
         CareRecruitmentUpdateRequest req = new CareRecruitmentUpdateRequest(List.of(dog(1L, null, "MEDIUM")), null,
@@ -625,18 +700,113 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 좌표를_하나만_보내면_400() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
         CareRecruitmentUpdateRequest onlyLat = new CareRecruitmentUpdateRequest(null, null, null, null, null, null,
                 null, null, null, LAT, null, null, null, null, null);
 
         assertError(() -> service.update(MBR, RCRT, onlyLat), ErrorCode.INVALID_INPUT_VALUE);
     }
 
+    /** 일정 날짜 기한(시작일 오늘부터 90일, 종료일 시작일부터 30일) */
+
+    private LocalDateTime at(LocalDate date) {
+        return date.atTime(19, 0);
+    }
+
+    private void assertPeriodRejected(LocalDateTime bgng, LocalDateTime end, LocalDateTime savedBgng,
+            LocalDateTime savedEnd) {
+        assertError(() -> CareRecruitmentService.checkSchedule(false, bgng, end, savedBgng, savedEnd, TODAY),
+                ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    private void assertPeriodAllowed(LocalDateTime bgng, LocalDateTime end, LocalDateTime savedBgng,
+            LocalDateTime savedEnd) {
+        CareRecruitmentService.checkSchedule(false, bgng, end, savedBgng, savedEnd, TODAY);
+    }
+
+    @Test
+    void 시작일이_어제면_거부하고_오늘이면_통과한다() {
+        assertPeriodRejected(at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), null, null);
+        assertPeriodAllowed(at(TODAY), at(TODAY).plusHours(1), null, null);
+    }
+
+    @Test
+    void 시작일이_오늘_90일_뒤면_통과하고_91일_뒤면_거부한다() {
+        assertPeriodAllowed(at(TODAY.plusDays(90)), at(TODAY.plusDays(90)).plusHours(1), null, null);
+        assertPeriodRejected(at(TODAY.plusDays(91)), at(TODAY.plusDays(91)).plusHours(1), null, null);
+    }
+
+    @Test
+    void 기간이_30일이면_통과하고_31일이면_거부한다() {
+        LocalDate start = TODAY.plusDays(10);
+        assertPeriodAllowed(at(start), at(start.plusDays(30)), null, null);
+        assertPeriodRejected(at(start), at(start.plusDays(31)), null, null);
+    }
+
+    @Test
+    void 바뀌지_않은_날짜는_지난_날짜여도_통과한다() {
+        LocalDateTime pastBgng = at(TODAY.minusDays(3));
+        LocalDateTime pastEnd = at(TODAY.minusDays(2));
+
+        assertPeriodAllowed(pastBgng, pastEnd, pastBgng, pastEnd);
+        assertPeriodAllowed(pastBgng.withHour(10), pastEnd, pastBgng, pastEnd);
+    }
+
+    @Test
+    void 수정에서_시작일을_어제로_바꾸면_거부한다() {
+        assertPeriodRejected(at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), BGNG, END);
+    }
+
+    @Test
+    void 등록은_지난_일정이면_400이고_저장하지_않는다() {
+        stubSystemSetting();
+        CareRecruitmentCreateRequest past = create(List.of(dog(1L, null, "SMALL")), HOURLY, 10320, false,
+                at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1), null, true);
+
+        assertError(() -> service.create(MBR, past), ErrorCode.INVALID_INPUT_VALUE);
+        verify(postMapper, never()).insertPost(any(Post.class));
+    }
+
+    @Test
+    void 등록은_시작일이_91일_뒤면_400이다() {
+        stubSystemSetting();
+        CareRecruitmentCreateRequest far = create(List.of(dog(1L, null, "SMALL")), HOURLY, 10320, false,
+                at(TODAY.plusDays(91)), at(TODAY.plusDays(91)).plusHours(1), null, true);
+
+        assertError(() -> service.create(MBR, far), ErrorCode.INVALID_INPUT_VALUE);
+        verify(postMapper, never()).insertPost(any(Post.class));
+    }
+
+    @Test
+    void 지난_일정이_저장된_글의_제목만_수정하면_통과한다() {
+        stubUpdate();
+        CareRecruitmentDetail pastDetail = detail(RECRUITING);
+        pastDetail.setPrtcBgngDt(at(TODAY.minusDays(3)));
+        pastDetail.setPrtcEndDt(at(TODAY.minusDays(2)));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(pastDetail);
+        CareRecruitmentUpdateRequest titleOnly = new CareRecruitmentUpdateRequest(null, null, null, null, null, null,
+                null, null, null, null, null, "제목만 수정", null, null, null);
+
+        service.update(MBR, RCRT, titleOnly);
+
+        assertThat(updatedRecruitment().getPrtcBgngDt()).isEqualTo(at(TODAY.minusDays(3)));
+    }
+
+    @Test
+    void 수정에서_시작일을_어제로_바꾸면_400이고_저장하지_않는다() {
+        stubUpdate();
+
+        assertError(() -> service.update(MBR, RCRT,
+                update(null, null, null, at(TODAY.minusDays(1)), at(TODAY.minusDays(1)).plusHours(1))),
+                ErrorCode.INVALID_INPUT_VALUE);
+        verify(careRecruitmentMapper, never()).updateRecruitment(any(), anyString());
+    }
+
     /** 삭제 */
 
     @Test
     void 작성자는_상태와_무관하게_삭제하고_채팅_기록은_건드리지_않는다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(MATCHED));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(MATCHED));
         when(postMapper.updateStatus(PST, NORMAL, DELETED, "1")).thenReturn(1);
 
         service.delete(MBR, RCRT);
@@ -647,7 +817,7 @@ class CareRecruitmentServiceTest {
 
     @Test
     void 작성자가_아니면_삭제할_수_없다() {
-        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL)).thenReturn(detail(RECRUITING));
+        when(careRecruitmentMapper.selectDetail(RCRT, NORMAL, JOINED)).thenReturn(detail(RECRUITING));
 
         assertError(() -> service.delete(OTHER, RCRT), ErrorCode.NOT_OWNER);
         verify(postMapper, never()).updateStatus(anyLong(), anyString(), anyString(), anyString());

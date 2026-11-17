@@ -2,12 +2,14 @@
 
 ## 지금 하는 것
 
-끝남(커밋 전). SCR-HLT-007 검사 수치 결과값·참고범위를 0 이상, 정수 7자리·소수 둘째 자리까지로 제한(FN-HLT-007-02·03, ※신규 정책: 검사 수치 0 이상 · 정수 7자리). `InspectionValueCreateRequest`·`InspectionValueUpdateRequest`에 `@DecimalMin("0") @Digits(integer = 7, fraction = 2)`, DB decimal(15,4)는 그대로. PDF 분석 결과도 같은 `POST inspection-values`라 따로 막을 경로 없음. 공용 DB 확인: 까미(1번) 검진기록 5에서 -5·10000000·하한 -1 → 400, 9999999.99 → 201(확인 기록 INSP_NVL 3103 삭제함), PATCH -5 → 400(사람 확인 2026-11-11)
+끝남(커밋 전). SCR-HLT-003 케어리스트 개편(2026-11-16): 반려동물 단위 케어리스트 표시 항목 고르기(`CARE_ARTCL.INDCT_YN`, NULL = 고른 적 없음 → 추천 5개, 5개 이상, 처방·반복 예방 연동 항목은 항상 보임), `PUT /pets/{petSn}/care-items/indications`, 보이는 항목 삭제로 5개 미만이면 DELETE 400, 반려동물 변경으로 옮긴 항목 `INDCT_YN` NULL, 완료 기록 `cmptnDt`(MDFCN_DT), 케어 항목 오늘 케어미션 여부·포인트(공동양육자 null)·완료 여부, `GET /pets/{petSn}/care-items/mission-progress`. 검증 3회차 통과(1·2회차는 서버·공용 DB 미반영으로 화면 확인 못 함), 사람 확인 2~7 통과(회원 1·6, 까미). 공용 DB v0.14 (16) 반영 완료(2026-11-16 11:39). 결정은 `milestones/JAJ.md` 같은 절
 
-이전: SCR-HLT-002 일상 기록 시각·관찰 촬영일 미래 입력 막기는 #225, 일상 기록 1회 상한은 #222, 시드 수치 보정은 #223으로 병합됨
+직전: 건강기록 문구 통일 DB 데이터 2건(2026-11-13, 공용 DB 반영 완료). 그 전: SCR-HLT-007 검사 수치 0 이상·정수 7자리(사람 확인 2026-11-11)
 
 ## 다음에 할 것
 
+- 연결 남음: FN-HLT-003-12 케어리스트 개편 (프론트 연결 토탈 케어리스트·「케어 항목 관리」 모달·튜토리얼 3단계·검진기록/처방약/반복 예방 삭제 확인창, 프론트 저장소에서 /start. 프론트 `milestones/JAJ.md`에 "SCR-HLT-003 케어 캘린더 · 케어리스트 개편 연결 — 대기" 절 넣음)
+- 팀원 전달: `PetAuthorizer.isPrimary`(global 공유 파일)·`CareMissionService.searchByPet`(pet, 읽기 전용, SJM 알림 완료) 추가, `CARE_ARTCL.INDCT_YN` 컬럼(공용 DB 반영 완료). 디스코드에 전달 문구 올리기
 - 연결 남음: FN-HLT-002-11·13 일상 기록 시각 (프론트 연결: 오늘 기록 시간 입력이 지금 이후 시각을 고를 수 있으면 막고, 400 `rcdDt` 메시지를 보여 줄지 정하기, 프론트 저장소에서 /start)
 - 연결 남음: FN-HLT-003-29·31·40 회원 단위 일정 조회 (프론트 연결 `features/health/api.js`의 `getSchedules` 하나만 `GET /api/care-schedules`로, `CareCalendarPage.jsx`·`UpcomingSchedules.jsx`·`queries.js`는 고치지 않음, 프론트 저장소에서 /start)
 - 팀원 전달: `PetAuthorizer.searchCaregiverPetSns`·`PetAuthMapper.selectCaregiverPetSns` 추가(공유 파일, 기존 `checkCaregiver`·`checkPrimary`는 그대로). 디스코드에 전달 문구 올리기
@@ -33,6 +35,7 @@
 - 공용 DB에 남은 확인용 데이터: 회원 1(반려동물 3, 검진일 2026-10-31) 검진 포인트 20P(원장 5634), 영수증 179 상태 이력 1364행, 반려동물 2의 관찰 업로드 파일 행·`OBSRV_ARTCL_STTS_HSTRY` 행. 반려동물 1의 `PET_BDWG`는 17.513(남은 최신 기록 91). 반려동물 1004(회원 1)의 2026-11-10 미션 "화장실 청소하기" 완료(DAY_MSN 84221, 10P)는 확인 호출로 생겼고 그대로 둔다(사람 결정 2026-11-10). 공용 DB의 HLTG21 코드 5개는 실제 코드라 그대로 둔다
 - 저장 `POST inspection-values`는 전부 건너뛰어도 201(빈 목록)을 돌려준다(사람 확인 2026-10-29). 참고범위는 PATCH `refRange`로 덮어쓰거나 비운다(2026-11-02)
 - 처방약 약품명을 바꿔도 이미 만든 투약 항목 이름은 그대로다
+- 고른 적 없는 기본 항목의 표시여부는 `BasicCareItem` 이름으로 추천 5개를 판단한다. 이름이 다른 시드 기본 항목(아래 줄)은 추천으로 안 잡혀 보임(true)으로 나온다
 - `CareItemCreateRequest.cycleDrctInptDayCnt`의 1~365 검사가 일상관리 요청에도 걸린다(0을 보내면 400). AI 카드는 일상관리일 때 이 필드를 보내지 않는다
 - 시드 기본 항목 이름("빗질하기", "발톱 정리" 등)이 `BasicCareItem` 이름과 달라 시드 반려동물의 기본 항목 완료는 케어미션에 반영되지 않는다(시드는 고치지 않기로 함)
 - curl로 상태 변경 API를 부를 때는 `X-Requested-With: XMLHttpRequest` 헤더가 있어야 한다(없으면 403, `RequestedWithFilter`). 한글 본문은 UTF-8 파일로 `--data-binary @파일`로 보낸다(Git Bash 인자로 넘기면 Invalid UTF 400)

@@ -16,7 +16,12 @@ import com.nyangmeong.community.domain.CareMatchStatus;
 import com.nyangmeong.community.domain.ChatMessage;
 import com.nyangmeong.community.domain.ChatMessagePhoto;
 import com.nyangmeong.community.domain.ChatMessageType;
+import com.nyangmeong.community.domain.ChatParticipant;
 import com.nyangmeong.community.domain.ChatParticipantStatus;
+import com.nyangmeong.community.domain.ChatRoom;
+import com.nyangmeong.community.domain.ChatRoomDetail;
+import com.nyangmeong.community.domain.ChatRoomStatus;
+import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.dto.ChatMessageCreateRequest;
 import com.nyangmeong.community.dto.ChatMessageResponse;
 import com.nyangmeong.community.dto.ChatMessageSliceResponse;
@@ -27,6 +32,8 @@ import com.nyangmeong.community.mapper.ChatMessageMapper;
 import com.nyangmeong.community.mapper.ChatRoomMapper;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.file.FileCategory;
+import com.nyangmeong.global.file.FileOwner;
 import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 
@@ -83,13 +90,13 @@ public class ChatMessageService {
      */
     @Transactional
     public ChatMessageResponse send(Long mbrSn, Long otoChatRoomSn, ChatMessageCreateRequest req) {
-        chatRoomGuard.getRoom(mbrSn, otoChatRoomSn);
+        ChatRoomDetail room = chatRoomGuard.getRoom(mbrSn, otoChatRoomSn);
         chatRoomGuard.checkJoined(mbrSn, otoChatRoomSn);
         List<MultipartFile> images = attached(req.images());
         checkRequest(req, images);
 
         /** 방 잠금 뒤에 중복 요청과 순서를 확인 : 같은 방의 전송이 한 줄로 처리됨 */
-        chatRoomMapper.selectRoomForUpdate(otoChatRoomSn);
+        ChatRoom lockedRoom = chatRoomMapper.selectRoomForUpdate(otoChatRoomSn);
         ChatMessage replay = chatMessageMapper.selectByIdmptDmndIdForShare(req.idmptDmndId());
         if (replay != null) {
             if (!otoChatRoomSn.equals(replay.getOtoChatRoomSn()) || !mbrSn.equals(replay.getMbrSn())) {
@@ -102,6 +109,8 @@ public class ChatMessageService {
         if (ChatMessageType.ADDRESS.is(req.msgTypeCd())) {
             checkAddressAllowed(otoChatRoomSn);
         }
+        checkRoomOpen(lockedRoom, otoChatRoomSn);
+        rejoinCounterpart(room, mbrSn);
 
         ChatMessage message = new ChatMessage();
         message.setOtoChatRoomSn(otoChatRoomSn);
@@ -119,7 +128,7 @@ public class ChatMessageService {
         for (MultipartFile image : images) {
             ChatMessagePhoto photo = new ChatMessagePhoto();
             photo.setChatMsgSn(message.getChatMsgSn());
-            photo.setAtchFileSn(fileStore.store(image, String.valueOf(mbrSn)));
+            photo.setAtchFileSn(fileStore.store(image, FileCategory.COMMUNITY_CHAT, FileOwner.member(mbrSn), String.valueOf(mbrSn)));
             photo.setSortSeq(sortSeq++);
             chatMessageMapper.insertPhoto(photo);
         }
@@ -167,11 +176,37 @@ public class ChatMessageService {
         }
     }
 
+    /** 읽기 전용 방과 무응답 종료된 매칭 방은 새 메시지를 받지 않음 (room 은 방 잠금 때 읽은 값) */
+    private void checkRoomOpen(ChatRoom room, Long otoChatRoomSn) {
+        CareMatch match = careMatchMapper.selectByRoomForUpdate(otoChatRoomSn);
+        if ((room != null && ChatRoomStatus.READ_ONLY.is(room.getChatRoomSttsCd()))
+                || (match != null && CareMatchStatus.NO_RESPONSE.is(match.getMtchDlngSttsCd()))) {
+            throw new CustomException(ErrorCode.CHAT_ROOM_CLOSED);
+        }
+    }
+
     private void checkAddressAllowed(Long otoChatRoomSn) {
         CareMatch match = careMatchMapper.selectByRoomForUpdate(otoChatRoomSn);
         if (match == null || !CareMatchStatus.isConfirmed(match.getMtchDlngSttsCd())) {
             throw new CustomException(ErrorCode.CHAT_ADDRESS_NOT_ALLOWED);
         }
+    }
+
+    /** 상대가 나간 방에 메시지를 보내면 상대를 참여로 되돌림 : 상대 목록·실시간 전송·지원자 수에 다시 잡힌다 */
+    private void rejoinCounterpart(ChatRoomDetail room, Long mbrSn) {
+        Long counterpartMbrSn = mbrSn.equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn() : room.getOwnerMbrSn();
+        ChatParticipant counterpart = chatRoomMapper.selectParticipant(room.getOtoChatRoomSn(), counterpartMbrSn);
+        if (counterpart == null || !ChatParticipantStatus.LEFT.is(counterpart.getPtcpSttsCd())) {
+            return;
+        }
+        chatRoomMapper.updateParticipantStatus(room.getOtoChatRoomSn(), counterpartMbrSn,
+                ChatParticipantStatus.JOINED.getCode());
+        ChatStatusHistory history = new ChatStatusHistory();
+        history.setRefSn(counterpart.getChatPrtpntSn());
+        history.setMbrSn(mbrSn);
+        history.setBfrSttsCd(ChatParticipantStatus.LEFT.getCode());
+        history.setAftrSttsCd(ChatParticipantStatus.JOINED.getCode());
+        chatRoomMapper.insertParticipantStatusHistory(history);
     }
 
     private List<Long> joinedMbrSns(Long otoChatRoomSn) {

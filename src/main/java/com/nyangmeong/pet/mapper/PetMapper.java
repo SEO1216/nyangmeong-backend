@@ -83,9 +83,24 @@ public interface PetMapper {
     int countLinkedCaregivers(@Param("petSn") Long petSn, @Param("coParentRoleCd") String coParentRoleCd);
 
     /**
-     * 회원의 주양육 반려동물 수
+     * 회원의 주양육 반려동물 수 (첫 등록 대표 지정 판단용)
      */
     int countPrimaryPets(@Param("mbrSn") Long mbrSn, @Param("primaryRoleCd") String primaryRoleCd);
+
+    /**
+     * 회원이 함께하는 반려동물 수 (주양육 + 공동양육, 삭제된 반려동물·해제된 연동 제외)
+     */
+    int countLinkedPets(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 반려동물 한도 검사 전 회원 행 잠금 : 같은 회원의 동시 등록·수락을 줄 세운다
+     */
+    Long lockMemberForPetLimit(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 반려동물의 주양육자 회원 번호 (삭제된 반려동물이면 null)
+     */
+    Long selectPrimaryCaregiverMbrSn(@Param("petSn") Long petSn, @Param("primaryRoleCd") String primaryRoleCd);
 
     /**
      * 반려동물 등록

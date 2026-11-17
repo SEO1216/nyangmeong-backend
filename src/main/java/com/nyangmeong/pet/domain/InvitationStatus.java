@@ -9,7 +9,8 @@ public enum InvitationStatus {
     PENDING("PETC0020"),
     ACCEPTED("PETC0021"),
     REJECTED("PETC0022"),
-    EXPIRED("PETC0023");
+    EXPIRED("PETC0023"),
+    CANCELED("PETC0035");
 
     private final String code;
 

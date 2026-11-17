@@ -17,12 +17,13 @@
 | GET | /admin/care-missions | 관리자 케어미션 목록. 사용 안 함 포함, 번호순, 페이지 없음. 쿼리 `msnPoolCd`(MYPG04: MYPC0010 일상케어·MYPC0011 활동기반) 없거나 공백이면 전체. 모르는 풀 코드 400 INVALID_INPUT_VALUE, 일반 회원 403 ADMIN_ONLY | ADM-071-01 | LJS | - | List<AdminCareMissionSummary> |
 | PATCH | /admin/care-missions/{careMsnSn} | 케어미션 수정(보상 포인트·달성 기준 횟수·사용 여부 중 보낸 칸만, 미션명·풀·이동 경로는 안 바꿈, 감사 로그). 추가·삭제 API 없음(미션은 코드의 활동과 짝). 바꾼 값은 다음 날 00:00 출제부터 반영하고, 이미 출제된 미션은 출제 때 복사한 배점(`DAY_MSN.SCOR_PNT`)·달성 기준(`DAY_MSN.ACHV_CRTR_NMTM`)으로 진행·정산한다. 사용을 꺼도 이미 출제된 미션은 진행된다. 아무 칸도 없거나 범위 밖이면 400 INVALID_INPUT_VALUE, 없는 미션 404 CARE_MISSION_NOT_FOUND | ADM-071-02·03 | LJS | AdminCareMissionUpdateRequest | AdminCareMissionSummary |
 | GET | /breeds | 반려동물 구분별 품종 마스터 목록(`?petSeCd=`) | CMU-002-13, CMU-004-06·13, MYP-003-02 (기능 분배 3.1절 10번) | KSJ | - | List<BreedSummary> |
-| GET | /caregiver-invitations | 내가 보낸 공동양육 초대 목록(계정 전체) | MYP-005-03 | SJM | - | List<CaregiverInvitationSummary> |
-| GET | /caregiver-invitations/{jntBrupInvtnSn} | 받은 초대 상세. 로그인 회원 누구나. 대기중이고 로그인 이메일이 초대 이메일과 같을 때만 초대한 사람·대상 반려동물 카드, 아니면 상태와 가린 이메일만(만료·처리 여부를 이메일보다 먼저 판단) | MYP-005-05·09·10 | SJM | - | CaregiverInvitationResponse |
+| GET | /caregiver-invitations | 내가 보낸 공동양육 초대 목록(계정 전체, 취소 포함, 삭제한 초대 제외) | MYP-005-03 | SJM | - | List<CaregiverInvitationSummary> |
+| GET | /caregiver-invitations/{jntBrupInvtnSn} | 받은 초대 상세. 로그인 회원 누구나. 대기중이고 로그인 이메일이 초대 이메일과 같을 때만 초대한 사람·대상 반려동물 카드, 아니면 상태와 가린 이메일만(만료·처리·취소 여부를 이메일보다 먼저 판단, 취소는 PETC0035로 내려가고 프론트가 "취소된 초대예요"를 보인다, 삭제한 초대는 404) | MYP-005-05·09·10 | SJM | - | CaregiverInvitationResponse |
 | GET | /items/{itemSn}/image | 아이템 이미지(로그인 회원, 판매 중 아이템) | MYP-010-14, MYP-011-02 | LJS | - | 이미지 파일 |
 | GET | /members/me/points | 보유 포인트, 이번 달 적립·사용 합계와 건수, 오늘 미션 요약(주양육 반려동물 전체) | MYP-001-03·04, MYP-011-05, MYP-020-01·09 | SJM | - | PointResponse |
 | GET | /pets | 내 반려동물 목록(주양육·공동양육, 역할·대표 여부·공동양육 인원 포함) | MYP-001-01, MYP-002-01~03, MYP-005-02, MYP-006-04, MYP-020-03 | SJM | - | List<PetSummary> |
-| GET | /pets/main-shortcuts | 메인 반려동물별 바로가기. 양육 중인 반려동물(연동 중, 삭제 안 함) 전부를 양육관계 순서로, 코드(MANG02)는 보일 순서대로. 저장한 적 없는 반려동물은 `[MANC0008]`(종합 건강기록), 전부 숨겼으면 `[]`. 사용 안 하는 코드는 빠짐 | MAN-008 | LJS | - | List<PetShortcutSummary> |
+| GET | /pets/limit | 내 반려동물 한도. 운영 설정 반려동물 최대 수와 공동양육 포함 합계, 남은 자리. 프론트가 "모두 등록했어요"·"10마리" 안내 문구의 숫자를 이것으로 보인다 | MYP-003-01, MYP-005-05 | SJM | - | PetLimitResponse |
+| GET | /pets/main-shortcuts | 메인 반려동물별 바로가기. 양육 중인 반려동물(연동 중, 삭제 안 함) 전부를 양육관계 순서로, 코드(MANG02)는 보일 순서대로. 저장한 적 없거나 전부 숨겼으면 `[]`. 사용 안 하는 코드는 빠짐 | MAN-008 | LJS | - | List<PetShortcutSummary> |
 | GET | /pets/{petSn} | 반려동물 프로필 상세(수정 모달 채우기, 양육자 목록). 체중 잠금은 화면이 건강기록 API로 판단(`issues.md` API의 마이페이지 2번) | MYP-002-04, MYP-003-01 | SJM | - | PetResponse |
 | GET | /pets/{petSn}/caregivers | 공동양육자 목록. 주양육자가 첫 줄. 주양육자에게는 전원, 공동양육자에게는 주양육자와 본인 | MYP-004-01·03·04, MYP-006-04 | SJM | - | List<CaregiverSummary> |
 | GET | /pets/{petSn}/character-image | 캐릭터 이미지 `?part=full`(전신, 기본)·`face`(얼굴). 미생성·오류 확인 중이면 종별 기본 캐릭터. 착용 모습 대표 이미지가 있으면 그것, 없으면 맨몸 결과. `face`는 (96, 32)부터 320×320을 256×256으로 줄인 PNG | MYP-001-01, MYP-002-02, MYP-010-12·23 | LJS | - | 이미지 파일 |
@@ -31,15 +32,17 @@
 | GET | /pixel-characters/{pixelCharSn} | 꾸미기 상세. 결과 이미지·보유/착용 아이템·오류 문의 접수 여부 | MYP-010-10·13·14·23 | LJS | - | PixelCharacterResponse |
 | GET | /pixel-characters/{pixelCharSn}/shop-items | 상점 아이템 목록(판매 중, 사용 안 하는 부위(신발 MYPC0006) 제외, 이 캐릭터 기준 보유중 표시, 보유 포인트). `?itemRegnCd=` | MYP-011-02·03 | LJS | - | ShopItemListResponse |
 | GET | /point-ledgers | 선택한 월의 포인트 적립·사용 내역(최신순). 쿼리 `yearMonth` | MYP-020-02 | SJM | - | List<PointLedgerSummary> |
-| POST | /caregiver-invitations | 이메일로 공동양육 초대 발송. 대상 반려동물 여러 마리를 한 초대로 묶음. 가입 회원은 인앱 알림, 미가입은 메일. 고른 반려동물을 모두 검사해 충돌을 모아 409 오류 data에 CaregiverInvitationConflictResponse. 이미 가족이 하나라도 있으면 `CAREGIVER_ALREADY_LINKED`, 대기 초대만 있으면 `CAREGIVER_INVITATION_DUPLICATED`. 충돌이 있으면 초대를 만들지 않음 | MYP-005-01·02 | SJM | CaregiverInvitationCreateRequest | CaregiverInvitationResponse |
-| POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
+| POST | /caregiver-invitations | 이메일로 공동양육 초대 발송. 대상 반려동물 여러 마리를 한 초대로 묶음. 가입 회원은 인앱 알림, 미가입은 메일. 고른 반려동물을 모두 검사해 충돌을 모아 409 오류 data에 CaregiverInvitationConflictResponse. 이미 가족이 하나라도 있으면 `CAREGIVER_ALREADY_LINKED`, 대기 초대만 있으면 `CAREGIVER_INVITATION_DUPLICATED`. 충돌이 있으면 초대를 만들지 않음. 만료일시는 지금부터 운영 설정 초대 유효 일수(`INVTN_VLD_DAY_CNT`, 기본 7)일 뒤이고 이미 보낸 초대는 바뀌지 않는다. 반려동물 수 때문에 초대 보내기를 막지 않는다 | MYP-005-01·02 | SJM | CaregiverInvitationCreateRequest | CaregiverInvitationResponse |
+| POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절. 지금 연동 중인 수(주양육+공동양육) + 고른 수가 운영 설정 반려동물 최대 수(`PET_MAX_CNT`, 기본 10)를 넘으면 400 `PET_LIMIT_EXCEEDED`(문구에 그 최대 수, data `{remainingPetCount}`)이고 아무것도 연동하지 않는다 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
+| POST | /caregiver-invitations/{jntBrupInvtnSn}/cancel | 보낸 초대 취소. 내가 보낸 만료 전 대기중 초대만 취소(상태 PETC0035, 이력 대기중→취소). 남이 보낸 초대 403 `CAREGIVER_INVITATION_NOT_SENDER`, 수락·거절한 초대와 동시 응답으로 못 바꾼 초대 409 `CAREGIVER_INVITATION_ALREADY_PROCESSED`, 이미 취소한 초대 409 `CAREGIVER_INVITATION_CANCELED`, 만료된 초대 400 `CAREGIVER_INVITATION_EXPIRED`. 받는 사람 알림은 새로 보내지 않는다. 취소 뒤 받는 쪽 수락·거절은 409 `CAREGIVER_INVITATION_CANCELED` | MYP-005-03 | SJM | - | - |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/reject | 초대 거절. 초대의 반려동물 전체 | MYP-005-07·08 | SJM | - | - |
-| POST | /pets | 반려동물 등록(계정당 10마리, 첫 등록은 대표 지정) | MYP-002-01, MYP-003-01·04·05·07 | SJM | PetCreateRequest | PetResponse |
+| POST | /pets | 반려동물 등록(공동양육을 포함해 계정당 운영 설정 반려동물 최대 수(`PET_MAX_CNT`, 기본 10)까지, 합계가 최대 수 이상이면 400 `PET_LIMIT_EXCEEDED`(문구에 그 최대 수), 첫 등록은 대표 지정) | MYP-002-01, MYP-003-01·04·05·07 | SJM | PetCreateRequest | PetResponse |
 | POST | /pets/{petSn}/representative | 대표 반려동물 지정(주양육 반려동물만) | MYP-010-05 | SJM | - | - |
-| POST | /pixel-characters/{pixelCharSn}/held-items | 아이템 일괄 구매(포인트 차감, 보관함 추가, 주양육자만). 201. 오류: `POINT_NOT_ENOUGH`(400), `PET_PRIMARY_ONLY`(403), `ITEM_NOT_FOUND`(404), `ITEM_ALREADY_HELD`(409) | MYP-011-05·06 | LJS | ItemPurchaseRequest | PixelCharacterResponse |
+| POST | /pixel-characters/{pixelCharSn}/held-items | 아이템 일괄 구매(포인트 차감, 보관함 추가, 주양육자만). 201. 오류: `POINT_NOT_ENOUGH`(400), `PET_PRIMARY_ONLY`(403), `ITEM_NOT_FOUND`(404), `ITEM_ALREADY_HELD`(409), `IDEMPOTENCY_KEY_REUSED`(409, 원장에 있는 `idmptDmndId`로 내용이 다른 구매) | MYP-011-05·06 | LJS | ItemPurchaseRequest | PixelCharacterResponse |
 | PUT | /pixel-characters/{pixelCharSn}/equipped-items | 착용 상태 확정 저장(부위당 1개, 요청에 없는 보유 아이템은 착용 해제). 착용 모습 대표 이미지를 지운다 | MYP-010-13·16 | LJS | EquippedItemSaveRequest | PixelCharacterResponse |
 | PUT | /pets/main-shortcuts | 메인 바로가기 저장. 본문은 배열 `[{ petSn, shrtcCds }]`, 반려동물마다 보일 코드를 순서대로(`[]`면 전부 숨김). 본문에 없는 반려동물은 그대로. 400 `INVALID_INPUT_VALUE`(`data[].field`가 `[i].petSn`·`[i].shrtcCds`·`[i].shrtcCds[j]`): 반려동물 번호 없음·중복, 코드 목록 없음, 같은 코드 두 번, MANG02에 없거나 사용 안 하는 코드. 남의 반려동물 403 `PET_ACCESS_DENIED`, 없는 번호 404 `PET_NOT_FOUND`(하나라도 틀리면 아무것도 저장 안 함). 응답은 조회와 같음 | MAN-008 | LJS | List<PetShortcutSaveRequest> | List<PetShortcutSummary> |
 | PATCH | /pets/{petSn} | 반려동물 수정(양육자 전원, 체중 잠금은 화면에서) | MYP-002-04, MYP-003-01·04~07 | SJM | PetUpdateRequest | PetResponse |
+| DELETE | /caregiver-invitations/{jntBrupInvtnSn} | 취소한 보낸 초대 삭제(보낸 목록에서 숨김, `JNT_BRUP_INVTN.DEL_YN = 'Y'`, 상태 이력·대상 반려동물은 남김). 내가 보낸 초대만(아니면 403 `CAREGIVER_INVITATION_NOT_SENDER`), 취소 상태가 아니면 409 `CAREGIVER_INVITATION_NOT_CANCELED`, 없거나 이미 삭제한 초대 404 `CAREGIVER_INVITATION_NOT_FOUND`. 삭제한 초대는 받는 쪽 상세도 404 | MYP-005-03 | SJM | - | - |
 | DELETE | /pets/{petSn} | 반려동물 삭제(주양육자만). 캐릭터·보유 아이템 삭제, 공동양육 연동 해제, 대표 승계 | MYP-002-07·08 | SJM | - | - |
 | DELETE | /pets/{petSn}/caregivers/{brupRelSn} | 공동양육 연동 해제. 주양육자의 강제 해제와 공동양육자의 자진 해제 | MYP-004-01, MYP-006-02 | SJM | - | - |
 | GET | /admin/items?itemRegnCd= | 관리자 아이템 목록(판매 중지 포함, 부위·정렬 순서·번호순, 페이지 없음). 부위 코드가 MYPG01이 아니거나 신발(MYPC0006, 사용 안 함)이면 400 `INVALID_INPUT_VALUE`. 전체 목록에서도 사용 안 하는 부위(`COM_CD.USE_YN='N'`) 아이템은 뺀다 | ADM-070-01 | LJS | - | List<AdminItemSummary> |
@@ -55,15 +58,18 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | /internal/ai/characters/jobs | 생성 작업을 만든다. 주양육자만, 201. 이미 있음 `PIXEL_CHARACTER_ALREADY_EXISTS`, 생성 중 `PIXEL_CHARACTER_CREATING`(409). 실패로 끝나 결과가 없으면 다시 요청할 수 있다 | MYP-010-08·09 | LJS | CharacterJobCreateRequest | CharacterJobResponse |
-| POST | /internal/ai/characters/jobs/{charCrtJobSn}/success | 생성 성공 보고. 작업을 만든 회원만. 이미 완료면 같은 번호, 실패로 끝났으면 409 `ALREADY_PROCESSED`, 규격 밖 400 `FILE_TYPE_NOT_ALLOWED` | MYP-010-09·17 | LJS | CharacterSuccessRequest | CharacterSuccessResponse |
-| POST | /internal/ai/characters/jobs/{charCrtJobSn}/failure | 생성 실패 보고. 작업을 만든 회원만. 끝난 작업이면 바꾸지 않고 200. 시작 뒤 10분이 넘은 작업은 `CharacterJobTimeoutJob`이 `CHARACTER_TIMEOUT`으로 실패 처리한다 | MYP-010-12 | LJS | CharacterFailureRequest | - |
-| GET | /internal/ai/characters/bake-items | 굽기 대상(판매 중이고 굽기 지시 `BAKE_HINT` 있음, 신발은 사용 안 하는 부위) | MYP-011-01, ADM-070-02 | LJS | - | List<BakeItemSummary> |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/success | 생성 성공 보고. 작업을 만든 회원만, 관리자 쿠키면 무료 재생성 작업도(결과는 작업의 캐릭터 주인 것으로 저장, FN-MYP-010-23). 첫 생성 보고에 `photo`가 있으면 원본 사진으로 남긴다(무료 재생성 입력). 이미 완료면 같은 번호, 실패로 끝났으면 409 `ALREADY_PROCESSED`, 규격 밖 400 `FILE_TYPE_NOT_ALLOWED` | MYP-010-09·17 | LJS | CharacterSuccessRequest | CharacterSuccessResponse |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/failure | 생성 실패 보고. 작업을 만든 회원만, 관리자 쿠키면 무료 재생성 작업도. 끝난 작업이면 바꾸지 않고 200. 시작 뒤 10분이 넘은 생성 중 작업과 등록 뒤 10분 동안 시작하지 않은 요청 작업(무료 재생성)은 `CharacterJobTimeoutJob`이 `CHARACTER_TIMEOUT`으로 실패 처리한다. 무료 재생성이 실패해도 "오류 확인 중"은 유지되고 관리자가 다시 처리한다 | MYP-010-12 | LJS | CharacterFailureRequest | - |
+| POST | /internal/ai/characters/jobs/{charCrtJobSn}/regen-start | 무료 재생성 시작(관리자 쿠키만, 아니면 403 `FORBIDDEN`). Python 이 관리자 화면의 재생성 요청을 받아 부른다. 요청 상태인 재생성 작업만 생성 중으로 바꾸고 생성 입력을 준다. 이미 시작했거나 끝났으면 409 `ALREADY_PROCESSED`, 없거나 재생성 작업이 아니면 404 `PIXEL_CHARACTER_NOT_FOUND` | MYP-010-23, ADM-042-07 | LJS | - | CharacterJobResponse |
+| GET | /internal/ai/characters/jobs/{charCrtJobSn}/original-photo | 무료 재생성 원본 사진(관리자 쿠키만, 아니면 403 `FORBIDDEN`, 파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp, ApiResponse 아님). 생성 중인 재생성 작업이 아니거나 원본이 없으면 404 `FILE_NOT_FOUND`(이 기능 전에 만든 캐릭터는 원본이 없다) | MYP-010-23 | LJS | - | 이미지 파일 |
+| GET | /internal/ai/characters/bake-items | 굽기 대상(판매 중이고 굽기 지시 `BAKE_HINT`가 있거나 그림 참고 굽기 `BAKE_IMG_REF_YN`='Y', 신발은 사용 안 하는 부위). `bakeImgRefYn`이 true면 `bake-image`로 그림을 받아 참고로 굽는다 | MYP-011-01, ADM-070-02 | LJS | - | List<BakeItemSummary> |
 | GET | /internal/ai/items/{itemSn}/bake-targets?page= | 그 아이템을 아직 안 구운 캐릭터(맨몸 시트가 있고 그 아이템의 착용 시트·굽기 실패 표시가 없음). 관리자 쿠키만, 아니면 403 `ADMIN_ONLY`. `page`는 0부터(기본 0), 한 페이지 100개, 캐릭터 번호순. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, `page` 음수 400 | ADM-070-02 | LJS | - | BakeTargetPageResponse |
+| GET | /internal/ai/items/{itemSn}/bake-image | 굽기 참고용 아이템 그림(파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp). 회원·관리자 쿠키 모두. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, 파일이 없으면 404 `FILE_NOT_FOUND` | MYP-011-01, ADM-070-02 | LJS | - | 파일 |
 | PUT | /internal/ai/characters/{pixelCharSn}/item-sheets/{itemSn} | 착용 시트 저장(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), 다시 받으면 교체). 굽기 대상이 아니면 404 `ITEM_NOT_FOUND`, 1024 PNG가 아니면 400 | MYP-011-01 | LJS | ItemSheetSaveRequest | - |
 | POST | /internal/ai/characters/{pixelCharSn}/item-sheets/{itemSn}/failure | 굽기 실패 표시(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02)). 구운 시트가 있으면 유지 | MYP-011-01 | LJS | - | - |
 | GET | /internal/ai/characters/{pixelCharSn}/sheets?itemSns= | 합성용 시트 정보(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), 안 산 아이템도 조회). 맨몸 시트가 없으면 404 `PIXEL_CHARACTER_NOT_FOUND` | MYP-010-13, MYP-011-01·06 | LJS | - | CharacterSheetsResponse |
 | GET | /internal/ai/characters/{pixelCharSn}/sheet-files/{atchFileSn} | 시트 파일 내려받기(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), `image/png`, ApiResponse 아님). 그 캐릭터의 시트가 아니면 404 `FILE_NOT_FOUND` | MYP-010-13, MYP-011-01 | LJS | - | 이미지 파일 |
-| PUT | /internal/ai/characters/{pixelCharSn}/equipped-image | 착용 모습 대표 이미지 저장(주양육자만). Python이 `PUT equipped-items` 뒤 합성해 보낸다. `itemSns`가 지금 착용 아이템과 같을 때만 저장하고 다르면 409 `EQUIPPED_ITEMS_CHANGED`(늦게 끝난 옛 합성 차단), 512×512 PNG가 아니면 400 `FILE_TYPE_NOT_ALLOWED`. 착용을 바꾸거나 캐릭터를 다시 만들면 지운다 | MYP-010-16, MYP-010-13 | LJS | EquippedImageSaveRequest | - |
+| PUT | /internal/ai/characters/{pixelCharSn}/equipped-image | 착용 모습 대표 이미지 저장(주양육자만, 관리자 쿠키면 남의 캐릭터도(무료 재생성 뒤 합성 FN-MYP-010-23)). Python이 `PUT equipped-items` 뒤 합성해 보낸다. `itemSns`가 지금 착용 아이템과 같을 때만 저장하고 다르면 409 `EQUIPPED_ITEMS_CHANGED`(늦게 끝난 옛 합성 차단), 512×512 PNG가 아니면 400 `FILE_TYPE_NOT_ALLOWED`. 착용을 바꾸거나 캐릭터를 다시 만들면 지운다 | MYP-010-16, MYP-010-13 | LJS | EquippedImageSaveRequest | - |
 
 ### CharacterJobCreateRequest
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -88,6 +94,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | scale | Double | Y | | PIXEL_CHAR.SHEET_SCALE |
 | originX | Double | Y | | PIXEL_CHAR.SHEET_ORIGIN_X |
 | originY | Double | Y | | PIXEL_CHAR.SHEET_ORIGIN_Y |
+| photo | MultipartFile | N | 생성에 쓴 원본 사진(jpg·png·webp, 파일 상한 이하, 파일 이름에 확장자). 첫 생성 보고에만 보낸다. 무료 재생성 작업이면 무시. 형식이 틀리면 400 `FILE_TYPE_NOT_ALLOWED`, 크면 `FILE_TOO_LARGE` | CHAR_PHOTO (원본, FN-MYP-010-23) |
 
 ### CharacterSuccessResponse
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -104,7 +111,9 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | itemSn | Long | Y | | ITEM.ITEM_SN |
 | regnCd | String | Y | 부위 MYPG01 | ITEM.ITEM_REGN_CD |
-| bakeHint | String | Y | 영어 한 문장 굽기 지시 | ITEM.BAKE_HINT |
+| bakeHint | String | N | 영어 한 문장 굽기 지시. 그림 참고 아이템은 null일 수 있다 | ITEM.BAKE_HINT |
+| bakeImgRefYn | boolean | Y | true면 아이템 그림을 참고로 굽는다 | ITEM.BAKE_IMG_REF_YN |
+| atchFileSn | Long | Y | 아이템 그림 파일 번호(그림이 바뀌면 번호가 바뀐다). 그림은 `/internal/ai/items/{itemSn}/bake-image` | ITEM.ATCH_FILE_SN |
 
 ### BakeTargetPageResponse
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -234,6 +243,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | sortSeq | Long | Y | 부위 안 상점 순서 | ITEM.SORT_SEQ |
 | atchFileSn | Long | Y | 이미지는 `/admin/items/{itemSn}/image`로 연다 | ITEM.ATCH_FILE_SN |
 | bakeHint | String | N | 굽기 지시, 없으면 null | ITEM.BAKE_HINT |
+| bakeImgRefYn | boolean | Y | 그림 참고 굽기면 true | ITEM.BAKE_IMG_REF_YN |
 | hldMbrCnt | Long | Y | 보유 회원 수(그 아이템을 보유한 캐릭터 수, 캐릭터는 반려동물당 1개) | HLD_ITEM |
 
 ### AdminItemCreateRequest
@@ -244,7 +254,8 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | itemNm | String | Y | 1~50자, 앞뒤 공백 제거. 같은 이름 409 | ITEM.ITEM_NM |
 | needPnt | Long | Y | 0~1,000,000 | ITEM.NEED_PNT |
 | ntslYn | Boolean | Y | | ITEM.NTSL_YN |
-| bakeHint | String | N | 300자 이하, 비우면 굽지 않음. 신발(MYPC0006)은 사용 안 하는 부위라 등록 400(부위 검사). 초안은 AI `/ai/items/bake-hints` | ITEM.BAKE_HINT |
+| bakeHint | String | N | 300자 이하, 비우고 `bakeImgRefYn`도 false면 굽지 않음. 신발(MYPC0006)은 사용 안 하는 부위라 등록 400(부위 검사). 초안은 AI `/ai/items/bake-hints` | ITEM.BAKE_HINT |
+| bakeImgRefYn | Boolean | N | true면 굽기 지시 없이도 굽기 대상이고 아이템 그림을 참고로 굽는다. 없으면 false | ITEM.BAKE_IMG_REF_YN |
 | image | MultipartFile | Y | 이미지 파일(형식·용량은 공통 파일 규칙) | ITEM.ATCH_FILE_SN |
 
 ### AdminItemCreateResponse
@@ -261,6 +272,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | needPnt | Long | N | 0~1,000,000 | ITEM.NEED_PNT |
 | ntslYn | Boolean | N | false면 판매 중지 | ITEM.NTSL_YN |
 | bakeHint | String | N | 300자 이하. 빈 문자열이면 지운다 | ITEM.BAKE_HINT |
+| bakeImgRefYn | Boolean | N | 그림 참고 굽기 여부. 바꿔도 이미 구운 착용 시트는 그대로다 | ITEM.BAKE_IMG_REF_YN |
 | image | MultipartFile | N | 바꿀 때만 | ITEM.ATCH_FILE_SN |
 
 ### AdminItemOrderRequest
@@ -336,6 +348,20 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | petSns | List<Long> | Y | 1개 이상. 초대에 든 반려동물만(아니면 400 `INVALID_INPUT_VALUE`). 고르지 않은 반려동물은 거절 | INVTN_TRGT_PET.PET_SN, INVTN_TRGT_PET.ACPT_YN, MYP-005-05 |
 
+### PetLimitResponse
+쓰는 API: GET /pets/limit
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| petMaxCnt | int | Y | 운영 설정의 계정당 반려동물 최대 수 | SYS_STNG.PET_MAX_CNT, MYP-003-01 |
+| linkedPetCount | int | Y | 주양육 + 공동양육 합계(연동 중, 삭제 안 된 반려동물) | PET·BRUP_REL 합계 |
+| remainingPetCount | int | Y | 더 함께할 수 있는 수 = max(0, `petMaxCnt` − `linkedPetCount`) | MYP-003-01 |
+
+### PetLimitExceededResponse
+쓰는 API: POST /caregiver-invitations/{jntBrupInvtnSn}/accept의 오류 응답 data(400 `PET_LIMIT_EXCEEDED`)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| remainingPetCount | int | Y | 더 연동할 수 있는 수. 0 미만이면 0 | PET·BRUP_REL 합계, MYP-005-05 |
+
 ### CaregiverInvitationConflictResponse
 쓰는 API: POST /caregiver-invitations의 오류 응답 data(409 `CAREGIVER_ALREADY_LINKED`·`CAREGIVER_INVITATION_DUPLICATED`)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -367,7 +393,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | invtnTrgtEml | String | Y | 초대할 상대의 이메일 주소. 회원가입 이메일과 같은 검증(이메일 형식, 최대 254자). 본인 이메일은 400 `CAREGIVER_INVITATION_SELF` | JNT_BRUP_INVTN.INVTN_TRGT_EML_ENC, MYP-005-01 |
-| petSns | List<Long> | Y | 1개 이상. 내가 주양육자(PCG)인 반려동물만(아니면 403 `PET_PRIMARY_ONLY`). 공동양육 5명이 찬 반려동물은 불가(400 `CAREGIVER_LIMIT_EXCEEDED`) | INVTN_TRGT_PET.PET_SN, MYP-005-02, MYP-004-01 |
+| petSns | List<Long> | Y | 1개 이상. 내가 주양육자(PCG)인 반려동물만(아니면 403 `PET_PRIMARY_ONLY`). 공동양육자가 운영 설정 공동양육 최대 인원(`JNT_BRUP_MAX_NOPE`, 기본 5명)까지 찬 반려동물은 불가(400 `CAREGIVER_LIMIT_EXCEEDED`, 문구에 그 인원) | INVTN_TRGT_PET.PET_SN, MYP-005-02, MYP-004-01 |
 
 ### CaregiverInvitationResponse
 쓰는 API: GET /caregiver-invitations/{jntBrupInvtnSn}; POST /caregiver-invitations
@@ -376,11 +402,12 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | jntBrupInvtnSn | Long | Y | | JNT_BRUP_INVTN.JNT_BRUP_INVTN_SN |
 | sndrMbrNcnm | String | N | | JNT_BRUP_INVTN.SNDR_MBR_SN → MBR.MBR_NCNM |
-| invtnSttsCd | String | Y | 초대 상태(PETG06). 대기중이어도 만료일시가 지나면 만료됨 | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-04 |
+| invtnSttsCd | String | Y | 초대 상태(PETG06). 대기중이어도 만료일시가 지나면 만료됨, 보낸 사람이 취소했으면 취소(PETC0035) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-04 |
 | invtnExpryDt | LocalDateTime | Y | | JNT_BRUP_INVTN.INVTN_EXPRY_DT |
 | invtnTrgtEmlMask | String | Y | 아이디 첫 글자와 도메인만 남긴 초대 이메일("s***@example.com") | JNT_BRUP_INVTN.INVTN_TRGT_EML_ENC, MYP-005-09 |
 | emailMatched | boolean | Y | 로그인 계정 이메일이 초대 이메일과 같은지 | JNT_BRUP_INVTN.INVTN_TRGT_EML_HMAC, MBR.ACNT_EML_HMAC, MYP-005-09 |
 | pets | List<CaregiverInvitationPetSummary> | N | 초대 대상 반려동물 카드(삭제된 반려동물은 빠짐) | INVTN_TRGT_PET.PET_SN, MYP-005-05 |
+| remainingPetCount | Integer | N | 내가 더 함께할 수 있는 반려동물 수 = max(0, 운영 설정 반려동물 최대 수 − 주양육·공동양육 합계). `pets`와 같은 조건(대기중이고 `emailMatched`)에서만 있다. 프론트가 이 수를 넘게 고르지 못하게 막는다 | PET·BRUP_REL 합계, MYP-005-05 |
 
 ### CaregiverInvitationSummary
 쓰는 API: GET /caregiver-invitations
@@ -392,7 +419,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | rcvrJoined | boolean | Y | 발송 때 가입 회원이었는지. true "가입 회원(인앱 알림)", false "미가입 이메일" | JNT_BRUP_INVTN.RCVR_MBR_SN, MBR.REG_DT, MYP-005-03 |
 | pets | List<CaregiverInvitationPetSummary> | Y | 반려동물명·반려동물별 상태 표시 | INVTN_TRGT_PET.PET_SN, MYP-005-03 |
 | regDt | LocalDateTime | Y | 발송일 | JNT_BRUP_INVTN.REG_DT, MYP-005-03 |
-| invtnSttsCd | String | Y | 초대 단위 상태, 대기중·수락·거절·만료됨(PETG06) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
+| invtnSttsCd | String | Y | 초대 단위 상태, 대기중·수락·거절·만료됨·취소(PETG06) | JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
 | invtnExpryDt | LocalDateTime | Y | 대기중 항목의 만료 예정일 | JNT_BRUP_INVTN.INVTN_EXPRY_DT, MYP-005-03·04 |
 
 #### CaregiverInvitationPetSummary (CaregiverInvitationSummary.pets, CaregiverInvitationResponse.pets)
@@ -403,7 +430,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | petSeCd | String | Y | | PET.PET_SE_CD, MYP-005-05 |
 | vrtyNm | String | N | 목록에서 고른 품종명. 품종을 고르지 않았으면 null | PET.VRTY_SN → VRTY.VRTY_NM, MYP-005-05 |
 | vrtyDrctInptNm | String | N | 직접 입력한 품종명. 없으면 null. 둘 다 있으면 직접 입력을 먼저 보인다(합치지 않고 따로 내림) | PET.VRTY_DRCT_INPT_NM, MYP-005-05 |
-| invtnSttsCd | String | Y | 반려동물별 상태(PETG06). 일부 수락이면 고른 반려동물은 수락, 뺀 반려동물은 거절. 응답 전이면 초대 상태(만료 포함) | INVTN_TRGT_PET.ACPT_YN, JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
+| invtnSttsCd | String | Y | 반려동물별 상태(PETG06). 일부 수락이면 고른 반려동물은 수락, 뺀 반려동물은 거절. 응답 전이면 초대 상태(만료·취소 포함) | INVTN_TRGT_PET.ACPT_YN, JNT_BRUP_INVTN.INVTN_STTS_CD, MYP-005-03 |
 
 ### CaregiverSummary
 쓰는 API: GET /pets/{petSn}/caregivers
@@ -472,10 +499,11 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | chipNo | String | N | 숫자만, 최대 20자리 | PET.CHIP_NO, MYP-003-05 |
 | petGndrCd | String | Y | 성별(PETG02) | PET.PET_GNDR_CD, MYP-003-01 |
 | nutrYn | Boolean | Y | 중성화 여부 | PET.NUTR_YN, MYP-003-01·06 |
-| petBdwg | BigDecimal | Y | 0보다 큼, 소수 셋째 자리까지 | PET.PET_BDWG, MYP-003-01 |
-| goalBdwg | BigDecimal | N | 0보다 큼, 소수 셋째 자리까지 | PET.GOAL_BDWG, MYP-003-04 |
-| minBdwg | BigDecimal | Y | 0보다 큼, 소수 셋째 자리까지, `maxBdwg`보다 작음 | PET.MIN_BDWG, MYP-003-04 |
-| maxBdwg | BigDecimal | Y | 0보다 큼, 소수 셋째 자리까지 | PET.MAX_BDWG, MYP-003-04 |
+| petBdwg | BigDecimal | Y | 0보다 큼, 소수 둘째 자리까지, 200 이하 | PET.PET_BDWG, MYP-003-01 |
+| goalBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하 | PET.GOAL_BDWG, MYP-003-04 |
+| minBdwg | BigDecimal | 조건 | `bdwgRngDrctInptYn`이 'Y'(기본)이면 필수. 0보다 큼, 소수 둘째 자리까지, 200 이하, `maxBdwg`보다 작음. 'N'이면 무시하고 서버가 `petBdwg`로 계산해 저장 | PET.MIN_BDWG, MYP-003-04 |
+| maxBdwg | BigDecimal | 조건 | `bdwgRngDrctInptYn`이 'Y'(기본)이면 필수. 0보다 큼, 소수 둘째 자리까지, 200 이하. 'N'이면 무시 | PET.MAX_BDWG, MYP-003-04 |
+| bdwgRngDrctInptYn | String | N | 'Y' = 사용자가 정상 범위를 직접 입력, 'N' = 자동 계산. 안 보내면 'Y'. 'N'이면 범위 = `petBdwg` × 0.9 ~ × 1.1, 소수 둘째 자리 반올림(HALF_UP), 최소는 0.01 이상·최대는 최소+0.01 이상으로 보정, 최대가 200을 넘으면 200으로 자름(`PetBdwgRange.of`) | PET.BDWG_RNG_DRCT_INPT_YN, MYP-003-04 |
 | colrCd | String | Y | 종별 선택지(PETG03) | PET.COLR_CD, MYP-003-03 |
 | colrDrctInptNm | String | N | [직접 입력] 선택 시. 최대 20자 | PET.COLR_DRCT_INPT_NM, MYP-003-03 |
 | chrcCn | String | N | 최대 1,000자 | PET.CHRC_CN, MYP-003-01 |
@@ -507,6 +535,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | goalBdwg | BigDecimal | N | | PET.GOAL_BDWG |
 | minBdwg | BigDecimal | Y | | PET.MIN_BDWG |
 | maxBdwg | BigDecimal | Y | | PET.MAX_BDWG |
+| bdwgRngDrctInptYn | String | Y | 'Y' 사용자 직접 입력, 'N' 자동 계산 | PET.BDWG_RNG_DRCT_INPT_YN |
 | caregivers | List<CaregiverSummary> | Y | 양육자 목록 | D절 6번, BRUP_REL |
 | caregivers[].brupRelSn | Long | Y | | BRUP_REL.BRUP_REL_SN |
 | caregivers[].mbrSn | Long | Y | | BRUP_REL.MBR_SN |
@@ -544,6 +573,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | nutrYn | boolean | Y | 중성화 여부. 슬라이드의 "성별(중성화)" | PET.NUTR_YN, MYP-002-02 |
 | minBdwg | BigDecimal | Y | 정상 체중 최소. 슬라이드의 "정상 a~bkg" | PET.MIN_BDWG, MYP-002-02 |
 | maxBdwg | BigDecimal | Y | 정상 체중 최대 | PET.MAX_BDWG, MYP-002-02 |
+| bdwgRngDrctInptYn | String | Y | 'Y' 사용자 직접 입력, 'N' 자동 계산 | PET.BDWG_RNG_DRCT_INPT_YN, MYP-003-04 |
 | colrCd | String | Y | | PET.COLR_CD |
 | colrDrctInptNm | String | N | | PET.COLR_DRCT_INPT_NM |
 | chipNo | String | N | | PET.CHIP_NO |
@@ -558,6 +588,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 ### PetUpdateRequest
 쓰는 API: PATCH /pets/{petSn}
 보낸 필드만 바뀐다. 문자열을 비우려면 `""`(A절). 목표체중은 `goalBdwgReset`으로 비운다. 품종은 `vrtySn`·`vrtyDrctInptNm` 중 하나만 보내면 다른 쪽이 비워진다(issues 4번).
+정상 범위: `bdwgRngDrctInptYn`을 안 보내고 `minBdwg`·`maxBdwg`만 보내면 'Y'(직접 입력)로 바뀌고 보낸 값이 저장된다. 플래그 없이 `petBdwg`만 보내면 현재 'N'일 때만 범위를 다시 계산하고 'Y'면 범위를 유지한다. 'Y'인 반려동물은 서버가 범위를 자동으로 바꾸지 않는다(건강기록 체중 기록 때 갱신은 건강기록 담당).
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | petNm | String | N | 최대 20자 | PET.PET_NM, MYP-003-01 |
@@ -568,10 +599,11 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | chipNo | String | N | 숫자만, 최대 20자리 | PET.CHIP_NO, MYP-003-05 |
 | petGndrCd | String | N | 성별(PETG02) | PET.PET_GNDR_CD, MYP-003-01 |
 | nutrYn | Boolean | N | | PET.NUTR_YN, MYP-003-06 |
-| petBdwg | BigDecimal | N | 0보다 큼, 소수 셋째 자리까지. 체중 잠금은 화면에서만(서버는 막지 않음) | PET.PET_BDWG, MYP-002-04, MYP-003-01 |
-| goalBdwg | BigDecimal | N | 0보다 큼, 소수 셋째 자리까지 | PET.GOAL_BDWG, MYP-003-04 |
-| minBdwg | BigDecimal | N | 0보다 큼, 소수 셋째 자리까지, 최대보다 작음(저장 후 값 기준) | PET.MIN_BDWG, MYP-003-04 |
-| maxBdwg | BigDecimal | N | 0보다 큼, 소수 셋째 자리까지 | PET.MAX_BDWG, MYP-003-04 |
+| petBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하. 체중 잠금은 화면에서만(서버는 막지 않음) | PET.PET_BDWG, MYP-002-04, MYP-003-01 |
+| goalBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하 | PET.GOAL_BDWG, MYP-003-04 |
+| minBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하, 최대보다 작음(저장 후 값 기준) | PET.MIN_BDWG, MYP-003-04 |
+| maxBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하 | PET.MAX_BDWG, MYP-003-04 |
+| bdwgRngDrctInptYn | String | N | 'Y' / 'N'. 'N'으로 보내면 보낸 범위는 무시하고 현재 체중(같이 보낸 `petBdwg`가 있으면 그 값)으로 다시 계산. 'Y'면 보낸 범위를 저장하고, 범위를 안 보내면 기존 값을 유지 | PET.BDWG_RNG_DRCT_INPT_YN, MYP-003-04 |
 | colrCd | String | N | 종별 선택지(PETG03) | PET.COLR_CD, MYP-003-03 |
 | colrDrctInptNm | String | N | 최대 20자 | PET.COLR_DRCT_INPT_NM, MYP-003-03 |
 | chrcCn | String | N | 최대 1,000자 | PET.CHRC_CN, MYP-003-01 |

@@ -79,8 +79,8 @@ public class CaregiverInvitationController {
                 req);
         if (!result.succeeded()) {
             return ResponseEntity.status(result.error().status())
-                    .<ApiResponse<?>>body(ApiResponse.errorWithData(result.error(), request.getRequestURI(),
-                            result.limit()));
+                    .<ApiResponse<?>>body(ApiResponse.errorWithData(result.error(), result.message(),
+                            request.getRequestURI(), result.limit()));
         }
         return ResponseEntity.ok(ApiResponse.success());
     }

@@ -20,6 +20,7 @@ import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
@@ -47,6 +48,12 @@ public class PetController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<PetSummary>>> searchMyPets(@AuthenticationPrincipal LoginMember me) {
         return ResponseEntity.ok(ApiResponse.success(petService.searchMyPets(me.id())));
+    }
+
+    @Operation(summary = "내 반려동물 한도 (운영 설정 최대 수와 남은 자리)")
+    @GetMapping("/limit")
+    public ResponseEntity<ApiResponse<PetLimitResponse>> getPetLimit(@AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(petService.getPetLimit(me.id())));
     }
 
     @Operation(summary = "반려동물 상세")

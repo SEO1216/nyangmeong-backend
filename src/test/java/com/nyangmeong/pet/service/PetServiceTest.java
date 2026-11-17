@@ -35,6 +35,8 @@ import com.nyangmeong.global.code.CommonCodeSummary;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.setting.SystemSetting;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.global.notification.EventPublisher;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
@@ -47,6 +49,7 @@ import com.nyangmeong.pet.domain.PetDeletedEvent;
 import com.nyangmeong.pet.dto.AdminPetSummary;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
@@ -83,11 +86,14 @@ class PetServiceTest {
     private final CaregiverInvitationMapper invitationMapper = mock(CaregiverInvitationMapper.class);
     private final ApplicationEventPublisher domainEvents = mock(ApplicationEventPublisher.class);
     private final MemberService memberService = mock(MemberService.class);
+    private final SystemSettingService settingService = mock(SystemSettingService.class);
+    private final SystemSetting setting = new SystemSetting();
     private final PetService service = new PetService(mapper, authorizer, codes, pixelMapper, events, missionMapper,
-            invitationMapper, domainEvents, memberService);
+            invitationMapper, domainEvents, memberService, settingService);
 
     @BeforeEach
     void setUp() {
+        when(settingService.get()).thenReturn(setting);
         when(codes.search("PETG01")).thenReturn(codeList(DOG, CAT));
         when(codes.search("PETG02")).thenReturn(codeList(MALE, "PETC0004"));
         when(codes.search("PETG03")).thenReturn(codeList(WHITE, DIRECT_COLOR, DOG_ONLY_COLOR, CAT_ONLY_COLOR));
@@ -262,6 +268,62 @@ class PetServiceTest {
         assertCode(() -> service.createPet(MBR, create(15L, null, null, null)), ErrorCode.PET_LIMIT_EXCEEDED);
         verify(mapper, never()).insertPet(any());
         verify(mapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 설정_10에_보유_12인_회원의_등록_거절_문구에는_10마리가_나오고_서식_기호가_없다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(12);
+
+        assertThatThrownBy(() -> service.createPet(MBR, create(15L, null, null, null)))
+                .isInstanceOf(CustomException.class)
+                .hasMessageContaining("10마리")
+                .hasMessageNotContaining("%");
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_3이면_합계_3에서_등록이_막히고_문구에_3마리가_나온다() {
+        setting.setPetMaxCnt(3L);
+        when(mapper.countLinkedPets(MBR)).thenReturn(3);
+
+        assertThatThrownBy(() -> service.createPet(MBR, create(15L, null, null, null)))
+                .isInstanceOfSatisfying(CustomException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+                    assertThat(e.getMessage()).contains("3마리").doesNotContain("%");
+                });
+        verify(mapper, never()).insertPet(any());
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_3이면_합계_2는_등록된다() {
+        setting.setPetMaxCnt(3L);
+        when(mapper.countLinkedPets(MBR)).thenReturn(2);
+
+        service.createPet(MBR, create(15L, null, null, null));
+
+        verify(mapper).insertPet(any());
+    }
+
+    @Test
+    void 한도_조회는_설정_최대_수와_합계와_남은_자리를_돌려준다() {
+        setting.setPetMaxCnt(5L);
+        when(mapper.countLinkedPets(MBR)).thenReturn(3);
+
+        PetLimitResponse limit = service.getPetLimit(MBR);
+
+        assertThat(limit.petMaxCnt()).isEqualTo(5);
+        assertThat(limit.linkedPetCount()).isEqualTo(3);
+        assertThat(limit.remainingPetCount()).isEqualTo(2);
+    }
+
+    @Test
+    void 설정_10에_보유_12인_회원의_한도_조회_남은_자리는_음수가_아니라_0이다() {
+        when(mapper.countLinkedPets(MBR)).thenReturn(12);
+
+        PetLimitResponse limit = service.getPetLimit(MBR);
+
+        assertThat(limit.petMaxCnt()).isEqualTo(10);
+        assertThat(limit.linkedPetCount()).isEqualTo(12);
+        assertThat(limit.remainingPetCount()).isZero();
     }
 
     @Test

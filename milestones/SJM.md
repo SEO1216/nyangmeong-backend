@@ -190,6 +190,15 @@
 - 연결 남음: FN-MYP-003-01 (프론트 연결 SCR-MYP-003 등록 카드 "모두 등록했어요"를 공동양육 포함 합계로 판정, 프론트 저장소에서 /start)
 - 연결 남음: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면이 `remainingPetCount`만큼만 고르게 막고 안내, 프론트 저장소에서 /start)
 
+## SCR-MYP-003 반려동물 등록/수정 · 운영 설정값 연결 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 등록은 FN-MYP-003-01, 초대 상세·수락은 FN-MYP-005-05, 초대 보내기는 FN-MYP-005에 붙인다. 고정값 대신 systemSettingService.get() 기준으로 바꾼다: 반려동물 최대 수 PET_MAX_CNT(PetLimit.MAX_PET_COUNT 대신, PetService 등록·CaregiverInvitationService 받은 초대 남은 수·수락), 공동양육자 최대 인원 JNT_BRUP_MAX_NOPE(MAX_CAREGIVER_COUNT 대신), 초대 유효 일수 INVTN_VLD_DAY_CNT(VALID_DAYS 대신, 만료일 계산). 오류 문구 숫자(PET_LIMIT_EXCEEDED "10마리", CAREGIVER_LIMIT_EXCEEDED "5명")도 설정값으로, ErrorCode는 공용 파일 규칙대로. 프론트가 반려동물 최대 수를 알 수 있게 내려줄 방법 제안(공개 설정 API가 있으면 그것, 없으면 GET /pets 등). 이미 넘은 회원은 데이터 그대로, 새 등록·수락만 막는다
+- 기다리는 것: 없음
+- 완료 조건: 위 세 값이 설정값을 따르고 오류 문구 숫자도 설정값이다. 테스트와 docs/api/pet.md 반영, `./gradlew build -q` 통과. PR 본문 범위는 "~" 대신 "–"
+- 연결 남음: FN-MYP-003-01 (프론트 연결 SCR-MYP-001·002·003 `PetListPage`·`PetSlide`·`PetEmpty`의 "10마리"와 등록 카드 판정을 `GET /pets/limit`의 `petMaxCnt`로, `MAX_OWN_PETS = 10` 제거, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면 안내 문구의 "10마리"를 `petMaxCnt`로, 400 문구는 서버 `message`, 프론트 저장소에서 /start)
+- 연결 남음: 공통 오류 처리 파일 4개와 `ErrorCode` 두 문구 `%d` 서식 (LJS에게 PR 전에 알리기, SJM)
+
 ## 제외
 
 - FN-MYP-001-02·05: 화면만 있다(더보기 펼침, 0마리 안내)

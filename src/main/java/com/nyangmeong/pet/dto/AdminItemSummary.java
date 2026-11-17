@@ -17,7 +17,6 @@ public class AdminItemSummary {
     private Boolean ntslYn;
     private Long sortSeq;
     private Long atchFileSn;
-    private String bakeHint;
     private Boolean bakeImgRefYn;
     private Long hldMbrCnt;
 }

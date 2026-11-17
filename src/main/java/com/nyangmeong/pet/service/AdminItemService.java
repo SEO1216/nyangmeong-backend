@@ -2,7 +2,6 @@ package com.nyangmeong.pet.service;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -31,9 +30,9 @@ import lombok.RequiredArgsConstructor;
  * [관리자 아이템 서비스]
  * - SCR-ADM-070 (FN-ADM-070-01~04)
  * - 삭제 없음 : 판매 중지(NTSL_YN='N'), 이미 산 회원의 보유는 그대로
- * - 굽기 지시가 바뀌면 그 아이템의 착용 시트를 지워 다시 굽기 대상으로 (사람 결정 2026-11-03)
- * - 신발은 굽지 않아 굽기 지시를 넣을 수 없음
- * - 그림 참고 굽기(BAKE_IMG_REF_YN='Y')면 굽기 지시 없이도 굽기 대상, 바꿔도 이미 구운 시트는 그대로
+ * - 굽기 대상은 그림 참고 굽기(BAKE_IMG_REF_YN='Y') 아이템뿐, 영어 굽기 지시는 없앰 (사람 결정 2026-11-17)
+ * - 굽기 대상 아이템(수정 후 'Y')의 그림을 바꾸면 그 아이템의 착용 시트를 지워 다시 굽기 대상으로
+ * - BAKE_IMG_REF_YN 만 바꾸면 이미 구운 시트는 그대로
  */
 @Service
 @RequiredArgsConstructor
@@ -48,10 +47,10 @@ public class AdminItemService {
 
     /** 감사 로그 전후 값 */
     private record ItemState(String itemRegnCd, String itemNm, Long needPnt, String ntslYn, Long sortSeq,
-            String bakeHint, String bakeImgRefYn, Long atchFileSn) {
+            String bakeImgRefYn, Long atchFileSn) {
         static ItemState from(Item item) {
             return new ItemState(item.getItemRegnCd(), item.getItemNm(), item.getNeedPnt(), item.getNtslYn(),
-                    item.getSortSeq(), item.getBakeHint(), item.getBakeImgRefYn(), item.getAtchFileSn());
+                    item.getSortSeq(), item.getBakeImgRefYn(), item.getAtchFileSn());
         }
     }
 
@@ -76,7 +75,6 @@ public class AdminItemService {
     @Transactional
     public AdminItemCreateResponse create(Long actorSn, AdminItemCreateRequest req) {
         checkRegion(req.itemRegnCd());
-        String bakeHint = normalizeHint(req.bakeHint());
 
         String actorId = String.valueOf(actorSn);
         Item item = new Item();
@@ -86,7 +84,6 @@ public class AdminItemService {
         item.setNeedPnt(req.needPnt());
         item.setSortSeq(itemMapper.selectMaxSortSeq(req.itemRegnCd()) + 1);
         item.setNtslYn(toYn(req.ntslYn()));
-        item.setBakeHint(bakeHint);
         item.setBakeImgRefYn(toYn(req.bakeImgRefYn()));
         item.setRgtrId(actorId);
         item.setMdfrId(actorId);
@@ -116,9 +113,9 @@ public class AdminItemService {
                 throw new CustomException(ErrorCode.ITEM_REGION_LOCKED);
             }
         }
-        boolean hintSent = req.bakeHint() != null;
-        String bakeHint = hintSent ? normalizeHint(req.bakeHint()) : before.getBakeHint();
-        boolean hintChanged = hintSent && !Objects.equals(bakeHint, before.getBakeHint());
+        boolean imageChanged = req.image() != null && !req.image().isEmpty();
+        String bakeImgRefYn = req.bakeImgRefYn() == null ? before.getBakeImgRefYn() : toYn(req.bakeImgRefYn());
+        boolean resetSheets = imageChanged && "Y".equals(bakeImgRefYn);
 
         Item item = new Item();
         item.setItemSn(itemSn);
@@ -127,18 +124,17 @@ public class AdminItemService {
         item.setItemNm(req.itemNm() == null ? null : req.itemNm().strip());
         item.setNeedPnt(req.needPnt());
         item.setNtslYn(req.ntslYn() == null ? null : toYn(req.ntslYn()));
-        item.setBakeHint(bakeHint);
         item.setBakeImgRefYn(req.bakeImgRefYn() == null ? null : toYn(req.bakeImgRefYn()));
-        if (req.image() != null && !req.image().isEmpty()) {
+        if (imageChanged) {
             item.setAtchFileSn(fileStore.store(req.image(), FileCategory.ASSET_ITEM, FileOwner.service(), actorId));
         }
         item.setMdfrId(actorId);
         try {
-            itemMapper.update(item, hintChanged);
+            itemMapper.update(item);
         } catch (DuplicateKeyException e) {
             throw new CustomException(ErrorCode.ITEM_NAME_DUPLICATED);
         }
-        if (hintChanged) {
+        if (resetSheets) {
             pixelCharacterMapper.updateItemSheetDeleteByItemSn(itemSn);
         }
         adminTaskLogService.record(actorSn, AdminTaskType.UPDATE, TARGET_TABLE, itemSn, "아이템 수정",
@@ -181,13 +177,6 @@ public class AdminItemService {
         if (ItemRegion.from(itemRegnCd).isEmpty() || ItemRegion.SHOES.is(itemRegnCd)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
-    }
-
-    /**
-     * 빈 문자열은 굽기 지시 없음
-     */
-    private String normalizeHint(String bakeHint) {
-        return hasText(bakeHint) ? bakeHint.strip() : null;
     }
 
     private static boolean hasText(String value) {

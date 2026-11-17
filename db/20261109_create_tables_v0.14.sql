@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 냥멍케어 MySQL DDL v0.14  |  MySQL 8.0.16+ / InnoDB / utf8mb4_0900_ai_ci
 -- 대상: DBeaver (전체 선택 후 스크립트 실행 Alt+X, 또는 스키마 우클릭 → Tools → Execute script)
--- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1006 컬럼 / 관계 FK 156 / 공통코드 FK 120)
+-- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1005 컬럼 / 관계 FK 156 / 공통코드 FK 120)
 --       UK·INDEX·CHECK·생성열·공통코드 FK 는 v0.8 그대로 유지
 -- 구성: [1] DROP  [2] CREATE(PK·UK·INDEX·CHECK·생성열)  [3] 관계 FK  [4] 공통코드 FK
 -- 주의: 전체 DROP 후 재생성합니다. 기존 데이터가 있으면 먼저 백업하세요. 공용 DB에는 실행하지 않습니다.
@@ -59,6 +59,10 @@
 -- v0.14 (17) 시스템설정 거래완료 숨김 기준 일수 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 3번 사람 요청 2026-11-15, SCR-CMU-004 거래완료 글은 이 일수가 지나면 공개 목록에서 빠진다). 기존 행은 기본값 7로 채워진다
 --   SET NAMES utf8mb4;
 --   ALTER TABLE `SYS_STNG` ADD COLUMN `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수' AFTER `MTCH_NO_RSPNS_END_CRTR_DAY_CNT`;
+-- v0.14 (19) 아이템 굽기 지시 삭제 (2026-11-17, LJS, 근거: 사람 결정 2026-11-17 착용 시트는 아이템 그림 참고로만 굽는다, 마일스톤 LJS SCR-ADM-070 아이템 · 굽기를 그림 참고로만, FN-ADM-070-02·03, FN-MYP-011-01). 굽기 대상은 BAKE_IMG_REF_YN='Y' 아이템뿐. 기존 아이템은 'Y'로 옮기지 않는다(서버의 아이템 그림 파일이 옛 경로일 수 있어 그림 참고로 바꾸면 굽기가 실패한다. 관리자가 서버에서 픽셀 그림을 새로 올리며 켠다). 이미 구운 착용 시트는 그대로. 공용 DB 실행 전(사람이 실행)
+--   SET NAMES utf8mb4;
+--   ALTER TABLE `ITEM` DROP COLUMN `BAKE_HINT`;
+--   ALTER TABLE `ITEM` MODIFY COLUMN `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '굽기여부(그림참고)';
 -- =====================================================================
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -787,8 +791,7 @@ CREATE TABLE `ITEM` (
   `NEED_PNT` decimal(10,0) NOT NULL COMMENT '필요포인트',
   `SORT_SEQ` decimal(10,0) NOT NULL DEFAULT '0' COMMENT '정렬순서',
   `NTSL_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '판매여부',
-  `BAKE_HINT` varchar(300) NULL COMMENT '굽기지시',
-  `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '그림참고굽기여부',
+  `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '굽기여부(그림참고)',
   `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
   `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
   `RGTR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '등록자ID',

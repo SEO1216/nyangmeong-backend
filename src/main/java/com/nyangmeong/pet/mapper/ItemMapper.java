@@ -34,7 +34,7 @@ public interface ItemMapper {
             @Param("itemSns") List<Long> itemSns);
 
     /**
-     * 굽기 대상 아이템 조회 (판매 중이고 굽기 지시가 있거나 그림 참고 굽기)
+     * 굽기 대상 아이템 조회 (판매 중이고 그림 참고 굽기)
      */
     List<BakeItemSummary> selectBakeItems();
 
@@ -79,9 +79,9 @@ public interface ItemMapper {
     int insert(Item item);
 
     /**
-     * 아이템 수정 (null 칸은 그대로, bakeHintChanged 면 굽기 지시를 bakeHint 로 바꿈)
+     * 아이템 수정 (null 칸은 그대로)
      */
-    int update(@Param("item") Item item, @Param("bakeHintChanged") boolean bakeHintChanged);
+    int update(@Param("item") Item item);
 
     /**
      * 아이템 정렬 순서 수정

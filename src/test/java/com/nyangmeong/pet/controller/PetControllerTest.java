@@ -41,6 +41,7 @@ import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
 import com.nyangmeong.pet.dto.CaregiverSummary;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.service.PetService;
@@ -68,6 +69,24 @@ class PetControllerTest {
         mockMvc.perform(get("/api/pets"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.httpCode").value(401));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 한도_조회는_최대_수와_합계와_남은_자리를_돌려준다() throws Exception {
+        when(petService.getPetLimit(1L)).thenReturn(new PetLimitResponse(10, 12, 0));
+
+        mockMvc.perform(get("/api/pets/limit"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.petMaxCnt").value(10))
+                .andExpect(jsonPath("$.data.linkedPetCount").value(12))
+                .andExpect(jsonPath("$.data.remainingPetCount").value(0));
+    }
+
+    @Test
+    void 한도_조회는_쿠키가_없으면_401() throws Exception {
+        mockMvc.perform(get("/api/pets/limit"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

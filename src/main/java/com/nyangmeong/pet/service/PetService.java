@@ -24,6 +24,7 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.member.service.MemberService;
 import com.nyangmeong.pet.domain.BrupLinkSttsHstry;
 import com.nyangmeong.pet.domain.BrupRel;
@@ -37,6 +38,7 @@ import com.nyangmeong.pet.dto.AdminPetDistributionSummary;
 import com.nyangmeong.pet.dto.AdminPetSummary;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
@@ -79,6 +81,7 @@ public class PetService {
     private final CaregiverInvitationMapper invitationMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final MemberService memberService;
+    private final SystemSettingService systemSettingService;
 
     /**
      * 관리자 회원 상세 반려동물 목록 조회
@@ -108,14 +111,32 @@ public class PetService {
     }
 
     /**
+     * 내 반려동물 한도 조회 (운영 설정 최대 수, 공동양육 포함 합계, 남은 자리)
+     */
+    @Transactional(readOnly = true)
+    public PetLimitResponse getPetLimit(Long mbrSn) {
+        int max = maxPetCount();
+        int linked = petMapper.countLinkedPets(mbrSn);
+        return new PetLimitResponse(max, linked, PetLimit.remaining(max, linked));
+    }
+
+    /**
+     * 운영 설정의 계정당 반려동물 최대 수
+     */
+    private int maxPetCount() {
+        return systemSettingService.get().getPetMaxCnt().intValue();
+    }
+
+    /**
      * 반려동물 등록
      */
     @Transactional
     public PetResponse createPet(Long mbrSn, PetCreateRequest req) {
         /** 같은 회원의 동시 등록·수락이 한도를 넘지 않게 회원 행을 잠근 뒤 센다 */
         petMapper.lockMemberForPetLimit(mbrSn);
-        if (petMapper.countLinkedPets(mbrSn) >= PetLimit.MAX_PET_COUNT) {
-            throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
+        int maxPetCount = maxPetCount();
+        if (petMapper.countLinkedPets(mbrSn) >= maxPetCount) {
+            throw PetLimit.exceeded(maxPetCount);
         }
 
         int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());

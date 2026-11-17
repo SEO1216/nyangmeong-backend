@@ -52,7 +52,8 @@ public class GlobalExceptionHandler {
         logException(e);
         ErrorCode errorCode = e.getErrorCode();
         if (e.getFields().isEmpty()) {
-            return ResponseEntity.status(errorCode.status()).body(ApiResponse.error(errorCode, path(request)));
+            return ResponseEntity.status(errorCode.status())
+                    .body(ApiResponse.error(errorCode, e.getMessage(), path(request)));
         }
         log.warn("[Validation] path={} fields={}", path(request), String.join(",", e.getFields()));
         List<FieldErrorResponse> fields = e.getFields().stream()

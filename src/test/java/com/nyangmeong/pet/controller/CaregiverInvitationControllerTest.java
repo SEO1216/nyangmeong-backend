@@ -243,11 +243,15 @@ class CaregiverInvitationControllerTest {
     @WithMockLoginMember
     void 반려동물_한도를_넘는_수락은_400이고_data에_남은_자리가_있다() throws Exception {
         when(caregiverInvitationService.acceptInvitation(eq(1L), eq(50L), any()))
-                .thenReturn(CaregiverInvitationAcceptResult.limitExceeded(2));
+                .thenReturn(CaregiverInvitationAcceptResult.limitExceeded(
+                        "반려동물은 공동양육을 포함해 계정당 5마리까지 함께할 수 있습니다.", 2));
 
         mockMvc.perform(json(post("/api/caregiver-invitations/50/accept"), "{\"petSns\":[100]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.message").value("반려동물은 공동양육을 포함해 계정당 5마리까지 함께할 수 있습니다."))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("%"))))
                 .andExpect(jsonPath("$.data.remainingPetCount").value(2));
     }
 

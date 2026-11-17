@@ -30,6 +30,8 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.security.crypto.TokenHashUtil;
+import com.nyangmeong.global.setting.SystemSetting;
+import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.member.domain.Member;
 import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.service.MemberService;
@@ -80,11 +82,14 @@ class CaregiverInvitationServiceTest {
     private final FieldCryptoService crypto = mock(FieldCryptoService.class);
     private final TokenHashUtil tokenHashUtil = mock(TokenHashUtil.class);
     private final EventPublisher eventPublisher = mock(EventPublisher.class);
+    private final SystemSettingService settingService = mock(SystemSettingService.class);
+    private final SystemSetting setting = new SystemSetting();
     private final CaregiverInvitationService service = new CaregiverInvitationService(invitationMapper, petMapper,
-            memberService, crypto, tokenHashUtil, eventPublisher, "http://front.test");
+            memberService, crypto, tokenHashUtil, eventPublisher, settingService, "http://front.test");
 
     @BeforeEach
     void setUp() {
+        when(settingService.get()).thenReturn(setting);
         when(crypto.normalizeEmail(anyString())).thenAnswer(inv -> inv.<String>getArgument(0).trim().toLowerCase());
         when(crypto.emailHmac(anyString())).thenAnswer(inv -> "h:" + inv.<String>getArgument(0).trim().toLowerCase());
         when(crypto.encrypt(anyString())).thenAnswer(inv -> "enc:" + inv.getArgument(0));
@@ -269,6 +274,56 @@ class CaregiverInvitationServiceTest {
     }
 
     @Test
+    void 초대_유효_일수가_설정값_3이면_만료일은_지금_더하기_3일이다() {
+        setting.setInvtnVldDayCnt(3L);
+        when(memberService.findForLogin("h:" + TARGET_EMAIL)).thenReturn(memberVo(RECEIVER));
+
+        service.createInvitation(SENDER, new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        ArgumentCaptor<JntBrupInvtn> invitation = ArgumentCaptor.forClass(JntBrupInvtn.class);
+        verify(invitationMapper).insertInvitation(invitation.capture());
+        assertThat(invitation.getValue().getInvtnExpryDt())
+                .isEqualTo(invitation.getValue().getRegDt().plusDays(3));
+    }
+
+    @Test
+    void 공동양육_최대_인원이_설정값_2이면_2명인_반려동물은_거절되고_문구에_2명이_나온다() {
+        setting.setJntBrupMaxNope(2L);
+        when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(2);
+
+        assertThatThrownBy(() -> service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A))))
+                .isInstanceOfSatisfying(CustomException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                    assertThat(e.getMessage()).contains("2명").doesNotContain("%");
+                });
+        verify(invitationMapper, never()).insertInvitation(any());
+    }
+
+    @Test
+    void 공동양육_최대_인원이_설정값_2이면_1명인_반려동물은_초대된다() {
+        setting.setJntBrupMaxNope(2L);
+        when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(1);
+
+        CaregiverInvitationCreateResult result = service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+    }
+
+    @Test
+    void 받는_사람의_반려동물_수가_한도를_넘어도_초대_보내기는_막히지_않는다() {
+        when(memberService.findForLogin("h:" + TARGET_EMAIL)).thenReturn(memberVo(RECEIVER));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(12);
+
+        CaregiverInvitationCreateResult result = service.createInvitation(SENDER,
+                new CaregiverInvitationCreateRequest(TARGET_EMAIL, List.of(PET_A)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, never()).countLinkedPets(RECEIVER);
+    }
+
+    @Test
     void 공동양육자가_5명인_반려동물은_초대할_수_없다() {
         when(petMapper.countLinkedCaregivers(PET_A, CO_PARENT)).thenReturn(5);
 
@@ -382,6 +437,35 @@ class CaregiverInvitationServiceTest {
     }
 
     @Test
+    void 반려동물_최대_수가_설정값_5이면_합계_4에_2마리를_고르면_막히고_문구에_5마리가_나온다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(4);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.message()).contains("5마리").doesNotContain("%");
+        assertThat(result.limit().remainingPetCount()).isEqualTo(1);
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
+        verify(petMapper, never()).insertBrupRel(any());
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_5이면_합계_3에_2마리를_고르면_수락된다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(3);
+
+        CaregiverInvitationAcceptResult result = service.acceptInvitation(RECEIVER, INVITATION,
+                new CaregiverInvitationAcceptRequest(List.of(PET_A, PET_B)));
+
+        assertThat(result.succeeded()).isTrue();
+        verify(petMapper, times(2)).insertBrupRel(any());
+    }
+
+    @Test
     void 합계와_고른_수가_10이면_수락된다() {
         when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
         when(petMapper.countLinkedPets(RECEIVER)).thenReturn(8);
@@ -420,7 +504,9 @@ class CaregiverInvitationServiceTest {
                 new CaregiverInvitationAcceptRequest(List.of(PET_A)));
 
         assertThat(result.error()).isEqualTo(ErrorCode.PET_LIMIT_EXCEEDED);
+        assertThat(result.message()).contains("10마리").doesNotContain("%");
         assertThat(result.limit().remainingPetCount()).isZero();
+        verify(invitationMapper, never()).updateResponse(anyLong(), anyLong(), any(), any(), any());
         verify(petMapper, never()).insertBrupRel(any());
     }
 
@@ -453,6 +539,17 @@ class CaregiverInvitationServiceTest {
         when(petMapper.countLinkedPets(RECEIVER)).thenReturn(7);
 
         assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isEqualTo(3);
+    }
+
+    @Test
+    void 반려동물_최대_수가_설정값_5이면_상세_남은_자리는_5에서_합계를_뺀_수다() {
+        setting.setPetMaxCnt(5L);
+        when(invitationMapper.selectInvitation(INVITATION)).thenReturn(invitation(PENDING, 3));
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(3);
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isEqualTo(2);
+
+        when(petMapper.countLinkedPets(RECEIVER)).thenReturn(7);
+        assertThat(service.getInvitation(RECEIVER, INVITATION).remainingPetCount()).isZero();
     }
 
     @Test
@@ -540,8 +637,10 @@ class CaregiverInvitationServiceTest {
 
         assertThatThrownBy(() -> service.acceptInvitation(RECEIVER, INVITATION,
                 new CaregiverInvitationAcceptRequest(List.of(PET_A))))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                .isInstanceOfSatisfying(CustomException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.CAREGIVER_LIMIT_EXCEEDED);
+                    assertThat(e.getMessage()).contains("5명").doesNotContain("%");
+                });
         verify(petMapper, never()).insertBrupRel(any());
     }
 

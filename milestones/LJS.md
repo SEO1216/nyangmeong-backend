@@ -666,6 +666,13 @@
 - 완료 조건: KSJ가 고친 global/setting의 `dlngCmptnHideCrtrDayCnt`를 담당자로서 검토한다(1~99 검증, 400 칸 오류 field 이름이 `dlngCmptnHideCrtrDayCnt`, 감사 로그 포함, 값이 null이면 7). 검증 백엔드 8081을 이 코드로 다시 띄우고 프론트 세션에 알린다
 - 이미 바뀐 것: `global/setting/AdminSettingResponse.java`·`AdminSettingUpdateRequest.java`·`AdminSystemSettingService.java`·`SystemSetting.java`, `mapper/global/SystemSettingMapper.xml`, 테스트 `AdminSettingHideDaysTest`(KSJ, `13794f1`)
 
+## SCR-ADM-070 아이템 · 굽기를 그림 참고로만 — 끝
+- 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-070-01·02·03, FN-MYP-011-01
+- 기다리는 것: 없음
+- 완료 조건: 굽기 지시(`BAKE_HINT`) 컬럼·요청·응답이 없어지고, 굽기 대상은 `BAKE_IMG_REF_YN='Y'` 아이템만이다. 이미 구운 착용 시트는 그대로다(사람 결정 2026-11-17)
+- 완료 조건 결과: 검증 `통과`(2026-11-17, 1회차, 8082에서 목록·등록 201·bake-items·PATCH 200 확인), 사람 확인 2026-11-17. 기준 SQL v0.14 (19) `BAKE_HINT` 삭제(기존 아이템을 `Y`로 옮기지 않음, 공용 DB 실행은 사람), 굽기 대상 아이템(수정 후 `Y`)의 그림을 바꾸면 그 아이템 착용 시트를 지움, 굽기 여부만 바꾸면 그대로. ERDCloud `ITEM.BAKE_HINT` 삭제·`BAKE_IMG_REF_YN` 추가
+- 연결 남음: FN-ADM-070-03 (프론트 연결 관리자 아이템 수정 모달에서 굽기 대상 아이템의 그림을 바꿔 저장하면 전체 굽기 다시 시작, 프론트 저장소에서 /start)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)

@@ -14,23 +14,28 @@ import org.w3c.dom.NodeList;
  * [검사 - 알림 매퍼 XML 조건]
  * - DB에 붙지 않고 SQL 문장만 확인 (docs/convention/test.md)
  * - 안 읽음 우선·최신순 정렬과 건수 제한 (FN-COM-004-05)
+ * - 모두 읽음은 본인·미읽음·숨김 기준 안만 (FN-COM-004-17)
  */
 class NotificationMapperXmlTest {
 
     private static final Path XML = Path.of("src/main/resources/mapper/notification/NotificationMapper.xml");
 
     private static String sql(String id) throws Exception {
+        return sql("select", id);
+    }
+
+    private static String sql(String tag, String id) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         Element mapper = factory.newDocumentBuilder().parse(XML.toFile()).getDocumentElement();
-        NodeList selects = mapper.getElementsByTagName("select");
-        for (int i = 0; i < selects.getLength(); i++) {
-            Element select = (Element) selects.item(i);
-            if (id.equals(select.getAttribute("id"))) {
-                return select.getTextContent().replaceAll("\\s+", " ");
+        NodeList statements = mapper.getElementsByTagName(tag);
+        for (int i = 0; i < statements.getLength(); i++) {
+            Element statement = (Element) statements.item(i);
+            if (id.equals(statement.getAttribute("id"))) {
+                return statement.getTextContent().replaceAll("\\s+", " ");
             }
         }
-        throw new AssertionError("select 없음: " + id);
+        throw new AssertionError(tag + " 없음: " + id);
     }
 
     @Test
@@ -60,5 +65,21 @@ class NotificationMapperXmlTest {
         assertThat(sql("selectRecentList")).contains("MBR_SN = #{mbrSn}")
                 .contains("AUTO_HIDE_DT > NOW()")
                 .contains("NOTI_TYPE_CD IN");
+    }
+
+    @Test
+    void 모두_읽음은_본인의_숨김_기준_안_미읽음만_읽음_처리한다() throws Exception {
+        assertThat(sql("update", "updateReadAll")).contains("SET PRSL_DT = NOW()")
+                .contains("MBR_SN = #{mbrSn}")
+                .contains("PRSL_DT IS NULL")
+                .contains("AUTO_HIDE_DT > NOW()");
+    }
+
+    @Test
+    void 모두_읽음은_미읽음_개수와_같은_조건을_쓴다() throws Exception {
+        String count = sql("countUnread");
+        String update = sql("update", "updateReadAll");
+
+        assertThat(count.substring(count.indexOf("WHERE"))).isEqualTo(update.substring(update.indexOf("WHERE")));
     }
 }

@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +26,8 @@ import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.health.domain.Prescription;
 import com.nyangmeong.health.domain.PrescriptionStatus;
+import com.nyangmeong.health.dto.PrescriptionBulkSaveRequest;
+import com.nyangmeong.health.dto.PrescriptionBulkSaveRequest.PrescriptionItemRequest;
 import com.nyangmeong.health.dto.PrescriptionCreateRequest;
 import com.nyangmeong.health.dto.PrescriptionResponse;
 import com.nyangmeong.health.dto.PrescriptionUpdateRequest;
@@ -204,5 +208,100 @@ class PrescriptionServiceTest {
         verify(mapper).updatePrescription(prescription, "SYSTEM");
         verify(mapper).insertStatusHistory(eq(PRSC), isNull(), eq(TAKING), eq(ENDED));
         verify(careItemService).deleteMedicationItem(PRSC, "SYSTEM");
+    }
+
+    private PrescriptionItemRequest item(Long prscSn, String mdcnNm, LocalDate bgng, LocalDate end,
+            Boolean careRfltYn) {
+        return new PrescriptionItemRequest(prscSn, mdcnNm, bgng, end, 2, TAKING, careRfltYn);
+    }
+
+    private void numberNewPrescriptionsFrom(long firstPrscSn) {
+        long[] next = { firstPrscSn };
+        doAnswer(call -> {
+            Prescription prescription = call.getArgument(0);
+            prescription.setPrscSn(next[0]++);
+            return 1;
+        }).when(mapper).insertPrescription(any());
+    }
+
+    @Test
+    void 일괄_저장은_추가_2개와_수정_1개를_모두_반영한다() {
+        numberNewPrescriptionsFrom(101L);
+        stored(TAKING, "N");
+
+        List<PrescriptionResponse> responses = service.saveAll(MBR, PET, new PrescriptionBulkSaveRequest(CKUP, List.of(
+                item(null, "항생제", BGNG, END, false),
+                item(PRSC, " 진통제 ", BGNG, END.plusDays(3), false),
+                item(null, "위장약", BGNG, END, null))));
+
+        assertThat(responses).extracting(PrescriptionResponse::prscSn).containsExactly(101L, PRSC, 102L);
+        assertThat(responses).extracting(PrescriptionResponse::mdcnNm).containsExactly("항생제", "진통제", "위장약");
+        verify(checkupService).getCheckup(MBR, PET, CKUP);
+        verify(mapper, times(2)).insertPrescription(any());
+        verify(mapper).insertStatusHistory(101L, MBR, null, TAKING);
+        verify(mapper).insertStatusHistory(102L, MBR, null, TAKING);
+        verify(mapper).updatePrescription(argThat(p -> PRSC.equals(p.getPrscSn())
+                && "진통제".equals(p.getMdcnNm()) && END.plusDays(3).equals(p.getMdcnEndYmd())), eq("1"));
+        verify(mapper, never()).insertStatusHistory(eq(PRSC), anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 일괄_저장에서_하나라도_종료일이_시작일보다_앞서면_아무것도_저장하지_않는다() {
+        numberNewPrescriptionsFrom(101L);
+        stored(TAKING, "Y");
+
+        assertThatThrownBy(() -> service.saveAll(MBR, PET, new PrescriptionBulkSaveRequest(CKUP, List.of(
+                item(null, "항생제", BGNG, END, true),
+                item(PRSC, "진통제", BGNG, END, true),
+                item(null, "위장약", END, BGNG, true)))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(mapper, never()).insertPrescription(any());
+        verify(mapper, never()).updatePrescription(any(), anyString());
+        verify(mapper, never()).insertStatusHistory(any(), any(), any(), any());
+        verify(careItemService, never()).createMedicationItem(anyLong(), anyLong(), any());
+        verify(careItemService, never()).deleteMedicationItem(anyLong(), anyString());
+    }
+
+    @Test
+    void 일괄_저장은_주기_체크를_켠_복용중_약만_투약_항목을_만든다() {
+        numberNewPrescriptionsFrom(101L);
+        stored(TAKING, "Y");
+
+        service.saveAll(MBR, PET, new PrescriptionBulkSaveRequest(CKUP, List.of(
+                item(null, "항생제", BGNG, END, true),
+                item(PRSC, "진통제", BGNG, END, false),
+                item(null, "위장약", BGNG, END, null))));
+
+        verify(careItemService).createMedicationItem(eq(MBR), eq(PET),
+                argThat(p -> Long.valueOf(101L).equals(p.getPrscSn())));
+        verify(careItemService, times(1)).createMedicationItem(anyLong(), anyLong(), any());
+        verify(careItemService).deleteMedicationItem(PRSC, "1");
+        verify(careItemService).deleteMedicationItem(102L, "1");
+    }
+
+    @Test
+    void 일괄_저장에서_같은_처방약을_두_번_보내면_400() {
+        stored(TAKING, "N");
+
+        assertThatThrownBy(() -> service.saveAll(MBR, PET, new PrescriptionBulkSaveRequest(CKUP, List.of(
+                item(PRSC, "진통제", BGNG, END, false),
+                item(PRSC, "진통제", BGNG, END, true)))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(mapper, never()).updatePrescription(any(), anyString());
+    }
+
+    @Test
+    void 일괄_저장에서_다른_검진기록의_처방약이면_404() {
+        Prescription other = stored(TAKING, "N");
+        other.setCkupRcdSn(CKUP + 1);
+        when(checkupService.existsCheckup(PET, CKUP + 1)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.saveAll(MBR, PET, new PrescriptionBulkSaveRequest(CKUP, List.of(
+                item(PRSC, "진통제", BGNG, END, false)))))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.PRESCRIPTION_NOT_FOUND);
+        verify(mapper, never()).updatePrescription(any(), anyString());
     }
 }

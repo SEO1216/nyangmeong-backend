@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nyangmeong.community.dto.CareCancelDemandItem;
 import com.nyangmeong.community.dto.CareCompletionRequestCreateRequest;
 import com.nyangmeong.community.dto.CareCompletionRequestResponse;
+import com.nyangmeong.community.dto.CareDealCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCreateRequest;
 import com.nyangmeong.community.dto.CareMatchReceiptConfirmRequest;
@@ -55,6 +57,39 @@ public class CareMatchController {
     public ResponseEntity<ApiResponse<Void>> cancel(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petPrtcMtchSn, @Valid @RequestBody CareMatchCancelRequest req) {
         careMatchService.cancel(me.id(), petPrtcMtchSn, req);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "거래 취소 요청(매칭 완료~수령 대기, 두 당사자)")
+    @PostMapping("/{petPrtcMtchSn}/cancel-request")
+    public ResponseEntity<ApiResponse<CareCancelDemandItem>> requestDealCancel(
+            @AuthenticationPrincipal LoginMember me, @PathVariable Long petPrtcMtchSn,
+            @Valid @RequestBody CareDealCancelRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(careMatchService.requestDealCancel(me.id(), petPrtcMtchSn, req)));
+    }
+
+    @Operation(summary = "거래 취소 동의(요청한 사람의 상대)")
+    @PostMapping("/{petPrtcMtchSn}/cancel-request/approve")
+    public ResponseEntity<ApiResponse<Void>> approveDealCancel(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petPrtcMtchSn) {
+        careMatchService.approveDealCancel(me.id(), petPrtcMtchSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "거래 취소 거절(요청한 사람의 상대)")
+    @PostMapping("/{petPrtcMtchSn}/cancel-request/reject")
+    public ResponseEntity<ApiResponse<Void>> rejectDealCancel(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petPrtcMtchSn) {
+        careMatchService.rejectDealCancel(me.id(), petPrtcMtchSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "거래 취소 요청 철회(요청한 사람)")
+    @PostMapping("/{petPrtcMtchSn}/cancel-request/withdraw")
+    public ResponseEntity<ApiResponse<Void>> withdrawDealCancel(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petPrtcMtchSn) {
+        careMatchService.withdrawDealCancel(me.id(), petPrtcMtchSn);
         return ResponseEntity.ok(ApiResponse.success());
     }
 

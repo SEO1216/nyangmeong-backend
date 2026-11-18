@@ -5,6 +5,7 @@ import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.nyangmeong.community.domain.CareCancelDemand;
 import com.nyangmeong.community.domain.CareCompletionRequest;
 import com.nyangmeong.community.domain.CareMatch;
 import com.nyangmeong.community.domain.CareMatchCondition;
@@ -117,6 +118,27 @@ public interface CareMatchMapper {
     int updateCompletionConfirm(@Param("prtcCmptnDmndCyclSn") Long prtcCmptnDmndCyclSn,
             @Param("prtcrIdntyRsltCd") String prtcrIdntyRsltCd);
 
+    /**
+     * 거래 취소 요청 등록
+     */
+    int insertCancelDemand(CareCancelDemand demand);
+
+    /**
+     * 요청중인 거래 취소 요청 잠금 읽기 (없으면 null, 매칭 잠금 뒤라 최신 커밋 값을 읽음)
+     */
+    CareCancelDemand selectRequestingCancelDemandForUpdate(@Param("petPrtcMtchSn") Long petPrtcMtchSn,
+            @Param("requestingCd") String requestingCd);
+
+    /**
+     * 가장 최근 거래 취소 요청 (없으면 null)
+     */
+    CareCancelDemand selectLatestCancelDemand(Long petPrtcMtchSn);
+
+    /**
+     * 거래 취소 요청 처리 (현재 상태가 bfrSttsCd 일 때만)
+     */
+    int updateCancelDemandStatus(@Param("mtchCnclDmndSn") Long mtchCnclDmndSn, @Param("bfrSttsCd") String bfrSttsCd,
+            @Param("aftrSttsCd") String aftrSttsCd, @Param("prcsMbrSn") Long prcsMbrSn);
 
     /**
      * 모집글의 매칭 목록 (최신순)

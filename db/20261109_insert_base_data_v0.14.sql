@@ -91,7 +91,14 @@
 --          `MDFR_ID` = 'SYSTEM'
 --    WHERE `BSC_ARTCL_YN` = 'Y'
 --      AND `CARE_ARTCL_NM` IN ('발 관리','발바닥 털 관리','구강 상태 확인','눈 주변 관리');
--- v0.14 (21) 케어미션 개편: 미션 이름 4개 변경·식사량 달성 기준 2회 (2026-11-18, SJM, 근거: ※신규 정책 케어미션 등급 배점·출제 대상 개편, SCR-MYP-020 FN-MYP-020-04·05, 케어리스트 기본 항목 이름 변경 (20)과 같은 이름). CareMission enum의 미션 이름과 짝지어 찾으므로 코드 배포 직전·직후에 바로 실행한다(한쪽만 바뀐 동안 그 4개 미션은 출제에서 빠진다). 이미 출제된 DAY_MSN은 복사된 달성 기준으로 정산되므로 건드리지 않는다. 배점은 CareMission 등급(5·10·15P)으로 정해져 CARE_MSN.CMPN_PNT는 배점에 쓰지 않는다
+-- v0.14 (22) 펫돌봄 매칭취소요청상태 공통코드 PCAG07(PCAC0021~0024) 추가 (2026-11-18, KSJ, 번호는 JAJ v0.14 (20)과 겹쳐 2026-11-18에 (21)→(22)로 바꿈, SQL은 그대로, 근거: DDL v0.14 (21) MTCH_CNCL_DMND, SCR-CMU-005 거래 취소 요청). 없으면 취소 요청 insert가 FK 오류. 공용 DB 실행 전(사람이 실행)
+--   SET NAMES utf8mb4;
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES (NULL,'PCAG07','매칭취소요청상태','사용 컬럼: MTCH_CNCL_DMND.DMND_STTS_CD',45);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0021','요청중','상대 응답 대기',10);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0022','동의','상대가 동의해 거래 취소',20);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0023','거절','상대가 거절해 거래 유지',30);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0024','철회','요청자가 철회해 거래 유지',40);
+-- v0.14 (23) 케어미션 개편: 미션 이름 4개 변경·식사량 달성 기준 2회 (2026-11-18, SJM, 번호는 KSJ v0.14 (21)·(22)와 겹쳐 2026-11-18에 (21)→(23)으로 바꿈, SQL은 그대로, 근거: ※신규 정책 케어미션 등급 배점·출제 대상 개편, SCR-MYP-020 FN-MYP-020-04·05, 케어리스트 기본 항목 이름 변경 (20)과 같은 이름). CareMission enum의 미션 이름과 짝지어 찾으므로 코드 배포 직전·직후에 바로 실행한다(한쪽만 바뀐 동안 그 4개 미션은 출제에서 빠진다). 이미 출제된 DAY_MSN은 복사된 달성 기준으로 정산되므로 건드리지 않는다. 배점은 CareMission 등급(5·10·15P)으로 정해져 CARE_MSN.CMPN_PNT는 배점에 쓰지 않는다
 --   SET NAMES utf8mb4;
 --   UPDATE `CARE_MSN`
 --      SET `MSN_NM` = CASE `MSN_NM` WHEN '발 관리하기' THEN '발 상태 확인하기' WHEN '눈 주변 관리하기' THEN '눈곱 닦기' WHEN '발바닥 털 관리하기' THEN '발바닥 털 다듬기' WHEN '구강 상태 확인하기' THEN '잇몸·치석 확인하기' END
@@ -640,6 +647,13 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 
 -- ■ SYS 시스템 — v0.14 추가: 펫돌봄 지난 모집 마감 배치 (v0.14 (18))
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
+
+-- ■ PCA 펫돌봄 — v0.14 추가: 매칭취소요청상태 (v0.14 (22))
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES (NULL,'PCAG07','매칭취소요청상태','사용 컬럼: MTCH_CNCL_DMND.DMND_STTS_CD',45);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0021','요청중','상대 응답 대기',10);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0022','동의','상대가 동의해 거래 취소',20);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0023','거절','상대가 거절해 거래 유지',30);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0024','철회','요청자가 철회해 거래 유지',40);
 
 -- =====================================================================
 -- [2] 케어미션 마스터 (CARE_MSN) — 20261027_02_update_care_msn_and_ckup_pnt 의 최종 상태

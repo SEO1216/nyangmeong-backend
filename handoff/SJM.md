@@ -1,12 +1,12 @@
 # SJM 핸드오프
 
 ## 지금 하는 것
-SCR-MYP-020 포인트 관리/케어미션 · 케어미션 개편(등급 배점·출제 대상) — 끝남 (승인 2026-11-18 11:18, 시작 2026-11-18 11:09). 검증 3회차 통과(1·2회차는 `화면:` 확인 못 함으로 보관, 3회차에 새 반려동물 등록으로 확인). 사람이 Postman 11개 테스트 통과(회원 58, 반려동물 1069 삭제함: 8개·합 60P·조합 (1,2,5)·케어리스트 미션은 기본 4개 안). `v0.14 (21)` UPDATE는 공용 DB에 실행하지 않아 식사량 달성 기준 1·옛 이름 그대로가 정상
+SCR-MYP-020 포인트 관리/케어미션 · 케어미션 개편(등급 배점·출제 대상) — 끝남 (승인 2026-11-18 11:18, 시작 2026-11-18 11:09). 검증 3회차 통과(1·2회차는 `화면:` 확인 못 함으로 보관, 3회차에 새 반려동물 등록으로 확인). 사람이 Postman 11개 테스트 통과(회원 58, 반려동물 1069 삭제함: 8개·합 60P·조합 (1,2,5)·케어리스트 미션은 기본 4개 안). `v0.14 (23)` UPDATE는 공용 DB에 실행하지 않아 식사량 달성 기준 1·옛 이름 그대로가 정상
 정책(※신규 정책, 마일스톤 절 기준): 등급별 고정 배점 쉬움 5·보통 10·어려움 15P, 하루 60P. 조합 (어려움,보통,쉬움) = (0,4,4)·(1,2,5)·(2,0,6) 중 후보로 만들 수 있는 것을 무작위로 골라 8개. 못 만들면 그날만 가중치 1·2·3 비율 배분. 케어리스트 미션은 보이는 기본 항목 중 매일 항목과 예정일이 된 정기 항목만. 정산은 50% 이하 0P 없이 진행률만큼. 미션 이름 4개 변경, 식사량 달성 기준 2회.
 - FN-MYP-020-05 배점·등급: `pet/domain/CareMission.java`에 `Grade`(EASY 5·NORMAL 10·HARD 15, 가중치 1·2·3)와 미션별 등급, 이름 4개 변경(발 상태 확인하기·눈곱 닦기·발바닥 털 다듬기·잇몸·치석 확인하기), 기본 항목 없는 반려동물의 후보 4개(화장실 청소·양치·빗질·놀이) 상수. `CareMissionService`의 `DAILY_COUNT`·`ACTIVITY_COUNT`를 `DAILY_TOTAL_PNT = 60`·`ISSUE_COUNT = 8`로, `DAY_MSN.SCOR_PNT`는 `CMPN_PNT` 대신 등급 배점. `CareMissionPool` 주석만 고침(출제에 안 씀, `MSN_POOL_CD`는 그대로). 완료 조건 `명령: ./gradlew build -q`, `CareMissionServiceTest`: 등급 배점 합 60, 조합 3개 중 가능한 것만 고름, 조합 불가 시 가중치 배분 합 60(남는 포인트는 높은 등급부터·같은 등급은 출제 순서대로 1P씩), `CMPN_PNT`를 바꿔도 배점 같음
 - FN-MYP-020-04 출제 후보: `health/service/CareItemService.java`에 `searchMissionCandidates(LocalDate today)` 추가(반환 `Map<Long, Set<CareMission>>`, 기본 항목이 있는 반려동물만 키). `mapper/health/CareItemMapper.xml`·`CareItemMapper.java`에 삭제 안 된(`DEL_YN = 'N'`) 기본 항목의 `PET_SN`·`CARE_ARTCL_NM`·`CARE_ZONE_CD`·`INDCT_YN`·`NXTM_PRNMNT_YMD` 조회. 보임 판정은 화면과 같게 `INDCT_YN = 'Y'`, `NULL`이면 추천 항목(`BasicCareItem.isRecommended`). 매일(`HLTC0036`)은 후보, 정기(`HLTC0037`)는 예정일 ≤ 오늘일 때만, 예정일 비면 제외. `scheduler/CareMissionJob.java`가 받아 `careMissionService.issue(today, 관찰 중, 후보)`로 넘김. `CareMissionService.issue`·`issueFor`는 후보 맵에 없는 반려동물(등록 직후 `PetCreatedEventListener` 포함)에 기본 4개를 씀. 기록·활동 미션 10개는 지금 조건(개·관찰 중·대표) 그대로. 완료 조건 `명령: ./gradlew build -q`, `CareItemServiceTest`(숨김·삭제·정기 예정일 전·예정일 빈 항목 제외, NULL 추천 항목 포함), `CareMissionJobTest`(후보 전달), `CareMissionServiceTest`(맵에 없는 반려동물은 기본 4개만 케어리스트 후보), `화면: POST 없음 — 배치를 로컬에서 켜고 시험 반려동물의 GET /pets/{petSn}/daily-missions 8개·scorPnt 합 60 확인`
 - FN-MYP-020-05 정산: `CareMissionService.settledPoint`에서 50% 이하 0P 삭제(식사량 1/2 → 5P). 기존 테스트 `settledPoint(10, 1, 2)` 기대값 0 → 5(정책 변경). 완료 조건 `명령: ./gradlew build -q`
-- 기준 데이터: `db/20261109_insert_base_data_v0.14.sql` 기준 행의 미션 이름 4개·식사량 `ACHV_CRTR_NMTM` 2, 맨 위 변경 절 `v0.14 (21)`(`CARE_MSN` `MSN_NM` 4건·식사량 `ACHV_CRTR_NMTM` UPDATE, 사람이 공용 DB에 실행). `db/seed/20261028_seed_data.sql` 118줄 `CARE_MSN` 이름 4개·식사량 2(660줄 포인트 메모는 그대로). `MasterSeeder`는 이 저장소에 없음 → LJS에게 알림을 "다음에 할 것"에. 완료 조건 `명령: ./gradlew build -q`
+- 기준 데이터: `db/20261109_insert_base_data_v0.14.sql` 기준 행의 미션 이름 4개·식사량 `ACHV_CRTR_NMTM` 2, 맨 위 변경 절 `v0.14 (23)`(`CARE_MSN` `MSN_NM` 4건·식사량 `ACHV_CRTR_NMTM` UPDATE, 사람이 공용 DB에 실행). `db/seed/20261028_seed_data.sql` 118줄 `CARE_MSN` 이름 4개·식사량 2(660줄 포인트 메모는 그대로). `MasterSeeder`는 이 저장소에 없음 → LJS에게 알림을 "다음에 할 것"에. 완료 조건 `명령: ./gradlew build -q`
 - 문서: `docs/api/pet.md` `DailyMissionSummary`의 `scorPnt`(등급 배점 5·10·15, 합 60), `achvCrtrNmtm`·`givePnt`(진행률만큼) 설명. `CareMission`·`CareItemService.MISSIONS` 주석. 기능명세서는 이 세션에서 고치지 않는다(문구는 "다음에 할 것")
 - API 변경 없음: `GET /pets/{petSn}/daily-missions` 행·DTO 그대로. 미션 목록의 배점 표시는 이미 `scorPnt`를 읽어 바꿀 것 없음
 - FN-MYP-020-05 프론트 연결: `features/point/guide/PointGuide.jsx` 6행 "미션마다 1~20P가 쌓여요"를 등급 배점(쉬움 5·보통 10·어려움 15P, 하루 60P) 기준 문구로 (프론트 저장소에서 /start)
@@ -15,7 +15,7 @@ SCR-MYP-020 포인트 관리/케어미션 · 케어미션 개편(등급 배점·
 새 의존성: 없음
 
 ## 다음에 할 것
-- 배포 순서(케어미션 개편): `v0.14 (21)` UPDATE(미션 이름 4개·식사량 달성 기준 2)는 PR 병합 후 배포 직전·직후에 바로 실행한다. enum과 `CARE_MSN`이 `MSN_NM`으로 짝지어져 있어서 한쪽만 바뀐 동안은 그 4개 미션(발 상태 확인하기·눈곱 닦기·발바닥 털 다듬기·잇몸·치석 확인하기)이 출제에서 빠진다
+- 배포 순서(케어미션 개편): `v0.14 (23)` UPDATE(미션 이름 4개·식사량 달성 기준 2)는 PR 병합 후 배포 직전·직후에 바로 실행한다. enum과 `CARE_MSN`이 `MSN_NM`으로 짝지어져 있어서 한쪽만 바뀐 동안은 그 4개 미션(발 상태 확인하기·눈곱 닦기·발바닥 털 다듬기·잇몸·치석 확인하기)이 출제에서 빠진다
 - 프론트 연결(SCR-MYP-020, FN-MYP-020-05): `features/point/guide/PointGuide.jsx` 6행 "미션마다 1~20P가 쌓여요"를 등급 배점(쉬움 5·보통 10·어려움 15P, 하루 60P) 기준 문구로(프론트 저장소에서 `/start`)
 - 문서 작업(`/end` 때가 아니라 사람이 마지막에 한 번에, 케어미션 개편): 기능명세서 FN-MYP-020-03의 "일상케어 5 + 활동기반 3 출제"를 등급 조합(어려움·보통·쉬움 (0,4,4)·(1,2,5)·(2,0,6), 합 60P)으로, FN-MYP-020-05의 "진행률 50% 이하 미지급"을 "진행률만큼 지급"으로, "1~20P 배점"을 "등급 배점 5·10·15P, 하루 60P"로
 - LJS에게 알리기(케어미션 개편): `MasterSeeder` 미션 목록(이 저장소에 없음)의 이름 4개·식사량 달성 기준

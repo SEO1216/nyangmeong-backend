@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nyangmeong.community.domain.CareCancelDemand;
+import com.nyangmeong.community.domain.CareCancelDemandStatus;
 import com.nyangmeong.community.domain.CareCompletionRequest;
 import com.nyangmeong.community.domain.CareCompletionResult;
 import com.nyangmeong.community.domain.CareMatch;
@@ -21,9 +23,11 @@ import com.nyangmeong.community.domain.ChatRoomDetail;
 import com.nyangmeong.community.domain.ChatRoomStatus;
 import com.nyangmeong.community.domain.ChatStatusHistory;
 import com.nyangmeong.community.domain.PostStatus;
+import com.nyangmeong.community.dto.CareCancelDemandItem;
 import com.nyangmeong.community.dto.CareCompletionRequestCreateRequest;
 import com.nyangmeong.community.dto.CareCompletionRequestResponse;
 import com.nyangmeong.community.dto.CareMatchCancelRequest;
+import com.nyangmeong.community.dto.CareDealCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCreateRequest;
 import com.nyangmeong.community.dto.CareMatchReceiptConfirmRequest;
 import com.nyangmeong.community.dto.CareMatchResponse;
@@ -42,6 +46,7 @@ import lombok.RequiredArgsConstructor;
  * [펫돌봄 매칭·거래 서비스]
  * - SCR-CMU-005 매칭 요청 -> 수락 -> 돌봄 완료 요청 -> 완료 확인 -> 수령 확인 순서만 허용, 역할과 현재 상태를 서버에서 다시 검증
  * - 잠금 순서는 모집 행 -> 채팅방 행 -> 매칭 행 : 같은 글의 방들이 동시에 수락해도 한 방만 확정
+ * - 확정 이후(매칭 완료~수령 대기)에는 나갈 수 없고, 사유와 함께 거래 취소를 요청해 상대가 동의하면 매칭이 요청 취소로 끝난다
  * - 단계가 바뀔 때마다 상태 이력·시스템 메시지를 남기고, 상대가 그 방을 보는 중이 아니면 알림을 발행
  */
 @Service
@@ -52,6 +57,7 @@ public class CareMatchService {
     /** 거래 알림 이동 경로 : 프론트 알림 드롭다운이 쿼리의 방 번호로 채팅 모달을 연다 */
     static final String CHAT_ROOM_PATH = "/chat?otoChatRoomSn=%d";
     private static final String CANCEL_BY_LEAVE = "채팅방 나가기";
+    private static final String CLOSE_BY_DEAL_CANCEL = "거래 취소 동의";
     private static final String CLOSE_BY_OTHER_MATCH = "다른 분과 매칭되어 모집 종료";
     private static final String REOPEN_BY_CANCEL = "확정 매칭 취소로 모집 재개";
     private static final String CANCEL_BY_OTHER_MATCH = "다른 분과 매칭되어 요청이 취소되었어요.";
@@ -183,6 +189,7 @@ public class CareMatchService {
         Locked locked = lock(mbrSn, petPrtcMtchSn);
         checkRole(locked, false);
         checkStatus(locked.match(), CareMatchStatus.MATCHED);
+        checkNoCancelDemand(petPrtcMtchSn);
 
         CareMatchCondition condition = careMatchMapper.selectLatestCondition(petPrtcMtchSn);
         /** 별도 입력이 없는 요청이라 NOT NULL 컬럼은 빈 내용·요청 시각·확인 처리로 채움 */
@@ -211,6 +218,7 @@ public class CareMatchService {
         Locked locked = lock(mbrSn, petPrtcMtchSn);
         checkRole(locked, true);
         checkStatus(locked.match(), CareMatchStatus.AWAITING_CONFIRM);
+        checkNoCancelDemand(petPrtcMtchSn);
 
         CareCompletionRequest cycle = careMatchMapper.selectLatestCompletionRequestForUpdate(petPrtcMtchSn);
         if (cycle == null) {
@@ -232,6 +240,7 @@ public class CareMatchService {
         Locked locked = lock(mbrSn, petPrtcMtchSn);
         checkRole(locked, false);
         checkStatus(locked.match(), CareMatchStatus.AWAITING_RECEIPT);
+        checkNoCancelDemand(petPrtcMtchSn);
 
         if (!Boolean.TRUE.equals(req.rcvYn())) {
             careMatchMapper.updateReceipt(petPrtcMtchSn, "N");
@@ -248,7 +257,8 @@ public class CareMatchService {
     }
 
     /**
-     * 채팅방 나가기에 따른 진행 중 매칭 취소 (매칭 완료 이후였으면 모집글을 모집중으로 되돌림)
+     * 채팅방 나가기에 따른 수락 대기 매칭 취소
+     * - 확정 이후(매칭 완료~수령 대기)에는 나갈 수 없다(거래 취소 요청이 동의돼 매칭이 끝난 뒤에만 나갈 수 있음)
      *
      * @return 매칭을 취소하고 안내 메시지를 남겼으면 true
      */
@@ -257,24 +267,118 @@ public class CareMatchService {
         if (room.getPetPrtcMtchSn() == null) {
             return false;
         }
-        CareRecruitment recruitment = lockRecruitment(room.getPetPrtcRcrtSn());
+        lockRecruitment(room.getPetPrtcRcrtSn());
         chatRoomMapper.selectRoomForUpdate(room.getOtoChatRoomSn());
         CareMatch match = careMatchMapper.selectByIdForUpdate(room.getPetPrtcMtchSn());
-        if (match == null || !CareMatchStatus.isInProgress(match.getMtchDlngSttsCd())) {
+        if (match == null) {
+            return false;
+        }
+        if (CareMatchStatus.isConfirmed(match.getMtchDlngSttsCd())) {
+            throw new CustomException(ErrorCode.CHAT_LEAVE_IN_DEAL);
+        }
+        if (!CareMatchStatus.REQUESTED.is(match.getMtchDlngSttsCd())) {
             return false;
         }
 
-        boolean confirmed = CareMatchStatus.isConfirmed(match.getMtchDlngSttsCd());
         changeStatus(match, CareMatchStatus.CANCELED, mbrSn, CANCEL_BY_LEAVE);
-        if (confirmed) {
-            changeRecruitmentStatus(recruitment, CareRecruitmentStatus.MATCHED, CareRecruitmentStatus.RECRUITING,
-                    null, mbrSn, CANCEL_BY_LEAVE);
-            reopenOtherRooms(room, mbrSn);
-        }
         chatMessageService.createSystemMessage(room.getOtoChatRoomSn(), "상대가 채팅방을 나가 매칭이 취소되었어요.");
         Long counterpartMbrSn = mbrSn.equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn() : room.getOwnerMbrSn();
         notifyReceiver(counterpartMbrSn, room.getOtoChatRoomSn(), "상대가 채팅방을 나가 매칭이 취소되었어요.");
         return true;
+    }
+
+    /**
+     * 거래 취소 요청 (매칭 완료~수령 대기, 두 당사자 누구나, 요청중인 건이 없을 때)
+     */
+    @Transactional
+    public CareCancelDemandItem requestDealCancel(Long mbrSn, Long petPrtcMtchSn, CareDealCancelRequest req) {
+        Locked locked = lock(mbrSn, petPrtcMtchSn);
+        checkConfirmed(locked.match());
+        checkNoCancelDemand(petPrtcMtchSn);
+
+        CareCancelDemand demand = new CareCancelDemand();
+        demand.setPetPrtcMtchSn(petPrtcMtchSn);
+        demand.setDmndMbrSn(mbrSn);
+        demand.setCnclRsn(req.cnclRsn().strip());
+        demand.setDmndSttsCd(CareCancelDemandStatus.REQUESTING.getCode());
+        careMatchMapper.insertCancelDemand(demand);
+
+        chatMessageService.createSystemMessage(locked.room().getOtoChatRoomSn(),
+                "거래 취소를 요청했어요. 사유: " + demand.getCnclRsn());
+        notifyReceiver(locked.counterpartMbrSn(), locked.room().getOtoChatRoomSn(), "거래 취소 요청이 왔어요.");
+        return CareCancelDemandItem.of(demand, mbrSn);
+    }
+
+    /**
+     * 거래 취소 동의 (요청한 사람의 상대만) : 매칭 요청 취소, 모집글 모집중, 이 방은 읽기 전용
+     */
+    @Transactional
+    public void approveDealCancel(Long mbrSn, Long petPrtcMtchSn) {
+        Locked locked = lock(mbrSn, petPrtcMtchSn);
+        checkConfirmed(locked.match());
+        CareCancelDemand demand = getRequestingDemand(petPrtcMtchSn);
+        checkCounterpartOfDemander(demand, mbrSn);
+        markDemand(demand, CareCancelDemandStatus.APPROVED, mbrSn);
+
+        changeStatus(locked.match(), CareMatchStatus.CANCELED, mbrSn, demand.getCnclRsn());
+        changeRecruitmentStatus(locked.recruitment(), CareRecruitmentStatus.MATCHED, CareRecruitmentStatus.RECRUITING,
+                null, mbrSn, CLOSE_BY_DEAL_CANCEL);
+        reopenOtherRooms(locked.room(), mbrSn);
+        chatMessageService.createSystemMessage(locked.room().getOtoChatRoomSn(), "거래가 취소되었어요.");
+        changeRoomStatus(locked.room().getOtoChatRoomSn(), ChatRoomStatus.ACTIVE, ChatRoomStatus.READ_ONLY, mbrSn,
+                CLOSE_BY_DEAL_CANCEL);
+        notifyReceiver(demand.getDmndMbrSn(), locked.room().getOtoChatRoomSn(), "거래 취소 요청에 상대가 동의해 거래가 취소되었어요.");
+    }
+
+    /**
+     * 거래 취소 거절 (요청한 사람의 상대만) : 거래는 그대로 이어진다
+     */
+    @Transactional
+    public void rejectDealCancel(Long mbrSn, Long petPrtcMtchSn) {
+        Locked locked = lock(mbrSn, petPrtcMtchSn);
+        checkConfirmed(locked.match());
+        CareCancelDemand demand = getRequestingDemand(petPrtcMtchSn);
+        checkCounterpartOfDemander(demand, mbrSn);
+        markDemand(demand, CareCancelDemandStatus.REJECTED, mbrSn);
+
+        chatMessageService.createSystemMessage(locked.room().getOtoChatRoomSn(), "거래 취소 요청을 거절했어요. 거래를 이어가요.");
+        notifyReceiver(demand.getDmndMbrSn(), locked.room().getOtoChatRoomSn(), "거래 취소 요청이 거절되었어요. 거래를 이어가요.");
+    }
+
+    /**
+     * 거래 취소 요청 철회 (요청한 사람만)
+     */
+    @Transactional
+    public void withdrawDealCancel(Long mbrSn, Long petPrtcMtchSn) {
+        Locked locked = lock(mbrSn, petPrtcMtchSn);
+        checkConfirmed(locked.match());
+        CareCancelDemand demand = getRequestingDemand(petPrtcMtchSn);
+        if (!demand.getDmndMbrSn().equals(mbrSn)) {
+            throw new CustomException(ErrorCode.CARE_MATCH_ROLE_DENIED);
+        }
+        markDemand(demand, CareCancelDemandStatus.WITHDRAWN, mbrSn);
+
+        chatMessageService.createSystemMessage(locked.room().getOtoChatRoomSn(), "거래 취소 요청을 철회했어요.");
+    }
+
+    /**
+     * 채팅방 응답에 실을 거래 취소 요청 (이 매칭의 가장 최근 요청, 없으면 null)
+     * - 확정 상태에서는 동의 외의 요청, 요청 취소 상태에서는 동의된 요청만 보여 지난 거래의 요청이 남아 보이지 않게 한다
+     */
+    @Transactional(readOnly = true)
+    public CareCancelDemandItem findCancelDemand(Long mbrSn, ChatRoomDetail room) {
+        if (room.getPetPrtcMtchSn() == null) {
+            return null;
+        }
+        CareCancelDemand demand = careMatchMapper.selectLatestCancelDemand(room.getPetPrtcMtchSn());
+        if (demand == null) {
+            return null;
+        }
+        String sttsCd = room.getMtchDlngSttsCd();
+        boolean approved = CareCancelDemandStatus.APPROVED.is(demand.getDmndSttsCd());
+        boolean visible = CareMatchStatus.isConfirmed(sttsCd) ? !approved
+                : CareMatchStatus.CANCELED.is(sttsCd) && approved;
+        return visible ? CareCancelDemandItem.of(demand, mbrSn) : null;
     }
 
     /**
@@ -370,6 +474,43 @@ public class CareMatchService {
     private void checkRole(Locked locked, boolean guardianOnly) {
         if (locked.guardian() != guardianOnly) {
             throw new CustomException(ErrorCode.CARE_MATCH_ROLE_DENIED);
+        }
+    }
+
+    /** 매칭 완료~수령 대기가 아니면 거래 취소를 다룰 수 없다 */
+    private void checkConfirmed(CareMatch match) {
+        if (!CareMatchStatus.isConfirmed(match.getMtchDlngSttsCd())) {
+            throw new CustomException(ErrorCode.CARE_MATCH_INVALID_STATE);
+        }
+    }
+
+    /** 요청중인 거래 취소가 있으면 거래 단계를 바꿀 수 없다 (매칭 잠금 뒤 호출) */
+    private void checkNoCancelDemand(Long petPrtcMtchSn) {
+        if (careMatchMapper.selectRequestingCancelDemandForUpdate(petPrtcMtchSn,
+                CareCancelDemandStatus.REQUESTING.getCode()) != null) {
+            throw new CustomException(ErrorCode.CARE_MATCH_INVALID_STATE);
+        }
+    }
+
+    private CareCancelDemand getRequestingDemand(Long petPrtcMtchSn) {
+        CareCancelDemand demand = careMatchMapper.selectRequestingCancelDemandForUpdate(petPrtcMtchSn,
+                CareCancelDemandStatus.REQUESTING.getCode());
+        if (demand == null) {
+            throw new CustomException(ErrorCode.CARE_MATCH_INVALID_STATE);
+        }
+        return demand;
+    }
+
+    private void checkCounterpartOfDemander(CareCancelDemand demand, Long mbrSn) {
+        if (demand.getDmndMbrSn().equals(mbrSn)) {
+            throw new CustomException(ErrorCode.CARE_MATCH_ROLE_DENIED);
+        }
+    }
+
+    private void markDemand(CareCancelDemand demand, CareCancelDemandStatus to, Long mbrSn) {
+        if (careMatchMapper.updateCancelDemandStatus(demand.getMtchCnclDmndSn(),
+                CareCancelDemandStatus.REQUESTING.getCode(), to.getCode(), mbrSn) == 0) {
+            throw new CustomException(ErrorCode.CARE_MATCH_INVALID_STATE);
         }
     }
 

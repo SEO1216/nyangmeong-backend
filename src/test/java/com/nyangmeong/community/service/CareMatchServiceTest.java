@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.nyangmeong.community.domain.CareCancelDemand;
 import com.nyangmeong.community.domain.CareCompletionRequest;
 import com.nyangmeong.community.domain.CareMatch;
 import com.nyangmeong.community.domain.CareMatchCondition;
@@ -30,7 +31,9 @@ import com.nyangmeong.community.domain.CareRecruitmentStatusHistory;
 import com.nyangmeong.community.domain.ChatParticipant;
 import com.nyangmeong.community.domain.ChatRoomDetail;
 import com.nyangmeong.community.domain.ChatStatusHistory;
+import com.nyangmeong.community.dto.CareCancelDemandItem;
 import com.nyangmeong.community.dto.CareCompletionRequestCreateRequest;
+import com.nyangmeong.community.dto.CareDealCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCancelRequest;
 import com.nyangmeong.community.dto.CareMatchCreateRequest;
 import com.nyangmeong.community.dto.CareMatchReceiptConfirmRequest;
@@ -469,16 +472,15 @@ class CareMatchServiceTest {
     // 나가기
 
     @Test
-    void 매칭_완료_이후에_나가면_매칭이_취소되고_모집글이_모집중으로_돌아간다() {
-        CareMatch match = stubMatch(AWAITING_CONFIRM);
-        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(recruitment(MATCHED_CD));
+    void 매칭_완료_이후에는_나갈_수_없다() {
+        for (String sttsCd : new String[] { MATCHED, AWAITING_CONFIRM, AWAITING_RECEIPT }) {
+            stubMatch(sttsCd);
 
-        boolean notified = service.cancelOnLeave(SITTER, room(MATCH, AWAITING_CONFIRM));
+            assertError(() -> service.cancelOnLeave(SITTER, room(MATCH, sttsCd)), ErrorCode.CHAT_LEAVE_IN_DEAL);
+        }
 
-        assertThat(notified).isTrue();
-        assertThat(match.getMtchDlngSttsCd()).isEqualTo(CANCELED);
-        verify(careMatchMapper).updateStatus(MATCH, AWAITING_CONFIRM, CANCELED);
-        verify(careRecruitmentMapper).updateStatus(RCRT, MATCHED_CD, RECRUITING_CD, null);
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
     }
 
     @Test
@@ -613,23 +615,6 @@ class CareMatchServiceTest {
     }
 
     @Test
-    void 확정_매칭이_나가기로_취소되면_읽기_전용_방이_다시_열리고_안내가_남는다() {
-        stubMatch(AWAITING_CONFIRM);
-        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(recruitment(MATCHED_CD));
-        when(chatRoomMapper.selectOtherRoomSnsByStatus(PST, ROOM, "CHTC0002")).thenReturn(List.of(12L));
-        when(chatRoomMapper.updateRoomStatus(12L, "CHTC0002", "CHTC0001")).thenReturn(1);
-
-        service.cancelOnLeave(SITTER, room(MATCH, AWAITING_CONFIRM));
-
-        verify(chatRoomMapper).updateRoomStatus(12L, "CHTC0002", "CHTC0001");
-        ArgumentCaptor<ChatStatusHistory> history = ArgumentCaptor.forClass(ChatStatusHistory.class);
-        verify(chatRoomMapper).insertRoomStatusHistory(history.capture());
-        assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0002");
-        assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0001");
-        verify(chatMessageService).createSystemMessage(12L, "모집이 다시 열렸어요.");
-    }
-
-    @Test
     void 수락_대기에서_나가면_다른_방_상태는_건드리지_않는다() {
         stubMatch(REQUESTED);
 
@@ -637,5 +622,193 @@ class CareMatchServiceTest {
 
         verify(chatRoomMapper, never()).updateRoomStatus(anyLong(), anyString(), anyString());
         verify(chatRoomMapper, never()).selectOtherRoomSnsByStatus(anyLong(), anyLong(), anyString());
+    }
+
+    // 거래 취소 요청
+
+    private static final String DEMANDING = "PCAC0021";
+
+    private CareCancelDemand demand(Long dmndMbrSn) {
+        CareCancelDemand demand = new CareCancelDemand();
+        demand.setMtchCnclDmndSn(41L);
+        demand.setPetPrtcMtchSn(MATCH);
+        demand.setDmndMbrSn(dmndMbrSn);
+        demand.setCnclRsn("일정이 맞지 않게 됐어요");
+        demand.setDmndSttsCd(DEMANDING);
+        return demand;
+    }
+
+    private void stubDemanding(Long dmndMbrSn) {
+        when(careMatchMapper.selectRequestingCancelDemandForUpdate(MATCH, DEMANDING)).thenReturn(demand(dmndMbrSn));
+        when(careMatchMapper.updateCancelDemandStatus(eq(41L), eq(DEMANDING), anyString(), anyLong())).thenReturn(1);
+    }
+
+    @Test
+    void 거래_취소를_요청하면_요청중으로_기록하고_상대에게_알린다() {
+        stubMatch(MATCHED);
+
+        CareCancelDemandItem item = service.requestDealCancel(SITTER, MATCH,
+                new CareDealCancelRequest(" 일정이 맞지 않게 됐어요 "));
+
+        ArgumentCaptor<CareCancelDemand> saved = ArgumentCaptor.forClass(CareCancelDemand.class);
+        verify(careMatchMapper).insertCancelDemand(saved.capture());
+        assertThat(saved.getValue().getDmndMbrSn()).isEqualTo(SITTER);
+        assertThat(saved.getValue().getCnclRsn()).isEqualTo("일정이 맞지 않게 됐어요");
+        assertThat(saved.getValue().getDmndSttsCd()).isEqualTo(DEMANDING);
+        assertThat(item.mineYn()).isTrue();
+        verify(chatMessageService).createSystemMessage(ROOM, "거래 취소를 요청했어요. 사유: 일정이 맞지 않게 됐어요");
+        verify(eventPublisher).publish(any(NotificationEvent.class));
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 보호자도_거래_취소를_요청할_수_있다() {
+        stubMatch(AWAITING_RECEIPT);
+
+        service.requestDealCancel(GUARDIAN, MATCH, new CareDealCancelRequest("상대와 연락이 어려워요"));
+
+        verify(careMatchMapper).insertCancelDemand(any(CareCancelDemand.class));
+    }
+
+    @Test
+    void 확정_전후에는_거래_취소를_요청할_수_없다() {
+        for (String sttsCd : new String[] { REQUESTED, COMPLETED, CANCELED }) {
+            stubMatch(sttsCd);
+
+            assertError(() -> service.requestDealCancel(SITTER, MATCH, new CareDealCancelRequest("사유")),
+                    ErrorCode.CARE_MATCH_INVALID_STATE);
+        }
+        verify(careMatchMapper, never()).insertCancelDemand(any());
+    }
+
+    @Test
+    void 요청중인_거래_취소가_있으면_다시_요청할_수_없다() {
+        stubMatch(MATCHED);
+        stubDemanding(SITTER);
+
+        assertError(() -> service.requestDealCancel(GUARDIAN, MATCH, new CareDealCancelRequest("사유")),
+                ErrorCode.CARE_MATCH_INVALID_STATE);
+        verify(careMatchMapper, never()).insertCancelDemand(any());
+    }
+
+    @Test
+    void 동의하면_매칭이_요청_취소되고_모집글이_모집중이_되며_이_방은_읽기_전용이_된다() {
+        stubMatch(AWAITING_CONFIRM);
+        when(careRecruitmentMapper.selectForUpdate(RCRT)).thenReturn(recruitment(MATCHED_CD));
+        stubDemanding(SITTER);
+        when(chatRoomMapper.updateRoomStatus(ROOM, "CHTC0001", "CHTC0002")).thenReturn(1);
+        when(chatRoomMapper.selectOtherRoomSnsByStatus(PST, ROOM, "CHTC0002")).thenReturn(List.of(12L));
+        when(chatRoomMapper.updateRoomStatus(12L, "CHTC0002", "CHTC0001")).thenReturn(1);
+
+        service.approveDealCancel(GUARDIAN, MATCH);
+
+        verify(careMatchMapper).updateCancelDemandStatus(41L, DEMANDING, "PCAC0022", GUARDIAN);
+        verify(careMatchMapper).updateStatus(MATCH, AWAITING_CONFIRM, CANCELED);
+        ArgumentCaptor<CareMatchStatusHistory> history = ArgumentCaptor.forClass(CareMatchStatusHistory.class);
+        verify(careMatchMapper).insertStatusHistory(history.capture());
+        assertThat(history.getValue().getChgRsn()).isEqualTo("일정이 맞지 않게 됐어요");
+        verify(careRecruitmentMapper).updateStatus(RCRT, MATCHED_CD, RECRUITING_CD, null);
+        verify(chatRoomMapper).updateRoomStatus(ROOM, "CHTC0001", "CHTC0002");
+        verify(chatRoomMapper).updateRoomStatus(12L, "CHTC0002", "CHTC0001");
+        verify(chatMessageService).createSystemMessage(12L, "모집이 다시 열렸어요.");
+        verify(chatMessageService).createSystemMessage(ROOM, "거래가 취소되었어요.");
+        verify(eventPublisher).publish(any(NotificationEvent.class));
+    }
+
+    @Test
+    void 요청한_사람은_자기_요청에_동의하거나_거절할_수_없다() {
+        stubMatch(MATCHED);
+        stubDemanding(SITTER);
+
+        assertError(() -> service.approveDealCancel(SITTER, MATCH), ErrorCode.CARE_MATCH_ROLE_DENIED);
+        assertError(() -> service.rejectDealCancel(SITTER, MATCH), ErrorCode.CARE_MATCH_ROLE_DENIED);
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 거절하면_거래가_이어지고_요청자에게_알린다() {
+        stubMatch(MATCHED);
+        stubDemanding(SITTER);
+
+        service.rejectDealCancel(GUARDIAN, MATCH);
+
+        verify(careMatchMapper).updateCancelDemandStatus(41L, DEMANDING, "PCAC0023", GUARDIAN);
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+        verify(careRecruitmentMapper, never()).updateStatus(anyLong(), anyString(), anyString(), any());
+        verify(chatMessageService).createSystemMessage(ROOM, "거래 취소 요청을 거절했어요. 거래를 이어가요.");
+        verify(eventPublisher).publish(any(NotificationEvent.class));
+    }
+
+    @Test
+    void 요청한_사람만_철회할_수_있다() {
+        stubMatch(MATCHED);
+        stubDemanding(SITTER);
+
+        assertError(() -> service.withdrawDealCancel(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_ROLE_DENIED);
+        service.withdrawDealCancel(SITTER, MATCH);
+
+        verify(careMatchMapper).updateCancelDemandStatus(41L, DEMANDING, "PCAC0024", SITTER);
+        verify(chatMessageService).createSystemMessage(ROOM, "거래 취소 요청을 철회했어요.");
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 요청중인_취소가_없으면_동의_거절_철회를_거부한다() {
+        stubMatch(MATCHED);
+
+        assertError(() -> service.approveDealCancel(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+        assertError(() -> service.rejectDealCancel(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+        assertError(() -> service.withdrawDealCancel(SITTER, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+    }
+
+    @Test
+    void 매칭이_이미_끝났으면_취소_요청을_처리할_수_없다() {
+        stubMatch(CANCELED);
+        stubDemanding(SITTER);
+
+        assertError(() -> service.approveDealCancel(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+        assertError(() -> service.withdrawDealCancel(SITTER, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+    }
+
+    @Test
+    void 다른_처리가_먼저_끝났으면_동의를_거부한다() {
+        stubMatch(MATCHED);
+        stubDemanding(SITTER);
+        when(careMatchMapper.updateCancelDemandStatus(eq(41L), eq(DEMANDING), anyString(), anyLong())).thenReturn(0);
+
+        assertError(() -> service.approveDealCancel(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 취소_요청이_걸려_있는_동안에는_완료_요청_확인_수령_확인을_할_수_없다() {
+        stubDemanding(SITTER);
+
+        stubMatch(MATCHED);
+        assertError(() -> service.requestCompletion(SITTER, MATCH, new CareCompletionRequestCreateRequest("req-9")),
+                ErrorCode.CARE_MATCH_INVALID_STATE);
+        stubMatch(AWAITING_CONFIRM);
+        assertError(() -> service.confirmCompletion(GUARDIAN, MATCH), ErrorCode.CARE_MATCH_INVALID_STATE);
+        stubMatch(AWAITING_RECEIPT);
+        assertError(() -> service.confirmReceipt(SITTER, MATCH, new CareMatchReceiptConfirmRequest(true)),
+                ErrorCode.CARE_MATCH_INVALID_STATE);
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void 방_응답에는_가장_최근_취소_요청이_매칭_상태에_맞을_때만_실린다() {
+        CareCancelDemand latest = demand(SITTER);
+        when(careMatchMapper.selectLatestCancelDemand(MATCH)).thenReturn(latest);
+
+        assertThat(service.findCancelDemand(GUARDIAN, room(null, null))).isNull();
+        CareCancelDemandItem asReceiver = service.findCancelDemand(GUARDIAN, room(MATCH, MATCHED));
+        assertThat(asReceiver.mineYn()).isFalse();
+        assertThat(service.findCancelDemand(SITTER, room(MATCH, MATCHED)).mineYn()).isTrue();
+        // 요청 취소된 매칭에는 동의된 요청만, 수락 대기 등에는 아무것도 보이지 않는다
+        assertThat(service.findCancelDemand(GUARDIAN, room(MATCH, CANCELED))).isNull();
+        latest.setDmndSttsCd("PCAC0022");
+        assertThat(service.findCancelDemand(GUARDIAN, room(MATCH, CANCELED))).isNotNull();
+        assertThat(service.findCancelDemand(GUARDIAN, room(MATCH, MATCHED))).isNull();
+        assertThat(service.findCancelDemand(GUARDIAN, room(MATCH, REQUESTED))).isNull();
     }
 }

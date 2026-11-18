@@ -28,6 +28,18 @@
         <result column="REG_DT"                   property="regDt" />
     </resultMap>
 
+    <resultMap id="careCancelDemandResultMap" type="com.nyangmeong.community.domain.CareCancelDemand">
+        <id     column="MTCH_CNCL_DMND_SN"   property="mtchCnclDmndSn" />
+        <result column="PET_PRTC_MTCH_SN"    property="petPrtcMtchSn" />
+        <result column="DMND_MBR_SN"         property="dmndMbrSn" />
+        <result column="CNCL_RSN"            property="cnclRsn" />
+        <result column="DMND_STTS_CD"        property="dmndSttsCd" />
+        <result column="PRCS_MBR_SN"         property="prcsMbrSn" />
+        <result column="PRCS_DT"             property="prcsDt" />
+        <result column="REG_DT"              property="regDt" />
+        <result column="MDFCN_DT"            property="mdfcnDt" />
+    </resultMap>
+
     <resultMap id="careCompletionRequestResultMap" type="com.nyangmeong.community.domain.CareCompletionRequest">
         <id     column="PRTC_CMPTN_DMND_CYCL_SN"  property="prtcCmptnDmndCyclSn" />
         <result column="PET_PRTC_MTCH_SN"         property="petPrtcMtchSn" />
@@ -218,6 +230,69 @@
              , #{schdlCnsltnPsbltyYn}
              , NOW() )
     </insert>
+
+    <insert id="insertCancelDemand" parameterType="com.nyangmeong.community.domain.CareCancelDemand"
+            useGeneratedKeys="true" keyProperty="mtchCnclDmndSn" keyColumn="MTCH_CNCL_DMND_SN">
+        INSERT INTO MTCH_CNCL_DMND
+             ( PET_PRTC_MTCH_SN
+             , DMND_MBR_SN
+             , CNCL_RSN
+             , DMND_STTS_CD
+             , REG_DT
+             , MDFCN_DT )
+        VALUES
+             ( #{petPrtcMtchSn}
+             , #{dmndMbrSn}
+             , #{cnclRsn}
+             , #{dmndSttsCd}
+             , NOW()
+             , NOW() )
+    </insert>
+
+    <!-- 매칭 잠금 뒤 경로라 최신 커밋 값을 읽음 -->
+    <select id="selectRequestingCancelDemandForUpdate" resultMap="careCancelDemandResultMap">
+        SELECT D.MTCH_CNCL_DMND_SN
+             , D.PET_PRTC_MTCH_SN
+             , D.DMND_MBR_SN
+             , D.CNCL_RSN
+             , D.DMND_STTS_CD
+             , D.PRCS_MBR_SN
+             , D.PRCS_DT
+             , D.REG_DT
+             , D.MDFCN_DT
+          FROM MTCH_CNCL_DMND D
+         WHERE D.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
+           AND D.DMND_STTS_CD = #{requestingCd}
+         ORDER BY D.MTCH_CNCL_DMND_SN DESC
+         LIMIT 1
+           FOR UPDATE
+    </select>
+
+    <select id="selectLatestCancelDemand" parameterType="long" resultMap="careCancelDemandResultMap">
+        SELECT D.MTCH_CNCL_DMND_SN
+             , D.PET_PRTC_MTCH_SN
+             , D.DMND_MBR_SN
+             , D.CNCL_RSN
+             , D.DMND_STTS_CD
+             , D.PRCS_MBR_SN
+             , D.PRCS_DT
+             , D.REG_DT
+             , D.MDFCN_DT
+          FROM MTCH_CNCL_DMND D
+         WHERE D.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
+         ORDER BY D.MTCH_CNCL_DMND_SN DESC
+         LIMIT 1
+    </select>
+
+    <update id="updateCancelDemandStatus">
+        UPDATE MTCH_CNCL_DMND
+           SET DMND_STTS_CD = #{aftrSttsCd}
+             , PRCS_MBR_SN = #{prcsMbrSn}
+             , PRCS_DT = NOW()
+             , MDFCN_DT = NOW()
+         WHERE MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
+           AND DMND_STTS_CD = #{bfrSttsCd}
+    </update>
 
     <select id="selectLatestCondition" parameterType="long" resultMap="careMatchConditionResultMap">
         SELECT V.MTCH_CND_VER_SN

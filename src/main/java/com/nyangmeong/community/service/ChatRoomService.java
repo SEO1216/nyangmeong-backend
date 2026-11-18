@@ -6,6 +6,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nyangmeong.community.domain.CareMatchStatus;
 import com.nyangmeong.community.domain.CareRecruitmentDetail;
 import com.nyangmeong.community.domain.CareRecruitmentStatus;
 import com.nyangmeong.community.domain.ChatMessageType;
@@ -62,7 +63,8 @@ public class ChatRoomService {
      */
     @Transactional(readOnly = true)
     public ChatRoomResponse getRoom(Long mbrSn, Long otoChatRoomSn) {
-        return ChatRoomResponse.of(chatRoomGuard.getRoom(mbrSn, otoChatRoomSn), mbrSn, false);
+        ChatRoomDetail room = chatRoomGuard.getRoom(mbrSn, otoChatRoomSn);
+        return ChatRoomResponse.of(room, mbrSn, false).withCnclDmnd(careMatchService.findCancelDemand(mbrSn, room));
     }
 
     /**
@@ -106,7 +108,8 @@ public class ChatRoomService {
     }
 
     /**
-     * 채팅방 나가기 (목록에서만 숨기고 기록은 유지, 진행 중 매칭은 취소)
+     * 채팅방 나가기 (목록에서만 숨기고 기록은 유지, 수락 대기 매칭은 취소)
+     * - 매칭 완료~수령 대기에는 나갈 수 없다(409). 거래 취소 요청이 동의된 뒤에 나갈 수 있다
      * - 상대가 아직 방에 있으면 매칭 취소 안내가 없는 경우에도 나갔다는 시스템 메시지를 남긴다
      */
     @Transactional
@@ -115,6 +118,9 @@ public class ChatRoomService {
         ChatParticipant participant = chatRoomMapper.selectParticipant(otoChatRoomSn, mbrSn);
         if (participant == null || ChatParticipantStatus.LEFT.is(participant.getPtcpSttsCd())) {
             return;
+        }
+        if (CareMatchStatus.isConfirmed(room.getMtchDlngSttsCd())) {
+            throw new CustomException(ErrorCode.CHAT_LEAVE_IN_DEAL);
         }
         boolean notified = careMatchService.cancelOnLeave(mbrSn, room);
 

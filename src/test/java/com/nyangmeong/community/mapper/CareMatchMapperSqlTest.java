@@ -91,4 +91,14 @@ class CareMatchMapperSqlTest {
         }
         assertThat(expired).contains("T.PET_PRTC_MTCH_SN = ?");
     }
+
+    @Test
+    void 거래_취소_요청은_요청중인_건만_잠금으로_읽고_처리는_현재_상태가_맞을_때만_바뀐다() {
+        assertThat(sql("CareMatchMapper.selectRequestingCancelDemandForUpdate"))
+                .contains("D.PET_PRTC_MTCH_SN = ?").contains("D.DMND_STTS_CD = ?").endsWith("FOR UPDATE");
+        assertThat(sql("CareMatchMapper.updateCancelDemandStatus")).contains("SET DMND_STTS_CD = ?")
+                .contains("PRCS_MBR_SN = ?").endsWith("AND DMND_STTS_CD = ?");
+        assertThat(sql("CareMatchMapper.selectLatestCancelDemand")).contains("ORDER BY D.MTCH_CNCL_DMND_SN DESC")
+                .endsWith("LIMIT 1");
+    }
 }

@@ -22,6 +22,7 @@ import com.nyangmeong.community.domain.ChatParticipant;
 import com.nyangmeong.community.domain.ChatRoom;
 import com.nyangmeong.community.domain.ChatRoomDetail;
 import com.nyangmeong.community.domain.ChatStatusHistory;
+import com.nyangmeong.community.dto.CareCancelDemandItem;
 import com.nyangmeong.community.dto.ChatRoomCreateRequest;
 import com.nyangmeong.community.dto.ChatRoomReadRequest;
 import com.nyangmeong.community.dto.ChatRoomResponse;
@@ -323,6 +324,33 @@ class ChatRoomServiceTest {
         verify(chatRoomMapper).insertParticipantStatusHistory(history.capture());
         assertThat(history.getValue().getBfrSttsCd()).isEqualTo("CHTC0003");
         assertThat(history.getValue().getAftrSttsCd()).isEqualTo("CHTC0004");
+    }
+
+    @Test
+    void 매칭_완료_이후에는_나갈_수_없다() {
+        for (String sttsCd : List.of("PCAC0013", "PCAC0014", "PCAC0015")) {
+            ChatRoomDetail detail = roomDetail();
+            detail.setPetPrtcMtchSn(21L);
+            detail.setMtchDlngSttsCd(sttsCd);
+            when(chatRoomMapper.selectDetail(ROOM)).thenReturn(detail);
+            when(chatRoomMapper.selectParticipant(ROOM, SITTER)).thenReturn(participant("CHTC0003", 0));
+
+            assertError(() -> service.leave(SITTER, ROOM), ErrorCode.CHAT_LEAVE_IN_DEAL);
+        }
+
+        verify(careMatchService, never()).cancelOnLeave(any(), any());
+        verify(chatRoomMapper, never()).updateParticipantStatus(any(), any(), any());
+    }
+
+    @Test
+    void 채팅방_조회에는_거래_취소_요청이_실린다() {
+        ChatRoomDetail detail = roomDetail();
+        when(chatRoomMapper.selectDetail(ROOM)).thenReturn(detail);
+        CareCancelDemandItem item = new CareCancelDemandItem(41L, SITTER, true, "사유", "PCAC0021", null, null);
+        when(careMatchService.findCancelDemand(SITTER, detail)).thenReturn(item);
+
+        assertThat(service.getRoom(SITTER, ROOM).cnclDmnd()).isSameAs(item);
+        assertThat(service.getRoom(OWNER, ROOM).cnclDmnd()).isNull();
     }
 
     @Test

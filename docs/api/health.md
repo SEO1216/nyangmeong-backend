@@ -37,6 +37,7 @@
 | POST | /pets/{petSn}/observation-items | 관찰 항목 등록(항목 + 1회차, multipart 사진) | HLT-002-20~25·32 | JAJ | ObservationItemCreateRequest | ObservationItemResponse |
 | POST | /pets/{petSn}/observation-items/{obsrvArtclSn}/end | 관찰 종료(상태 전이, 기록 유지) | HLT-002-16 | JAJ | - | - |
 | POST | /pets/{petSn}/prescriptions | 처방약 추가(주기 체크 ON이면 투약 케어 항목 생성) | HLT-005-03 | JAJ | PrescriptionCreateRequest | PrescriptionResponse |
+| POST | /pets/{petSn}/prescriptions/bulk-save | 처방약 일괄 저장(검진기록 1개, prscSn 있으면 전체 덮어쓰기 수정·없으면 추가, 하나라도 실패하면 전부 저장 안 함, 삭제는 DELETE /{prscSn}, 투약 케어 항목은 추가·수정과 같은 규칙, 200) | HLT-005-03 | JAJ | PrescriptionBulkSaveRequest | List<PrescriptionResponse> |
 | POST | /pets/{petSn}/repeat-preventions | 반복 예방 등록(정기관리 케어 항목 자동 추가) | HLT-005-05 | JAJ | RepeatPreventionCreateRequest | RepeatPreventionResponse |
 | PUT | /members/me/dashboard-widgets | 건강기록 대시보드 고른 항목 전체 저장. 13개 코드를 보일 순서대로 한 번씩(배열 순서가 `SORT_SEQ`). 모르는 코드·중복 코드·빠진 코드는 400 `INVALID_INPUT_VALUE`. 저장 뒤 조회와 같은 응답 | 새 기능(ID 없음, ※신규 정책) | JAJ | HealthDashboardWidgetSaveRequest | HealthDashboardWidgetResponse |
 | PUT | /pets/{petSn}/care-items/indications | 케어리스트에 보일 항목 전체 저장(반려동물 단위, 5개 이상). 보낸 항목만 보이고 나머지는 숨김, 처방·반복 예방 연동 항목은 빠져도 보임. 저장 뒤 GET care-items와 같은 응답. 「케어 항목 관리」 모달 [저장]은 POST → PATCH → 이 PUT → DELETE 순서 | HLT-003-12(※신규 정책) | JAJ | CareItemIndicationSaveRequest | List<CareItemSummary> |
@@ -615,8 +616,27 @@ CreatinineIndicator: `latestNvl`, `unitNm`, `refLlmtNvl`, `refUplmtNvl`(최신 �
 | prscSttsCd | String | Y | HLTG06 공통코드(복용중·종료) | PRSC.PRSC_STTS_CD, HLT-005-03 |
 | careRfltYn | Boolean | N | 주기 체크. true면 투약 케어 항목 생성. 미전송 시 기본값은 명세에 없음(issues 13) | PRSC.CARE_RFLT_YN, HLT-005-03 |
 
+### PrescriptionBulkSaveRequest
+쓰는 API: POST /pets/{petSn}/prescriptions/bulk-save
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| ckupRcdSn | Long | Y | 이 반려동물의 검진기록 | PRSC.CKUP_RCD_SN, HLT-005-03 |
+| values | List<PrescriptionItemRequest> | Y | 1개 이상. 한 트랜잭션으로 저장하고 하나라도 실패하면 전부 저장하지 않음. 같은 prscSn이 두 번 있으면 400 | HLT-005-03 |
+
+### PrescriptionItemRequest
+쓰는 API: POST /pets/{petSn}/prescriptions/bulk-save (PrescriptionBulkSaveRequest.values의 요소. 중첩 record). prscSn 밖의 값·검증은 PrescriptionCreateRequest와 같다
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| prscSn | Long | N | 있으면 그 처방약을 전체 값으로 덮어써 수정, 없으면 추가. 이 반려동물·이 검진기록의 처방약이 아니면 404 PRESCRIPTION_NOT_FOUND | PRSC.PRSC_SN, HLT-005-03 |
+| mdcnNm | String | Y | 최대 40자 | PRSC.MDCN_NM, HLT-005-03 |
+| mdcnBgngYmd | LocalDate | Y | | PRSC.MDCN_BGNG_YMD, HLT-005-03 |
+| mdcnEndYmd | LocalDate | Y | 시작일 이후만 | PRSC.MDCN_END_YMD, HLT-005-03 |
+| dayMdcnNmtm | Integer | Y | 최대 4자리. 투약 항목의 하루 목표 횟수 | PRSC.DAY_MDCN_NMTM, HLT-005-03 |
+| prscSttsCd | String | Y | HLTG06 공통코드(복용중·종료) | PRSC.PRSC_STTS_CD, HLT-005-03 |
+| careRfltYn | Boolean | N | 주기 체크. 복용중이고 true면 투약 케어 항목 생성, 그 밖에는 삭제. 미전송은 OFF(추가와 같음) | PRSC.CARE_RFLT_YN, HLT-005-03 |
+
 ### PrescriptionResponse
-쓰는 API: PATCH /pets/{petSn}/prescriptions/{prscSn}; POST /pets/{petSn}/prescriptions
+쓰는 API: PATCH /pets/{petSn}/prescriptions/{prscSn}; POST /pets/{petSn}/prescriptions; POST /pets/{petSn}/prescriptions/bulk-save (bulk-save는 List)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | prscSn | Long | Y | | PRSC.PRSC_SN |

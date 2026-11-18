@@ -12,6 +12,7 @@ import lombok.Data;
 public class Comment {
     private Long cmntSn;
     private Long prntCmntSn;
+    private Long rplyTrgtCmntSn;
     private Long pstSn;
     private Long mbrSn;
     private String cmntCn;

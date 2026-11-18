@@ -14,6 +14,7 @@ import com.nyangmeong.community.domain.PostStatus;
 import com.nyangmeong.community.dto.CommentCreateRequest;
 import com.nyangmeong.community.dto.CommentResponse;
 import com.nyangmeong.community.dto.CommentSummary;
+import com.nyangmeong.community.dto.PostAuthor;
 import com.nyangmeong.community.mapper.CommentMapper;
 import com.nyangmeong.community.mapper.LostReportMapper;
 import com.nyangmeong.community.mapper.PostMapper;
@@ -63,6 +64,8 @@ public class CommentService {
             throw new CustomException(ErrorCode.LOST_REPORT_CLOSED);
         }
         Long prntCmntSn = null;
+        Long rplyTrgtCmntSn = null;
+        String rplyTrgtMbrNcnm = null;
         if (req.prntCmntSn() != null) {
             Comment parent = commentMapper.selectComment(req.prntCmntSn());
             if (parent == null || !pstSn.equals(parent.getPstSn())) {
@@ -70,10 +73,16 @@ public class CommentService {
             }
             /** 대댓글에 단 답글은 원 댓글 스레드에 이어서 노출 */
             prntCmntSn = parent.getPrntCmntSn() != null ? parent.getPrntCmntSn() : parent.getCmntSn();
+            /** 대댓글에 단 답글만 실제로 답한 대댓글을 남긴다 (「@닉네임」 표시) */
+            if (parent.getPrntCmntSn() != null) {
+                rplyTrgtCmntSn = parent.getCmntSn();
+                rplyTrgtMbrNcnm = targetNickname(parent.getMbrSn());
+            }
         }
 
         Comment comment = new Comment();
         comment.setPrntCmntSn(prntCmntSn);
+        comment.setRplyTrgtCmntSn(rplyTrgtCmntSn);
         comment.setPstSn(pstSn);
         comment.setMbrSn(mbrSn);
         comment.setCmntCn(req.cmntCn());
@@ -82,7 +91,7 @@ public class CommentService {
             missionReflector.reflectAfterCommit(mbrSn, CareMission.PET_STORY_COMMENT);
         }
         return CommentResponse.from(commentMapper.selectComment(comment.getCmntSn()),
-                postMapper.selectAuthor(mbrSn));
+                postMapper.selectAuthor(mbrSn), rplyTrgtMbrNcnm);
     }
 
     /**
@@ -107,6 +116,14 @@ public class CommentService {
             throw new CustomException(ErrorCode.POST_NOT_FOUND);
         }
         return post;
+    }
+
+    /**
+     * 답글 대상 작성자 표시 닉네임 (파기 회원은 「탈퇴한 회원」)
+     */
+    private String targetNickname(Long mbrSn) {
+        PostAuthor author = postMapper.selectAuthor(mbrSn);
+        return author != null ? author.getMbrNcnm() : null;
     }
 
     private boolean isFound(LostReport lostReport) {

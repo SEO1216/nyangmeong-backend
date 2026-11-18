@@ -880,6 +880,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | cmntSn | Long | Y | | CMNT.CMNT_SN |
 | pstSn | Long | Y | | CMNT.PST_SN |
 | prntCmntSn | Long | N | | CMNT.PRNT_CMNT_SN |
+| rplyTrgtCmntSn | Long | N | 대댓글에 단 답글이면 실제로 답한 대댓글. 최상위 댓글에 바로 단 답글과 일반 댓글은 null | CMNT.RPLY_TRGT_CMNT_SN, 사람 요청 2026-11-18 |
+| rplyTrgtMbrNcnm | String | N | 답글 대상 작성자 닉네임(「@닉네임」 표시). 대상이 없으면 null. 파기된 회원은 「탈퇴한 회원」 | MBR.MBR_NCNM, 사람 요청 2026-11-18 |
 | cmntCn | String | Y | | CMNT.CMNT_CN |
 | mbrSn | Long | Y | | CMNT.MBR_SN |
 | mbrNcnm | String | Y | | MBR.MBR_NCNM |
@@ -892,6 +894,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | cmntSn | Long | Y | | CMNT.CMNT_SN |
 | prntCmntSn | Long | N | 대댓글이면 부모 댓글 | CMNT.PRNT_CMNT_SN, CMU-001-11 |
+| rplyTrgtCmntSn | Long | N | 대댓글에 단 답글이면 실제로 답한 대댓글(부모는 최상위 댓글). 최상위 댓글에 바로 단 답글·일반 댓글·삭제된 댓글이면 null | CMNT.RPLY_TRGT_CMNT_SN, 사람 요청 2026-11-18 |
+| rplyTrgtMbrNcnm | String | N | 답글 대상 작성자 닉네임(「@닉네임」 표시). 대상 댓글이 나중에 삭제돼도 준다. 대상이 없거나 이 댓글이 삭제됐으면 null. 파기된 회원은 「탈퇴한 회원」 | MBR.MBR_NCNM, 사람 요청 2026-11-18 |
 | delYn | boolean | Y | true면 화면이 "삭제된 댓글입니다"로 표시(issues 14) | CMNT.DEL_YN, CMU-001-11 |
 | cmntCn | String | N | 삭제된 댓글이면 null | CMNT.CMNT_CN |
 | mbrSn | Long | N | 삭제된 댓글이면 null | CMNT.MBR_SN |

@@ -2,7 +2,10 @@ package com.nyangmeong.health.service;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +16,8 @@ import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.health.domain.Prescription;
 import com.nyangmeong.health.domain.PrescriptionStatus;
 import com.nyangmeong.health.dto.CheckupSummary;
+import com.nyangmeong.health.dto.PrescriptionBulkSaveRequest;
+import com.nyangmeong.health.dto.PrescriptionBulkSaveRequest.PrescriptionItemRequest;
 import com.nyangmeong.health.dto.PrescriptionCreateRequest;
 import com.nyangmeong.health.dto.PrescriptionResponse;
 import com.nyangmeong.health.dto.PrescriptionSearchCond;
@@ -121,6 +126,65 @@ public class PrescriptionService {
     }
 
     /**
+     * 처방약 일괄 저장
+     * - 전부 검증·잠금 조회한 뒤 저장 : 하나라도 실패하면 전부 되돌림
+     */
+    @Transactional
+    public List<PrescriptionResponse> saveAll(Long mbrSn, Long petSn, PrescriptionBulkSaveRequest req) {
+        checkupService.getCheckup(mbrSn, petSn, req.ckupRcdSn());
+        String actorId = String.valueOf(mbrSn);
+
+        Set<Long> prscSns = new HashSet<>();
+        List<PendingSave> pendings = new ArrayList<>();
+        for (PrescriptionItemRequest item : req.values()) {
+            Prescription prescription;
+            String bfrSttsCd = null;
+            if (item.prscSn() == null) {
+                prescription = new Prescription();
+                prescription.setCkupRcdSn(req.ckupRcdSn());
+                prescription.setRgtrId(actorId);
+            } else {
+                if (!prscSns.add(item.prscSn())) {
+                    throw invalid();
+                }
+                prescription = getOwn(petSn, item.prscSn());
+                if (!req.ckupRcdSn().equals(prescription.getCkupRcdSn())) {
+                    throw new CustomException(ErrorCode.PRESCRIPTION_NOT_FOUND);
+                }
+                bfrSttsCd = prescription.getPrscSttsCd();
+            }
+            prescription.setMdcnNm(requiredText(item.mdcnNm()));
+            prescription.setMdcnBgngYmd(item.mdcnBgngYmd());
+            prescription.setMdcnEndYmd(item.mdcnEndYmd());
+            prescription.setDayMdcnNmtm(item.dayMdcnNmtm());
+            prescription.setPrscSttsCd(statusOf(item.prscSttsCd()).getCode());
+            prescription.setCareRfltYn(Boolean.TRUE.equals(item.careRfltYn()) ? "Y" : "N");
+            prescription.setMdfrId(actorId);
+            checkPeriod(prescription);
+            pendings.add(new PendingSave(prescription, item.prscSn() == null, bfrSttsCd));
+        }
+
+        List<PrescriptionResponse> responses = new ArrayList<>();
+        for (PendingSave pending : pendings) {
+            Prescription prescription = pending.prescription();
+            if (pending.isNew()) {
+                prescriptionMapper.insertPrescription(prescription);
+                prescriptionMapper.insertStatusHistory(prescription.getPrscSn(), mbrSn, null,
+                        prescription.getPrscSttsCd());
+            } else {
+                prescriptionMapper.updatePrescription(prescription, actorId);
+                if (!pending.bfrSttsCd().equals(prescription.getPrscSttsCd())) {
+                    prescriptionMapper.insertStatusHistory(prescription.getPrscSn(), mbrSn, pending.bfrSttsCd(),
+                            prescription.getPrscSttsCd());
+                }
+            }
+            syncMedicationItem(mbrSn, petSn, prescription, actorId);
+            responses.add(PrescriptionResponse.from(prescription));
+        }
+        return responses;
+    }
+
+    /**
      * 처방약 삭제
      */
     @Transactional
@@ -192,5 +256,11 @@ public class PrescriptionService {
 
     private CustomException invalid() {
         return new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    /**
+     * 일괄 저장 대기 1건 : 추가 여부, 수정 전 상태
+     */
+    private record PendingSave(Prescription prescription, boolean isNew, String bfrSttsCd) {
     }
 }

@@ -63,7 +63,7 @@
 --   SET NAMES utf8mb4;
 --   ALTER TABLE `ITEM` DROP COLUMN `BAKE_HINT`;
 --   ALTER TABLE `ITEM` MODIFY COLUMN `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '굽기여부(그림참고)';
--- v0.14 (20) 펫돌봄 거래 취소 요청 (2026-11-18, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 5번 사람 요청 2026-11-15, SCR-CMU-005 매칭완료·확인 대기·수령 대기 거래를 사유와 함께 취소 요청하고 상대가 동의·거절, 요청자가 철회). 공통코드 PCAG07은 기준 데이터 v0.14 (21). 공용 DB 실행 전(사람이 실행)
+-- v0.14 (21) 펫돌봄 거래 취소 요청 (2026-11-18, KSJ, 번호는 JAJ v0.14 (20)과 겹쳐 2026-11-18에 (20)→(21)로 바꿈, SQL은 그대로, 근거: 프론트 요청서 backend-request-care-chat.md 5번 사람 요청 2026-11-15, SCR-CMU-005 매칭완료·확인 대기·수령 대기 거래를 사유와 함께 취소 요청하고 상대가 동의·거절, 요청자가 철회). 공통코드 PCAG07은 기준 데이터 v0.14 (22). 공용 DB 실행 전(사람이 실행)
 --   SET NAMES utf8mb4;
 --   CREATE TABLE `MTCH_CNCL_DMND` (
 --     `MTCH_CNCL_DMND_SN` bigint NOT NULL AUTO_INCREMENT COMMENT '매칭취소요청일련번호',

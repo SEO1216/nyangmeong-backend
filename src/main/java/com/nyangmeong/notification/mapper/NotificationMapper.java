@@ -90,4 +90,9 @@ public interface NotificationMapper {
      * 읽음 처리
      */
     int updateRead(@Param("inappNotiSn") Long inappNotiSn, @Param("mbrSn") Long mbrSn);
+
+    /**
+     * 숨김 기준 안의 본인 미읽음 알림 전부 읽음 처리
+     */
+    int updateReadAll(Long mbrSn);
 }

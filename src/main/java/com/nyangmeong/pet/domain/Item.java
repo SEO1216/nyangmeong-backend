@@ -17,7 +17,6 @@ public class Item {
     private Long needPnt;
     private Long sortSeq;
     private String ntslYn;
-    private String bakeHint;
     private String bakeImgRefYn;
     private LocalDateTime regDt;
     private LocalDateTime mdfcnDt;

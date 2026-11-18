@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
 import com.nyangmeong.notification.dto.NotificationListRequest;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSummary;
 import com.nyangmeong.notification.dto.UnreadCountResponse;
 import com.nyangmeong.notification.service.NotificationService;
@@ -44,6 +45,13 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<List<NotificationSummary>>> search(@AuthenticationPrincipal LoginMember me,
             @Valid @ModelAttribute NotificationListRequest req) {
         return ResponseEntity.ok(ApiResponse.success(notificationService.search(me.id(), req.tab())));
+    }
+
+    @Operation(summary = "알림 모두 읽음 처리(탭 무관, 숨김 기준 안의 미읽음 전부)")
+    @PostMapping("/read-all")
+    public ResponseEntity<ApiResponse<NotificationReadAllResponse>> markAllRead(
+            @AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(notificationService.markAllRead(me.id())));
     }
 
     @Operation(summary = "알림 읽음 처리")

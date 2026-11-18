@@ -39,6 +39,7 @@ import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSettingResponse;
 import com.nyangmeong.notification.dto.NotificationSettingUpdateRequest;
 import com.nyangmeong.notification.dto.NotificationSummary;
@@ -143,6 +144,33 @@ class NotificationControllerTest {
         mockMvc.perform(post("/api/notifications/99/read").header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOTIFICATION_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 모두_읽음은_200과_읽음_처리한_건수() throws Exception {
+        when(notificationService.markAllRead(1L)).thenReturn(new NotificationReadAllResponse(4));
+
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.count").value(4));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 모두_읽음은_0건이어도_200() throws Exception {
+        when(notificationService.markAllRead(1L)).thenReturn(new NotificationReadAllResponse(0));
+
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(0));
+    }
+
+    @Test
+    void 로그인하지_않고_모두_읽음은_401() throws Exception {
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
     }
 
     private NotificationSettingResponse setting() {

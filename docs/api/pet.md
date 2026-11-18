@@ -48,7 +48,7 @@
 | GET | /admin/items?itemRegnCd= | 관리자 아이템 목록(판매 중지 포함, 부위·정렬 순서·번호순, 페이지 없음). 부위 코드가 MYPG01이 아니거나 신발(MYPC0006, 사용 안 함)이면 400 `INVALID_INPUT_VALUE`. 전체 목록에서도 사용 안 하는 부위(`COM_CD.USE_YN='N'`) 아이템은 뺀다 | ADM-070-01 | LJS | - | List<AdminItemSummary> |
 | GET | /admin/items/{itemSn}/image | 관리자 아이템 이미지(판매 중지도, ApiResponse 아님). 없으면 404 `ITEM_NOT_FOUND` | ADM-070-01 | LJS | - | 이미지 파일 |
 | POST | /admin/items | 아이템 등록(`multipart/form-data`). 정렬은 그 부위 마지막 다음. 201. 오류: `INVALID_INPUT_VALUE`(400, 신발 MYPC0006은 사용 안 하는 부위), `FILE_TYPE_NOT_ALLOWED`·`FILE_TOO_LARGE`(400), `ITEM_NAME_DUPLICATED`(409) | ADM-070-02 | LJS | AdminItemCreateRequest | AdminItemCreateResponse |
-| PATCH | /admin/items/{itemSn} | 아이템 수정·판매 중지(`multipart/form-data`, 보낸 칸만). 판매 중지해도 이미 산 회원의 보유는 그대로. 부위를 바꾸면 새 부위 마지막 다음 순서. 굽기 지시가 바뀌면 그 아이템의 착용 시트를 지워 다시 굽기 대상이 된다. 오류: `ITEM_NOT_FOUND`(404), `ITEM_REGION_LOCKED`(409, 보유 회원이 있는데 부위 변경), `ITEM_NAME_DUPLICATED`(409) | ADM-070-03 | LJS | AdminItemUpdateRequest | - |
+| PATCH | /admin/items/{itemSn} | 아이템 수정·판매 중지(`multipart/form-data`, 보낸 칸만). 판매 중지해도 이미 산 회원의 보유는 그대로. 부위를 바꾸면 새 부위 마지막 다음 순서. 굽기 대상(수정 후 `bakeImgRefYn` true) 아이템의 그림을 바꾸면 그 아이템의 착용 시트(굽기 실패 표시 포함)를 지워 모든 캐릭터가 다시 굽기 대상이 된다. `bakeImgRefYn`만 바꾸면 이미 구운 시트는 그대로. 오류: `ITEM_NOT_FOUND`(404), `ITEM_REGION_LOCKED`(409, 보유 회원이 있는데 부위 변경), `ITEM_NAME_DUPLICATED`(409) | ADM-070-03 | LJS | AdminItemUpdateRequest | - |
 | PUT | /admin/items/order | 부위 안 상점 순서 저장(1부터 다시 매김). 그 부위 아이템 전부(판매 중지 포함)를 빠짐·중복 없이 보내야 하고 아니면 400 `INVALID_INPUT_VALUE` | ADM-070-04 | LJS | AdminItemOrderRequest | - |
 
 ## 내부 API
@@ -62,7 +62,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | POST | /internal/ai/characters/jobs/{charCrtJobSn}/failure | 생성 실패 보고. 작업을 만든 회원만, 관리자 쿠키면 무료 재생성 작업도. 끝난 작업이면 바꾸지 않고 200. 시작 뒤 10분이 넘은 생성 중 작업과 등록 뒤 10분 동안 시작하지 않은 요청 작업(무료 재생성)은 `CharacterJobTimeoutJob`이 `CHARACTER_TIMEOUT`으로 실패 처리한다. 무료 재생성이 실패해도 "오류 확인 중"은 유지되고 관리자가 다시 처리한다 | MYP-010-12 | LJS | CharacterFailureRequest | - |
 | POST | /internal/ai/characters/jobs/{charCrtJobSn}/regen-start | 무료 재생성 시작(관리자 쿠키만, 아니면 403 `FORBIDDEN`). Python 이 관리자 화면의 재생성 요청을 받아 부른다. 요청 상태인 재생성 작업만 생성 중으로 바꾸고 생성 입력을 준다. 이미 시작했거나 끝났으면 409 `ALREADY_PROCESSED`, 없거나 재생성 작업이 아니면 404 `PIXEL_CHARACTER_NOT_FOUND` | MYP-010-23, ADM-042-07 | LJS | - | CharacterJobResponse |
 | GET | /internal/ai/characters/jobs/{charCrtJobSn}/original-photo | 무료 재생성 원본 사진(관리자 쿠키만, 아니면 403 `FORBIDDEN`, 파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp, ApiResponse 아님). 생성 중인 재생성 작업이 아니거나 원본이 없으면 404 `FILE_NOT_FOUND`(이 기능 전에 만든 캐릭터는 원본이 없다) | MYP-010-23 | LJS | - | 이미지 파일 |
-| GET | /internal/ai/characters/bake-items | 굽기 대상(판매 중이고 굽기 지시 `BAKE_HINT`가 있거나 그림 참고 굽기 `BAKE_IMG_REF_YN`='Y', 신발은 사용 안 하는 부위). `bakeImgRefYn`이 true면 `bake-image`로 그림을 받아 참고로 굽는다 | MYP-011-01, ADM-070-02 | LJS | - | List<BakeItemSummary> |
+| GET | /internal/ai/characters/bake-items | 굽기 대상(판매 중이고 `BAKE_IMG_REF_YN`='Y', 신발은 사용 안 하는 부위). 영어 굽기 지시는 없다(2026-11-17). `bake-image`로 그림을 받아 참고로 굽는다 | MYP-011-01, ADM-070-02 | LJS | - | List<BakeItemSummary> |
 | GET | /internal/ai/items/{itemSn}/bake-targets?page= | 그 아이템을 아직 안 구운 캐릭터(맨몸 시트가 있고 그 아이템의 착용 시트·굽기 실패 표시가 없음). 관리자 쿠키만, 아니면 403 `ADMIN_ONLY`. `page`는 0부터(기본 0), 한 페이지 100개, 캐릭터 번호순. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, `page` 음수 400 | ADM-070-02 | LJS | - | BakeTargetPageResponse |
 | GET | /internal/ai/items/{itemSn}/bake-image | 굽기 참고용 아이템 그림(파일 자체 응답, `Content-Type`은 저장된 형식 jpg·png·webp). 회원·관리자 쿠키 모두. 굽기 대상 아이템이 아니면 404 `ITEM_NOT_FOUND`, 파일이 없으면 404 `FILE_NOT_FOUND` | MYP-011-01, ADM-070-02 | LJS | - | 파일 |
 | PUT | /internal/ai/characters/{pixelCharSn}/item-sheets/{itemSn} | 착용 시트 저장(주양육자만, 관리자 쿠키면 남의 캐릭터도(전체 굽기 FN-ADM-070-02), 다시 받으면 교체). 굽기 대상이 아니면 404 `ITEM_NOT_FOUND`, 1024 PNG가 아니면 400 | MYP-011-01 | LJS | ItemSheetSaveRequest | - |
@@ -111,8 +111,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | --- | --- | --- | --- | --- |
 | itemSn | Long | Y | | ITEM.ITEM_SN |
 | regnCd | String | Y | 부위 MYPG01 | ITEM.ITEM_REGN_CD |
-| bakeHint | String | N | 영어 한 문장 굽기 지시. 그림 참고 아이템은 null일 수 있다 | ITEM.BAKE_HINT |
-| bakeImgRefYn | boolean | Y | true면 아이템 그림을 참고로 굽는다 | ITEM.BAKE_IMG_REF_YN |
+| bakeImgRefYn | boolean | Y | 굽기 대상만 나오므로 항상 true. 아이템 그림을 참고로 굽는다 | ITEM.BAKE_IMG_REF_YN |
 | atchFileSn | Long | Y | 아이템 그림 파일 번호(그림이 바뀌면 번호가 바뀐다). 그림은 `/internal/ai/items/{itemSn}/bake-image` | ITEM.ATCH_FILE_SN |
 
 ### BakeTargetPageResponse
@@ -242,8 +241,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | ntslYn | boolean | Y | 판매 중이면 true | ITEM.NTSL_YN |
 | sortSeq | Long | Y | 부위 안 상점 순서 | ITEM.SORT_SEQ |
 | atchFileSn | Long | Y | 이미지는 `/admin/items/{itemSn}/image`로 연다 | ITEM.ATCH_FILE_SN |
-| bakeHint | String | N | 굽기 지시, 없으면 null | ITEM.BAKE_HINT |
-| bakeImgRefYn | boolean | Y | 그림 참고 굽기면 true | ITEM.BAKE_IMG_REF_YN |
+| bakeImgRefYn | boolean | Y | true면 굽기 대상(아이템 그림을 참고로 굽는다) | ITEM.BAKE_IMG_REF_YN |
 | hldMbrCnt | Long | Y | 보유 회원 수(그 아이템을 보유한 캐릭터 수, 캐릭터는 반려동물당 1개) | HLD_ITEM |
 
 ### AdminItemCreateRequest
@@ -254,8 +252,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | itemNm | String | Y | 1~50자, 앞뒤 공백 제거. 같은 이름 409 | ITEM.ITEM_NM |
 | needPnt | Long | Y | 0~1,000,000 | ITEM.NEED_PNT |
 | ntslYn | Boolean | Y | | ITEM.NTSL_YN |
-| bakeHint | String | N | 300자 이하, 비우고 `bakeImgRefYn`도 false면 굽지 않음. 신발(MYPC0006)은 사용 안 하는 부위라 등록 400(부위 검사). 초안은 AI `/ai/items/bake-hints` | ITEM.BAKE_HINT |
-| bakeImgRefYn | Boolean | N | true면 굽기 지시 없이도 굽기 대상이고 아이템 그림을 참고로 굽는다. 없으면 false | ITEM.BAKE_IMG_REF_YN |
+| bakeImgRefYn | Boolean | N | true면 굽기 대상이고 아이템 그림을 참고로 굽는다. 없으면 false(굽지 않음) | ITEM.BAKE_IMG_REF_YN |
 | image | MultipartFile | Y | 이미지 파일(형식·용량은 공통 파일 규칙) | ITEM.ATCH_FILE_SN |
 
 ### AdminItemCreateResponse
@@ -271,9 +268,8 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | itemNm | String | N | 1~50자 | ITEM.ITEM_NM |
 | needPnt | Long | N | 0~1,000,000 | ITEM.NEED_PNT |
 | ntslYn | Boolean | N | false면 판매 중지 | ITEM.NTSL_YN |
-| bakeHint | String | N | 300자 이하. 빈 문자열이면 지운다 | ITEM.BAKE_HINT |
-| bakeImgRefYn | Boolean | N | 그림 참고 굽기 여부. 바꿔도 이미 구운 착용 시트는 그대로다 | ITEM.BAKE_IMG_REF_YN |
-| image | MultipartFile | N | 바꿀 때만 | ITEM.ATCH_FILE_SN |
+| bakeImgRefYn | Boolean | N | 굽기 대상 여부(그림 참고). 이것만 바꾸면 이미 구운 착용 시트는 그대로다 | ITEM.BAKE_IMG_REF_YN |
+| image | MultipartFile | N | 바꿀 때만. 수정 후 굽기 대상이면 그 아이템의 착용 시트를 지운다 | ITEM.ATCH_FILE_SN |
 
 ### AdminItemOrderRequest
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |

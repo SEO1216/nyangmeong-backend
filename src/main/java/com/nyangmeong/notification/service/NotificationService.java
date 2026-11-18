@@ -16,6 +16,7 @@ import com.nyangmeong.global.security.domain.MemberStatus;
 import com.nyangmeong.notification.domain.InappNotification;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
 import com.nyangmeong.notification.domain.NotificationReceiveSetting;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSettingResponse;
 import com.nyangmeong.notification.dto.NotificationSettingUpdateRequest;
 import com.nyangmeong.notification.dto.NotificationSummary;
@@ -94,6 +95,15 @@ public class NotificationService {
             throw new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND);
         }
         notificationMapper.updateRead(inappNotiSn, mbrSn);
+    }
+
+    /**
+     * 알림 모두 읽음 처리
+     * - 탭과 상관없이 숨김 기준 안의 본인 미읽음 알림 전부. 0건이어도 성공
+     */
+    @Transactional
+    public NotificationReadAllResponse markAllRead(Long mbrSn) {
+        return new NotificationReadAllResponse(notificationMapper.updateReadAll(mbrSn));
     }
 
     /**

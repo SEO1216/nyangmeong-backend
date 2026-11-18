@@ -13,7 +13,6 @@
     <resultMap id="bakeItemSummaryResultMap" type="com.nyangmeong.pet.dto.BakeItemSummary">
         <id     column="ITEM_SN"         property="itemSn" />
         <result column="ITEM_REGN_CD"    property="regnCd" />
-        <result column="BAKE_HINT"       property="bakeHint" />
         <result column="BAKE_IMG_REF_YN" property="bakeImgRefYn" />
         <result column="ATCH_FILE_SN"    property="atchFileSn" />
     </resultMap>
@@ -26,7 +25,6 @@
         <result column="NEED_PNT"     property="needPnt" />
         <result column="SORT_SEQ"     property="sortSeq" />
         <result column="NTSL_YN"      property="ntslYn" />
-        <result column="BAKE_HINT"    property="bakeHint" />
         <result column="BAKE_IMG_REF_YN" property="bakeImgRefYn" />
         <result column="REG_DT"       property="regDt" />
         <result column="MDFCN_DT"     property="mdfcnDt" />
@@ -43,7 +41,6 @@
         <result column="NTSL_YN"         property="ntslYn" />
         <result column="SORT_SEQ"        property="sortSeq" />
         <result column="ATCH_FILE_SN"    property="atchFileSn" />
-        <result column="BAKE_HINT"       property="bakeHint" />
         <result column="BAKE_IMG_REF_YN" property="bakeImgRefYn" />
         <result column="HLD_MBR_CNT"     property="hldMbrCnt" />
     </resultMap>
@@ -97,13 +94,11 @@
         /* 굽기 대상 아이템 조회 */
         SELECT ITEM_SN
              , ITEM_REGN_CD
-             , BAKE_HINT
              , CASE WHEN BAKE_IMG_REF_YN = 'Y' THEN TRUE ELSE FALSE END AS BAKE_IMG_REF_YN
              , ATCH_FILE_SN
           FROM ITEM
          WHERE NTSL_YN = 'Y'
-           AND ( BAKE_HINT IS NOT NULL
-              OR BAKE_IMG_REF_YN = 'Y' )
+           AND BAKE_IMG_REF_YN = 'Y'
          ORDER BY ITEM_SN
     </select>
 
@@ -113,8 +108,7 @@
           FROM ITEM
          WHERE ITEM_SN = #{itemSn}
            AND NTSL_YN = 'Y'
-           AND ( BAKE_HINT IS NOT NULL
-              OR BAKE_IMG_REF_YN = 'Y' )
+           AND BAKE_IMG_REF_YN = 'Y'
     </select>
 
     <insert id="insertHeldItems">
@@ -147,7 +141,6 @@
              , CASE WHEN I.NTSL_YN = 'Y' THEN TRUE ELSE FALSE END AS NTSL_YN
              , I.SORT_SEQ
              , I.ATCH_FILE_SN
-             , I.BAKE_HINT
              , CASE WHEN I.BAKE_IMG_REF_YN = 'Y' THEN TRUE ELSE FALSE END AS BAKE_IMG_REF_YN
              , ( SELECT COUNT(*)
                    FROM HLD_ITEM H
@@ -179,7 +172,6 @@
              , NEED_PNT
              , SORT_SEQ
              , NTSL_YN
-             , BAKE_HINT
              , BAKE_IMG_REF_YN
              , REG_DT
              , MDFCN_DT
@@ -225,7 +217,6 @@
              , NEED_PNT
              , SORT_SEQ
              , NTSL_YN
-             , BAKE_HINT
              , BAKE_IMG_REF_YN
              , REG_DT
              , MDFCN_DT
@@ -238,7 +229,6 @@
              , #{needPnt}
              , #{sortSeq}
              , #{ntslYn}
-             , #{bakeHint}
              , #{bakeImgRefYn}
              , NOW()
              , NOW()
@@ -268,9 +258,6 @@
             </if>
             <if test="item.ntslYn != null">
              , NTSL_YN = #{item.ntslYn}
-            </if>
-            <if test="bakeHintChanged">
-             , BAKE_HINT = #{item.bakeHint}
             </if>
             <if test="item.bakeImgRefYn != null">
              , BAKE_IMG_REF_YN = #{item.bakeImgRefYn}

@@ -137,9 +137,9 @@ class CareItemServiceTest {
                         tuple("귀 청소", CareCycle.WEEK_1.getCode()),
                         tuple("발톱 관리", CareCycle.WEEK_2.getCode()),
                         tuple("목욕", CareCycle.MONTH_1.getCode()),
-                        tuple("눈 주변 관리", CareCycle.WEEK_2.getCode()),
-                        tuple("발바닥 털 관리", CareCycle.WEEK_2.getCode()),
-                        tuple("구강 상태 확인", CareCycle.WEEK_2.getCode()));
+                        tuple("눈곱 닦기", CareCycle.WEEK_2.getCode()),
+                        tuple("발바닥 털 다듬기", CareCycle.WEEK_2.getCode()),
+                        tuple("잇몸·치석 확인", CareCycle.WEEK_2.getCode()));
     }
 
     @Test

@@ -1186,14 +1186,14 @@ SELECT P.PET_SN, B.ZONE_CD, B.CYCLE_CD, B.NM, B.ICON,
         SELECT  1 ORD, '화장실 청소'    NM, 'HLTC0036' ZONE_CD, NULL       CYCLE_CD, 'cleaning_services'   ICON
   UNION ALL SELECT  2, '양치',          'HLTC0036', NULL,       'dentistry'
   UNION ALL SELECT  3, '빗질',          'HLTC0036', NULL,       'brush'
-  UNION ALL SELECT  4, '발 관리',       'HLTC0036', NULL,       'task_alt'
+  UNION ALL SELECT  4, '발 상태 확인',  'HLTC0036', NULL,       'task_alt'
   UNION ALL SELECT  5, '놀이',          'HLTC0036', NULL,       'task_alt'
   UNION ALL SELECT  6, '귀 청소',       'HLTC0037', 'HLTC0038', 'hearing'
   UNION ALL SELECT  7, '발톱 관리',     'HLTC0037', 'HLTC0039', 'content_cut'
   UNION ALL SELECT  8, '목욕',          'HLTC0037', 'HLTC0040', 'bathtub'
-  UNION ALL SELECT  9, '눈 주변 관리',  'HLTC0037', 'HLTC0039', 'task_alt'
-  UNION ALL SELECT 10, '발바닥 털 관리', 'HLTC0037', 'HLTC0039', 'content_cut'
-  UNION ALL SELECT 11, '구강 상태 확인', 'HLTC0037', 'HLTC0039', 'sentiment_satisfied'
+  UNION ALL SELECT  9, '눈곱 닦기',     'HLTC0037', 'HLTC0039', 'task_alt'
+  UNION ALL SELECT 10, '발바닥 털 다듬기', 'HLTC0037', 'HLTC0039', 'content_cut'
+  UNION ALL SELECT 11, '잇몸·치석 확인', 'HLTC0037', 'HLTC0039', 'sentiment_satisfied'
  ) B
  WHERE P.DEL_YN = 'N'
    AND NOT EXISTS (SELECT 1 FROM CARE_ARTCL A

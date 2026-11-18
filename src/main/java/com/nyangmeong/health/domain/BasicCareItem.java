@@ -13,14 +13,14 @@ public enum BasicCareItem {
     TOILET_CLEANING("화장실 청소", CareZone.DAILY, null, "cleaning_services"),
     TOOTH_BRUSHING("양치", CareZone.DAILY, null, "dentistry"),
     BRUSHING("빗질", CareZone.DAILY, null, "brush"),
-    PAW_CARE("발 관리", CareZone.DAILY, null, "task_alt"),
+    PAW_CARE("발 상태 확인", CareZone.DAILY, null, "task_alt"),
     PLAY("놀이", CareZone.DAILY, null, "task_alt"),
     EAR_CLEANING("귀 청소", CareZone.REGULAR, CareCycle.WEEK_1, "hearing"),
     NAIL_CARE("발톱 관리", CareZone.REGULAR, CareCycle.WEEK_2, "content_cut"),
     BATH("목욕", CareZone.REGULAR, CareCycle.MONTH_1, "bathtub"),
-    EYE_CARE("눈 주변 관리", CareZone.REGULAR, CareCycle.WEEK_2, "task_alt"),
-    PAW_HAIR_CARE("발바닥 털 관리", CareZone.REGULAR, CareCycle.WEEK_2, "content_cut"),
-    MOUTH_CHECK("구강 상태 확인", CareZone.REGULAR, CareCycle.WEEK_2, "sentiment_satisfied");
+    EYE_CARE("눈곱 닦기", CareZone.REGULAR, CareCycle.WEEK_2, "task_alt"),
+    PAW_HAIR_CARE("발바닥 털 다듬기", CareZone.REGULAR, CareCycle.WEEK_2, "content_cut"),
+    MOUTH_CHECK("잇몸·치석 확인", CareZone.REGULAR, CareCycle.WEEK_2, "sentiment_satisfied");
 
     /** 고른 적 없는 반려동물의 케어리스트에 보일 추천 항목 (※신규 정책) */
     private static final Set<BasicCareItem> RECOMMENDED = EnumSet.of(TOILET_CLEANING, TOOTH_BRUSHING, BRUSHING, PLAY,

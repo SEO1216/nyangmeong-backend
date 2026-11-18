@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -649,5 +650,62 @@ class CareItemServiceTest {
         assertThat(names.get(PET)).containsExactly("양치");
         assertThat(names.get(OTHER_PET)).isEmpty();
         verify(mapper, never()).insertItem(any());
+    }
+
+    private CareItem missionItem(Long petSn, BasicCareItem basic, String indctYn, LocalDate nxtmPrnmntYmd) {
+        CareItem item = item(basic.getCareArtclNm(), basic.getZone(), basic.getCycle(), true);
+        item.setPetSn(petSn);
+        item.setIndctYn(indctYn);
+        item.setNxtmPrnmntYmd(nxtmPrnmntYmd);
+        return item;
+    }
+
+    @Test
+    void 케어미션_후보는_보이는_매일_항목과_예정일이_된_정기_항목만이다() {
+        when(mapper.selectBasicItemsForMission()).thenReturn(List.of(
+                missionItem(PET, BasicCareItem.TOILET_CLEANING, "Y", null),
+                missionItem(PET, BasicCareItem.TOOTH_BRUSHING, "N", null),
+                missionItem(PET, BasicCareItem.EAR_CLEANING, "Y", today),
+                missionItem(PET, BasicCareItem.NAIL_CARE, "Y", today.minusDays(2)),
+                missionItem(PET, BasicCareItem.BATH, "Y", today.plusDays(1)),
+                missionItem(PET, BasicCareItem.EYE_CARE, "Y", null),
+                missionItem(PET, BasicCareItem.PAW_HAIR_CARE, "N", today)));
+
+        Map<Long, Set<CareMission>> candidates = service.searchMissionCandidates(today);
+
+        assertThat(candidates.get(PET)).containsExactlyInAnyOrder(CareMission.TOILET_CLEANING,
+                CareMission.EAR_CLEANING, CareMission.NAIL_CARE);
+    }
+
+    @Test
+    void 고른_적_없는_항목은_추천_항목만_후보이고_정기_판정은_항목의_현재_구역으로_한다() {
+        CareItem movedToDaily = missionItem(PET, BasicCareItem.BATH, "Y", null);
+        movedToDaily.setCareZoneCd(CareZone.DAILY.getCode());
+        CareItem movedToRegular = missionItem(PET, BasicCareItem.PLAY, "Y", null);
+        movedToRegular.setCareZoneCd(CareZone.REGULAR.getCode());
+        when(mapper.selectBasicItemsForMission()).thenReturn(List.of(
+                missionItem(PET, BasicCareItem.BRUSHING, null, null),
+                missionItem(PET, BasicCareItem.PAW_CARE, null, null),
+                missionItem(PET, BasicCareItem.EAR_CLEANING, null, today),
+                missionItem(PET, BasicCareItem.MOUTH_CHECK, null, today),
+                movedToDaily, movedToRegular));
+
+        Map<Long, Set<CareMission>> candidates = service.searchMissionCandidates(today);
+
+        /** 추천 항목(빗질·귀 청소)은 NULL이어도 보임, 발 상태 확인·잇몸·치석 확인은 추천이 아니라 숨김 */
+        assertThat(candidates.get(PET)).containsExactlyInAnyOrder(CareMission.BRUSHING, CareMission.EAR_CLEANING,
+                CareMission.BATH);
+    }
+
+    @Test
+    void 케어미션_후보는_기본_항목이_있는_반려동물만_키로_두고_후보가_없으면_빈_집합이다() {
+        when(mapper.selectBasicItemsForMission())
+                .thenReturn(List.of(missionItem(OTHER_PET, BasicCareItem.TOOTH_BRUSHING, "N", null)));
+
+        Map<Long, Set<CareMission>> candidates = service.searchMissionCandidates(today);
+
+        assertThat(candidates).containsOnlyKeys(OTHER_PET);
+        assertThat(candidates.get(OTHER_PET)).isEmpty();
+        assertThat(candidates).doesNotContainKey(PET);
     }
 }

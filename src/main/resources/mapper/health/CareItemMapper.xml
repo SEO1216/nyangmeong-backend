@@ -157,6 +157,22 @@
          ORDER BY PET_SN , CARE_ARTCL_SN
     </select>
 
+    <select id="selectBasicItemsForMission" resultMap="careItemResultMap">
+        /* 케어미션 출제 후보용 기본 케어 항목 */
+        SELECT A.CARE_ARTCL_SN
+             , A.PET_SN
+             , A.CARE_ZONE_CD
+             , A.CARE_ARTCL_NM
+             , A.NXTM_PRNMNT_YMD
+             , A.INDCT_YN
+          FROM CARE_ARTCL A
+          JOIN PET P ON P.PET_SN = A.PET_SN
+         WHERE A.BSC_ARTCL_YN = 'Y'
+           AND A.DEL_YN = 'N'
+           AND P.DEL_YN = 'N'
+         ORDER BY A.PET_SN , A.CARE_ARTCL_SN
+    </select>
+
     <select id="selectSummary" resultMap="careItemSummaryResultMap">
         /* 케어 항목 단건 조회 */
         SELECT

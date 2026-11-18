@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import com.nyangmeong.health.service.CareItemService;
 import com.nyangmeong.health.service.ObservationService;
 import com.nyangmeong.pet.service.CareMissionService;
 
@@ -18,6 +19,7 @@ class CareMissionJobSwitchTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withBean(CareMissionService.class, () -> mock(CareMissionService.class))
             .withBean(ObservationService.class, () -> mock(ObservationService.class))
+            .withBean(CareItemService.class, () -> mock(CareItemService.class))
             .withUserConfiguration(CareMissionJob.class);
 
     @Test

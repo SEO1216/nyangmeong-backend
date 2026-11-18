@@ -441,16 +441,16 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 
 ### DailyMissionSummary
 쓰는 API: GET /pets/{petSn}/daily-missions
-출제 순서대로 정렬. 상단의 완료 개수·달성률·획득 포인트·남은 포인트는 프론트가 이 목록으로 계산한다(MYP-020-04).
+출제 순서대로 정렬. 하루 8개, 배점 합계는 항상 60P(등급 배점 쉬움 5·보통 10·어려움 15P, 출제 조합 (어려움,보통,쉬움) = (0,4,4)·(1,2,5)·(2,0,6), 조합을 못 만드는 날만 등급 가중치 비율). 상단의 완료 개수·달성률·획득 포인트·남은 포인트는 프론트가 이 목록으로 계산한다(MYP-020-04).
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | dayMsnSn | Long | Y | | DAY_MSN.DAY_MSN_SN |
 | careMsnSn | Long | Y | | DAY_MSN.CARE_MSN_SN |
 | msnNm | String | Y | | CARE_MSN.MSN_NM, MYP-020-04 |
-| scorPnt | Integer | Y | 배점 | DAY_MSN.SCOR_PNT, MYP-020-04·05 |
+| scorPnt | Integer | Y | 배점. 등급 배점 5·10·15P(조합을 못 만드는 날만 예외), 출제 때 정해져 하루 합 60P | DAY_MSN.SCOR_PNT, MYP-020-04·05 |
 | prgrsNmtm | Integer | Y | 진행 횟수 | DAY_MSN.PRGRS_NMTM, MYP-020-04 |
 | achvCrtrNmtm | Integer | Y | 달성 기준 횟수(진행률 분모) | DAY_MSN.ACHV_CRTR_NMTM(출제 때 CARE_MSN 값 복사, ADM-071-03), MYP-020-05 |
-| givePnt | Integer | N | 지급 포인트. 완료도 자정 정산도 안 됐으면 null, 그 밖에는 값(0 포함) | DAY_MSN.GIVE_PNT, MYP-020-04·05 |
+| givePnt | Integer | N | 지급 포인트. 완료도 자정 정산도 안 됐으면 null, 그 밖에는 값(0 포함). 미완료는 자정에 진행률만큼 지급(배점 10P 미션 1/2 → 5P) | DAY_MSN.GIVE_PNT, MYP-020-04·05 |
 | cmptnYn | boolean | Y | 완료/미완료 | DAY_MSN.CMPTN_YN, MYP-020-04 |
 
 ### EquippedItemSaveRequest

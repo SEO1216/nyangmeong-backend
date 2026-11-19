@@ -698,6 +698,12 @@
 - 완료 조건: UTF-8로 풀리지 않는 요청 값(예: `?q=%FF`)을 보내면 500이 아니라 400 `BAD_REQUEST`다
 - 완료 조건 결과: `GlobalExceptionHandler`가 Tomcat `InvalidParameterException`을 400 `BAD_REQUEST`로 바꾼다. 검증 `통과`(1회차, 8082에서 닉네임 중복 확인·관리자 회원 목록 `?q=%FF` 400 확인), 사람 확인 2026-11-19
 
+## SCR-ADM-001 대시보드 · 전체 게시글 수 삭제 글 제외 — 끝
+- 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-001-02·04
+- 기다리는 것: 없음
+- 완료 조건: `GET /api/admin/dashboard`의 `totPstCnt`·`recentPsts`와 `GET /api/admin/dashboard/stats`의 `pstCntByBbs`가 삭제(CMUC0005) 글을 빼고 정상·블라인드 글만 센다. `totPstCnt` = `GET /api/admin/posts?status=CMUC0003` + `?status=CMUC0004`의 `totalElements` 합
+- 완료 조건 결과: 검증 `통과`(2026-11-19, 1회차), 사람 확인 2026-11-19. 정한 것: 매퍼는 `excludeSttsCd` 파라미터로 받고 서비스가 `PostStatus.DELETED.getCode()`를 넘긴다, 게시판별 수는 LEFT JOIN ON 조건이라 글 없는 게시판 0 유지. 남김: `AdminDashboardPostResponse` 클래스 주석의 "삭제 글 전부"는 기획 밖이라 고치지 않았다
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)

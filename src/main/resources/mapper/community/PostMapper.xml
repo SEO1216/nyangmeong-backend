@@ -530,11 +530,12 @@
     </select>
 
     <select id="countAll" resultType="long">
-        /* 전체 게시글 수 : 관리자 게시글 목록 기본 조건과 같게 삭제 글 포함 */
+        /* 전체 게시글 수 : 삭제 글 제외(정상·블라인드) */
         SELECT COUNT(*)
           FROM PST P
           JOIN MBR M
             ON M.MBR_SN = P.MBR_SN
+         WHERE P.PST_STTS_CD &lt;&gt; #{excludeSttsCd}
     </select>
 
     <resultMap id="adminRecentPostResultMap" type="com.nyangmeong.community.dto.AdminRecentPostSummary">
@@ -546,7 +547,7 @@
     </resultMap>
 
     <select id="selectRecentPosts" resultMap="adminRecentPostResultMap">
-        /* 관리자 대시보드 최근 게시글 : 관리자 게시글 목록 기본 조건과 같게 삭제 글 포함 */
+        /* 관리자 대시보드 최근 게시글 : 삭제 글 제외(정상·블라인드) */
         SELECT P.PST_SN
              , P.BBS_CD
              , C.COM_CD_NM AS BBS_NM
@@ -558,6 +559,7 @@
           LEFT JOIN COM_CD C
             ON C.COM_CD = P.BBS_CD
            AND C.COM_CD_PRNT_SN IS NOT NULL
+         WHERE P.PST_STTS_CD &lt;&gt; #{excludeSttsCd}
          ORDER BY P.REG_DT DESC
                 , P.PST_SN DESC
          LIMIT #{limit}
@@ -570,7 +572,7 @@
     </resultMap>
 
     <select id="selectBoardPostCounts" resultMap="adminBoardPostCountResultMap">
-        /* 관리자 대시보드 게시판별 게시글 수 : 전체 게시글 수(countAll)와 같게 상태 무관, 게시판 전부 */
+        /* 관리자 대시보드 게시판별 게시글 수 : 전체 게시글 수(countAll)와 같게 삭제 글 제외, 게시판 전부 */
         SELECT C.COM_CD          AS BBS_CD
              , C.COM_CD_NM       AS BBS_NM
              , COUNT(P.PST_SN)   AS CNT
@@ -582,6 +584,7 @@
                      JOIN MBR M
                        ON M.MBR_SN = P.MBR_SN)
             ON P.BBS_CD = C.COM_CD
+           AND P.PST_STTS_CD &lt;&gt; #{excludeSttsCd}
            AND P.REG_DT &gt;= #{fromDt}
            AND P.REG_DT &lt; #{toDt}
          WHERE G.COM_CD = #{bbsGrpCd}

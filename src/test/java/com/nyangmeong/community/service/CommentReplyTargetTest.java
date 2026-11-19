@@ -21,6 +21,7 @@ import com.nyangmeong.community.mapper.CommentMapper;
 import com.nyangmeong.community.mapper.LostReportMapper;
 import com.nyangmeong.community.mapper.PostMapper;
 import com.nyangmeong.global.auth.OwnerAuthorizer;
+import com.nyangmeong.global.validation.ProfanityFilter;
 
 /**
  * [검사 - 답글 대상 「@닉네임」 저장]
@@ -36,7 +37,8 @@ class CommentReplyTargetTest {
     private final CommentMapper commentMapper = mock(CommentMapper.class);
     private final PostMapper postMapper = mock(PostMapper.class);
     private final CommentService service = new CommentService(commentMapper, postMapper,
-            mock(LostReportMapper.class), new OwnerAuthorizer(), mock(PetStoryMissionReflector.class));
+            mock(LostReportMapper.class), new OwnerAuthorizer(), mock(PetStoryMissionReflector.class),
+            mock(ProfanityFilter.class));
 
     private Comment comment(Long cmntSn, Long prntCmntSn, Long mbrSn) {
         Comment comment = new Comment();

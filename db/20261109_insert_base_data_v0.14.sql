@@ -1,7 +1,7 @@
 -- =====================================================================
 -- 냥멍케어 기준 데이터 v0.14 (2026-11-09)  |  공통코드 + 케어미션 마스터
 -- 대상 DDL : 20261109_create_tables_v0.14.sql  (테이블 COM_CD, CARE_MSN, AI_ROUT_MPNG, KWRD_DICT)
--- 범위     : [1] 공통코드 그룹 78개 전체 (339개 코드)  [2] 케어미션 마스터 21건  [3] AI 라우팅 매핑 45건  [4] 키워드 사전 66건
+-- 범위     : [1] 공통코드 그룹 78개 전체 (341개 코드)  [2] 케어미션 마스터 21건  [3] AI 라우팅 매핑 45건  [4] 키워드 사전 94건
 -- 원천     : 기준 데이터 v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (2)·(3)·(4)가 모두 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것
 --            새 코드는 기존 DB와 COM_CD_SN이 같도록 공용 DB에 실행한 순서대로 파일 끝에 둔다
 -- 채번 규칙: 그룹 = 도메인3자 + G + 2자리(ERD 그대로) / 코드 = 도메인3자 + C + 4자리
@@ -104,6 +104,18 @@
 --      SET `MSN_NM` = CASE `MSN_NM` WHEN '발 관리하기' THEN '발 상태 확인하기' WHEN '눈 주변 관리하기' THEN '눈곱 닦기' WHEN '발바닥 털 관리하기' THEN '발바닥 털 다듬기' WHEN '구강 상태 확인하기' THEN '잇몸·치석 확인하기' END
 --    WHERE `MSN_NM` IN ('발 관리하기','눈 주변 관리하기','발바닥 털 관리하기','구강 상태 확인하기');
 --   UPDATE `CARE_MSN` SET `ACHV_CRTR_NMTM` = 2 WHERE `MSN_NM` = '식사량 기록하기';
+-- v0.14 (25) 욕설 필터링 금칙어 사전 (2026-11-19, KSJ, 근거: 프론트 요청서 2026-11-19 「욕설 필터링 서버 검사 추가」, 마일스톤 KSJ SCR-CMU-001 펫이야기 · 욕설 필터링 서버 검사, 금칙어는 DB로 둔다). 키워드 사전(KWRD_DICT)의 사전용도 AIMG10에 금칙어 AIMC0041·금칙어 예외 AIMC0042를 더하고 초기 단어를 넣는다. 한 단어가 한 행(KWRD_CN). 「시바」「bitch」는 시바견·암캐 뜻이 있어 뺐고 「시발점」「병신년」은 예외어. 테이블 변경 없음. 공용 DB 실행함(2026-11-19)
+--   SET NAMES utf8mb4;
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='AIMG10') p),'AIMC0041','금칙어','커뮤니티·문의·채팅 입력 욕설 검사(global/validation/ProfanityFilter). 한 행이 한 단어',110);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='AIMG10') p),'AIMC0042','금칙어 예외','금칙어를 포함하지만 일상어인 단어. 검사 전에 글에서 지운다',120);
+--   INSERT INTO `KWRD_DICT` (`DICT_USG_CD`,`KWRD_CLSF_NM`,`ARTCL_NM`,`KWRD_CN`,`SORT_SEQ`,`RMRK_CN`) VALUES
+--     ('AIMC0041','금칙어','욕설','시발',10,NULL),('AIMC0041','금칙어','욕설','씨발',20,NULL),('AIMC0041','금칙어','욕설','씨바',30,NULL),('AIMC0041','금칙어','욕설','쓰발',40,NULL),
+--     ('AIMC0041','금칙어','욕설','병신',50,NULL),('AIMC0041','금칙어','욕설','븅신',60,NULL),('AIMC0041','금칙어','욕설','개새끼',70,NULL),('AIMC0041','금칙어','욕설','개세끼',80,NULL),
+--     ('AIMC0041','금칙어','욕설','개색기',90,NULL),('AIMC0041','금칙어','욕설','좆',100,NULL),('AIMC0041','금칙어','욕설','존나',110,NULL),('AIMC0041','금칙어','욕설','지랄',120,NULL),
+--     ('AIMC0041','금칙어','욕설','염병',130,NULL),('AIMC0041','금칙어','욕설','미친놈',140,NULL),('AIMC0041','금칙어','욕설','미친년',150,NULL),('AIMC0041','금칙어','욕설','느금마',160,NULL),
+--     ('AIMC0041','금칙어','욕설','니애미',170,NULL),('AIMC0041','금칙어','초성','ㅅㅂ',200,NULL),('AIMC0041','금칙어','초성','ㅆㅂ',210,NULL),('AIMC0041','금칙어','초성','ㅂㅅ',220,NULL),
+--     ('AIMC0041','금칙어','초성','ㅄ',230,NULL),('AIMC0041','금칙어','초성','ㅈㄹ',240,NULL),('AIMC0041','금칙어','영어','fuck',300,'영문 대소문자 무시'),('AIMC0041','금칙어','영어','shit',310,'영문 대소문자 무시'),
+--     ('AIMC0042','금칙어 예외','일상어','시발점',10,'출발점을 뜻하는 말'),('AIMC0042','금칙어 예외','일상어','병신년',20,'간지 해 이름'),('AIMC0042','금칙어 예외','일상어','시바견',30,'견종'),('AIMC0042','금칙어 예외','일상어','시바이누',40,'견종');
 SET NAMES utf8mb4;
 START TRANSACTION;
 
@@ -654,6 +666,9 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0022','동의','상대가 동의해 거래 취소',20);
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0023','거절','상대가 거절해 거래 유지',30);
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0024','철회','요청자가 철회해 거래 유지',40);
+-- ■ AIM 사전용도 — v0.14 추가: 금칙어·금칙어 예외 (v0.14 (25))
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='AIMG10') p),'AIMC0041','금칙어','커뮤니티·문의·채팅 입력 욕설 검사(global/validation/ProfanityFilter). 한 행이 한 단어',110);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='AIMG10') p),'AIMC0042','금칙어 예외','금칙어를 포함하지만 일상어인 단어. 검사 전에 글에서 지운다',120);
 
 -- =====================================================================
 -- [2] 케어미션 마스터 (CARE_MSN) — 20261027_02_update_care_msn_and_ckup_pnt 의 최종 상태
@@ -808,6 +823,16 @@ INSERT INTO `KWRD_DICT` (`DICT_USG_CD`,`KWRD_CLSF_NM`,`ARTCL_NM`,`KWRD_CN`,`INTR
   ('AIMC0038','가계부 카테고리','용품','용품, 장난감, 배변패드, 모래, 하네스','가계부 카테고리 = 용품(MYPG05)','MYPC0015',40,'어디에도 안 걸리면 기타(MYPC0018). 관리자 SCR-ADM-081에서 편집. FN-ADM-081-03'),
   ('AIMC0038','가계부 카테고리','미용','미용, 목욕, 털 깎기','가계부 카테고리 = 미용(MYPG05)','MYPC0016',50,'어디에도 안 걸리면 기타(MYPC0018). 관리자 SCR-ADM-081에서 편집. FN-ADM-081-03'),
   ('AIMC0038','가계부 카테고리','돌봄','돌봄, 펫시터, 펫호텔, 유치원','가계부 카테고리 = 돌봄(MYPG05)','MYPC0017',60,'어디에도 안 걸리면 기타(MYPC0018). 관리자 SCR-ADM-081에서 편집. FN-ADM-081-03');
+
+-- [4] 금칙어(AIMC0041)·금칙어 예외(AIMC0042) — v0.14 (25), 욕설 필터링 서버 검사
+INSERT INTO `KWRD_DICT` (`DICT_USG_CD`,`KWRD_CLSF_NM`,`ARTCL_NM`,`KWRD_CN`,`SORT_SEQ`,`RMRK_CN`) VALUES
+  ('AIMC0041','금칙어','욕설','시발',10,NULL),('AIMC0041','금칙어','욕설','씨발',20,NULL),('AIMC0041','금칙어','욕설','씨바',30,NULL),('AIMC0041','금칙어','욕설','쓰발',40,NULL),
+  ('AIMC0041','금칙어','욕설','병신',50,NULL),('AIMC0041','금칙어','욕설','븅신',60,NULL),('AIMC0041','금칙어','욕설','개새끼',70,NULL),('AIMC0041','금칙어','욕설','개세끼',80,NULL),
+  ('AIMC0041','금칙어','욕설','개색기',90,NULL),('AIMC0041','금칙어','욕설','좆',100,NULL),('AIMC0041','금칙어','욕설','존나',110,NULL),('AIMC0041','금칙어','욕설','지랄',120,NULL),
+  ('AIMC0041','금칙어','욕설','염병',130,NULL),('AIMC0041','금칙어','욕설','미친놈',140,NULL),('AIMC0041','금칙어','욕설','미친년',150,NULL),('AIMC0041','금칙어','욕설','느금마',160,NULL),
+  ('AIMC0041','금칙어','욕설','니애미',170,NULL),('AIMC0041','금칙어','초성','ㅅㅂ',200,NULL),('AIMC0041','금칙어','초성','ㅆㅂ',210,NULL),('AIMC0041','금칙어','초성','ㅂㅅ',220,NULL),
+  ('AIMC0041','금칙어','초성','ㅄ',230,NULL),('AIMC0041','금칙어','초성','ㅈㄹ',240,NULL),('AIMC0041','금칙어','영어','fuck',300,'영문 대소문자 무시'),('AIMC0041','금칙어','영어','shit',310,'영문 대소문자 무시'),
+  ('AIMC0042','금칙어 예외','일상어','시발점',10,'출발점을 뜻하는 말'),('AIMC0042','금칙어 예외','일상어','병신년',20,'간지 해 이름'),('AIMC0042','금칙어 예외','일상어','시바견',30,'견종'),('AIMC0042','금칙어 예외','일상어','시바이누',40,'견종');
 
 COMMIT;
 -- 합계: 공통코드 그룹 78건 + 코드 329건 = 407건, 케어미션 21건, AI 라우팅 매핑 45건, 키워드 사전 29건

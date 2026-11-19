@@ -21,6 +21,7 @@ import com.nyangmeong.community.mapper.PostMapper;
 import com.nyangmeong.global.auth.OwnerAuthorizer;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.CareMission;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class CommentService {
     private final LostReportMapper lostReportMapper;
     private final OwnerAuthorizer ownerAuthorizer;
     private final PetStoryMissionReflector missionReflector;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 댓글·대댓글 목록 조회
@@ -59,6 +61,7 @@ public class CommentService {
      */
     @Transactional
     public CommentResponse create(Long mbrSn, Long pstSn, CommentCreateRequest req) {
+        profanityFilter.check("cmntCn", req.cmntCn());
         Post post = checkPost(pstSn);
         if (isFound(lostReportMapper.selectByPstSn(pstSn))) {
             throw new CustomException(ErrorCode.LOST_REPORT_CLOSED);

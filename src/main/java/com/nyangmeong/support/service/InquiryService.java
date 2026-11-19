@@ -20,6 +20,7 @@ import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.PixelCharacterService;
 import com.nyangmeong.support.domain.Inquiry;
 import com.nyangmeong.support.domain.InquiryPhoto;
@@ -52,6 +53,7 @@ public class InquiryService {
     private final FileStore fileStore;
     private final PixelCharacterService pixelCharacterService;
     private final EventPublisher eventPublisher;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 내 문의 목록 조회
@@ -97,6 +99,7 @@ public class InquiryService {
      */
     @Transactional
     public InquiryResponse create(Long mbrSn, InquiryCreateRequest req) {
+        profanityFilter.check("inqryTtl", req.inqryTtl(), "inqryCn", req.inqryCn());
         checkType(req.inqryTypeCd());
         boolean characterError = req.pixelCharSn() != null;
         if (characterError && !InquiryType.PIXEL_CHARACTER.is(req.inqryTypeCd())
@@ -138,6 +141,7 @@ public class InquiryService {
     @Transactional
     public InquiryResponse update(Long mbrSn, Long otoInqrySn, InquiryUpdateRequest req) {
         Inquiry inquiry = getOwnedOrThrow(mbrSn, otoInqrySn);
+        profanityFilter.check("inqryTtl", req.inqryTtl(), "inqryCn", req.inqryCn());
         if (!InquiryStatus.RECEIVED.is(inquiry.getInqryPrcsSttsCd())) {
             throw new CustomException(ErrorCode.INQUIRY_NOT_EDITABLE);
         }

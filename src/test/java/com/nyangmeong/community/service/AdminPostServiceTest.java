@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -165,5 +166,25 @@ class AdminPostServiceTest {
 
         assertError(() -> service.blind(ACTOR, PST, REQ), ErrorCode.ALREADY_PROCESSED);
         verify(postMapper, never()).insertStatusHistory(any());
+    }
+
+    @Test
+    void 대시보드_게시글_현황은_삭제_글을_뺀다() {
+        when(postMapper.countAll(DELETED)).thenReturn(12L);
+        when(postMapper.selectRecentPosts(DELETED, 5)).thenReturn(List.of());
+
+        assertThat(service.getDashboardSummary().totPstCnt()).isEqualTo(12L);
+        verify(postMapper).countAll(DELETED);
+        verify(postMapper).selectRecentPosts(DELETED, 5);
+    }
+
+    @Test
+    void 대시보드_게시판별_게시글_수는_삭제_글을_뺀다() {
+        LocalDateTime from = LocalDate.of(2026, 11, 1).atStartOfDay();
+        LocalDateTime to = LocalDate.of(2026, 11, 8).atStartOfDay();
+
+        service.getBoardPostCounts(from, to);
+
+        verify(postMapper).selectBoardPostCounts("CMUG01", DELETED, from, to);
     }
 }

@@ -243,8 +243,22 @@ class AdminItemServiceTest {
         for (List<Long> itemSns : List.of(List.of(1L, 2L), List.of(1L, 1L, 2L), List.of(1L, 2L, 9L))) {
             assertThatThrownBy(() -> service.saveOrder(1L, new AdminItemOrderRequest("MYPC0001", itemSns)))
                     .isInstanceOf(CustomException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                    .satisfies(e -> {
+                        assertThat(((CustomException) e).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                        assertThat(((CustomException) e).getFields()).containsExactly("itemSns");
+                    });
         }
+        verify(itemMapper, never()).updateSortSeq(anyLong(), anyLong(), anyString());
+    }
+
+    @Test
+    void 신발_부위_순서_저장은_itemRegnCd로_400() {
+        assertThatThrownBy(() -> service.saveOrder(1L, new AdminItemOrderRequest("MYPC0006", List.of(1L))))
+                .isInstanceOf(CustomException.class)
+                .satisfies(e -> {
+                    assertThat(((CustomException) e).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+                    assertThat(((CustomException) e).getFields()).containsExactly("itemRegnCd");
+                });
         verify(itemMapper, never()).updateSortSeq(anyLong(), anyLong(), anyString());
     }
 

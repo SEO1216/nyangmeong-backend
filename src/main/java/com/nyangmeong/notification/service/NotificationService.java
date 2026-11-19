@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.nyangmeong.auth.service.AuthService;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
@@ -12,6 +14,8 @@ import com.nyangmeong.global.notification.NoticeNotificationEvent;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationTab;
 import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.domain.MemberStatus;
 import com.nyangmeong.notification.domain.InappNotification;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
@@ -34,7 +38,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NotificationService {
 
-    private static final int RECENT_LIMIT = 5;
+    /** 드롭다운 한 번에 보여 주는 건수 (목록 끝에서 다음 쪽을 더 불러온다) */
+    private static final int DEFAULT_SIZE = 5;
 
     private final NotificationMapper notificationMapper;
     private final AuthService authService;
@@ -76,14 +81,16 @@ public class NotificationService {
     }
 
     /**
-     * 탭별 최근 알림 목록 조회
+     * 탭별 알림 목록 페이지 조회
+     * - size 생략 시 5건, 최대 50건 (PageQuery)
      */
     @Transactional(readOnly = true)
-    public List<NotificationSummary> search(Long mbrSn, NotificationTab tab) {
+    public PageResponse<NotificationSummary> search(Long mbrSn, NotificationTab tab, PageQuery pq) {
         List<String> notiTypeCds = tab == null || tab == NotificationTab.ALL ? null : NotificationType.codesOf(tab);
-        List<NotificationSummary> rows = notificationMapper.selectRecentList(mbrSn, notiTypeCds, RECENT_LIMIT);
+        PageHelper.startPage(pq.pageOrDefault(), pq.sizeOr(DEFAULT_SIZE));
+        List<NotificationSummary> rows = notificationMapper.selectList(mbrSn, notiTypeCds);
         rows.forEach(row -> row.setTab(NotificationType.from(row.getNotiTypeCd()).getTab().name()));
-        return rows;
+        return PageResponse.of(new PageInfo<>(rows));
     }
 
     /**

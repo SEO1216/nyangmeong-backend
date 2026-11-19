@@ -76,10 +76,10 @@ public interface NotificationMapper {
     long countUnread(Long mbrSn);
 
     /**
-     * 최근 알림 목록 조회
+     * 알림 목록 조회 (페이지는 PageHelper)
      */
-    List<NotificationSummary> selectRecentList(@Param("mbrSn") Long mbrSn,
-            @Param("notiTypeCds") List<String> notiTypeCds, @Param("limit") int limit);
+    List<NotificationSummary> selectList(@Param("mbrSn") Long mbrSn,
+            @Param("notiTypeCds") List<String> notiTypeCds);
 
     /**
      * 본인 알림 존재 여부

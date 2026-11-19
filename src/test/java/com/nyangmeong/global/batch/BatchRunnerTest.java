@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.core.task.TaskRejectedException;
 
 /**
  * [검사 - 배치 실행과 이력 기록]
@@ -110,6 +111,22 @@ class BatchRunnerTest {
 
         assertThat(savedResult().getBtchExcnHstrySn()).isEqualTo(7L);
         verify(mapper, never()).insert(any());
+        assertThat(runner.isRunning(BatchType.CARE_MISSION)).isFalse();
+    }
+
+    @Test
+    void 수동_실행이_거부되면_이력을_실패로_남기고_잠금을_푼다() {
+        runner.lock(BatchType.CARE_MISSION);
+        BatchExecution execution = BatchExecution.start(BatchType.CARE_MISSION, BatchExecutionType.MANUAL, 9L);
+        execution.setBtchExcnHstrySn(7L);
+
+        runner.reject(job, execution, new TaskRejectedException("풀 가득 참"));
+
+        BatchExecution saved = savedResult();
+        assertThat(saved.getBtchExcnHstrySn()).isEqualTo(7L);
+        assertThat(saved.getExcnRsltCd()).isEqualTo(BatchExecutionResult.FAIL.getCode());
+        assertThat(saved.getFailRsn()).isEqualTo("실행 스레드가 없어 시작하지 못함");
+        verify(job, never()).execute();
         assertThat(runner.isRunning(BatchType.CARE_MISSION)).isFalse();
     }
 

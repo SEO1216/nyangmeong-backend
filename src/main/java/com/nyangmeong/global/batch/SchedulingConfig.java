@@ -8,7 +8,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
  * [배치 스케줄러 설정]
- * - @Scheduled 배치와 메일 재시도 예약이 같이 쓰는 스레드 풀
+ * - 배치 cron 예약(BatchScheduleRegistrar)과 케어 일정 메일 재시도 예약(TaskScheduler.schedule)이 같이 쓰는 스레드 풀
  */
 @EnableScheduling
 @Configuration

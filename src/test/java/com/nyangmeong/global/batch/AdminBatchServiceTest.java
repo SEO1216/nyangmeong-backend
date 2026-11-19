@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
@@ -111,6 +113,17 @@ class AdminBatchServiceTest {
 
         verify(runner, never()).runManual(any(), any());
         verify(runner).unlock(BatchType.CARE_MISSION);
+    }
+
+    @Test
+    void 실행_풀이_거부하면_잠금을_풀고_이력을_실패로_남긴다() {
+        TaskRejectedException rejected = new TaskRejectedException("풀 가득 참");
+        doThrow(rejected).when(runner).runManual(any(), any());
+        service.run(9L, CARE_MISSION);
+
+        complete(TransactionSynchronization.STATUS_COMMITTED);
+
+        verify(runner).reject(eq(job), any(), eq(rejected));
     }
 
     @Test

@@ -2,7 +2,7 @@
 
 ## 지금 하는 것
 
-SCR-COM-004 알림 드롭다운 · 목록 더 불러오기 — 끝 (2026-11-19). `GET /api/notifications`를 5건 고정 목록에서 페이지(`?tab=&page=&size=`, 기본 5건·최대 50, 응답 `PageResponse<NotificationSummary>`)로 바꿨다. 정렬·탭·7일 숨김 그대로. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 14:15
+SCR-MYP-010 픽셀 캐릭터 관리 · 리팩토링(동작 변경 없음) — 끝 (2026-11-19). 동작·API·SQL 변경 없이 `PixelCharacter.isUnderReview()`, `CharacterJobStatusHistory.of(...)`로 중복 판정·이력 생성을 모으고 안 쓰는 `getCharacterOfPetOrThrow`를 지웠다. `AGENTS.md` 패키지 구조에 `global/aitool/` 추가. 범위 밖으로 남긴 것: Mapper 테이블별 분리(SJM `PetService`까지 바뀜), 관리자 상태별 건수 쿼리 합치기. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 14:58
 
 ## 다음에 할 것
 

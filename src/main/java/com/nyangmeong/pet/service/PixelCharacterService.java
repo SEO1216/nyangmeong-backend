@@ -120,7 +120,7 @@ public class PixelCharacterService {
     public PixelCharacterResponse saveEquippedItems(Long mbrSn, Long pixelCharSn, EquippedItemSaveRequest req) {
         PixelCharacter character = getCharacterOrThrow(pixelCharSn);
         petAuthorizer.checkPrimary(mbrSn, character.getPetSn());
-        if ("Y".equals(character.getBscCharSbstYn())) {
+        if (character.isUnderReview()) {
             throw new CustomException(ErrorCode.PIXEL_CHARACTER_UNDER_REVIEW);
         }
 
@@ -237,7 +237,7 @@ public class PixelCharacterService {
     @Transactional
     public Long finishErrorCheck(Long pixelCharSn, boolean regenerate) {
         PixelCharacter character = getCharacterOrThrow(pixelCharSn);
-        if (!"Y".equals(character.getBscCharSbstYn())) {
+        if (!character.isUnderReview()) {
             throw new CustomException(ErrorCode.ALREADY_PROCESSED);
         }
         CharacterCreationJob latest = pixelCharacterMapper.selectLatestJob(character.getPetSn());
@@ -319,12 +319,8 @@ public class PixelCharacterService {
     private void startJob(Long charCrtJobSn, Long mbrSn) {
         pixelCharacterMapper.updateJobStarted(charCrtJobSn, CharacterJobStatus.REQUESTED.getCode(),
                 CharacterJobStatus.CREATING.getCode());
-        CharacterJobStatusHistory history = new CharacterJobStatusHistory();
-        history.setCharCrtJobSn(charCrtJobSn);
-        history.setMbrSn(mbrSn);
-        history.setBfrSttsCd(CharacterJobStatus.REQUESTED.getCode());
-        history.setAftrSttsCd(CharacterJobStatus.CREATING.getCode());
-        pixelCharacterMapper.insertJobStatusHistory(history);
+        pixelCharacterMapper.insertJobStatusHistory(CharacterJobStatusHistory.of(charCrtJobSn, mbrSn,
+                CharacterJobStatus.REQUESTED, CharacterJobStatus.CREATING));
     }
 
     /**
@@ -338,11 +334,8 @@ public class PixelCharacterService {
         job.setIdmptDmndId(idmptDmndId);
         pixelCharacterMapper.insertJob(job);
 
-        CharacterJobStatusHistory history = new CharacterJobStatusHistory();
-        history.setCharCrtJobSn(job.getCharCrtJobSn());
-        history.setMbrSn(actorMbrSn);
-        history.setAftrSttsCd(CharacterJobStatus.REQUESTED.getCode());
-        pixelCharacterMapper.insertJobStatusHistory(history);
+        pixelCharacterMapper.insertJobStatusHistory(CharacterJobStatusHistory.of(job.getCharCrtJobSn(), actorMbrSn,
+                null, CharacterJobStatus.REQUESTED));
         return job;
     }
 
@@ -366,7 +359,7 @@ public class PixelCharacterService {
      */
     private StoredFile currentImage(Long petSn) {
         PixelCharacter character = pixelCharacterMapper.selectByPetSn(petSn);
-        if (character != null && !"Y".equals(character.getBscCharSbstYn())) {
+        if (character != null && !character.isUnderReview()) {
             if (character.getWearImgFileSn() != null) {
                 return fileStore.load(character.getWearImgFileSn());
             }
@@ -395,17 +388,6 @@ public class PixelCharacterService {
      */
     private PixelCharacter getCharacterOrThrow(Long pixelCharSn) {
         PixelCharacter character = pixelCharacterMapper.selectPixelCharacter(pixelCharSn);
-        if (character == null) {
-            throw new CustomException(ErrorCode.PIXEL_CHARACTER_NOT_FOUND);
-        }
-        return character;
-    }
-
-    /**
-     * 반려동물의 캐릭터 조회
-     */
-    private PixelCharacter getCharacterOfPetOrThrow(Long petSn) {
-        PixelCharacter character = pixelCharacterMapper.selectByPetSn(petSn);
         if (character == null) {
             throw new CustomException(ErrorCode.PIXEL_CHARACTER_NOT_FOUND);
         }

@@ -175,19 +175,20 @@ class CharacterInternalControllerTest {
         BakeItemSummary item = new BakeItemSummary();
         item.setItemSn(7L);
         item.setRegnCd("MYPC0001");
-        item.setBakeHint("a straw sun hat");
+        item.setBakeImgRefYn(true);
         when(characterSheetService.searchBakeItems()).thenReturn(List.of(item));
 
         mockMvc.perform(get(BASE + "/bake-items"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].itemSn").value(7))
                 .andExpect(jsonPath("$.data[0].regnCd").value("MYPC0001"))
-                .andExpect(jsonPath("$.data[0].bakeHint").value("a straw sun hat"));
+                .andExpect(jsonPath("$.data[0].bakeImgRefYn").value(true))
+                .andExpect(jsonPath("$.data[0].bakeHint").doesNotExist());
     }
 
     @Test
     @WithMockLoginMember
-    void 그림_참고_아이템은_굽기_지시_없이_그림_번호와_함께_나온다() throws Exception {
+    void 굽기_대상은_굽기_지시_없이_그림_번호와_함께_나온다() throws Exception {
         BakeItemSummary item = new BakeItemSummary();
         item.setItemSn(8L);
         item.setRegnCd("MYPC0002");

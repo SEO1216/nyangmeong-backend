@@ -5,6 +5,7 @@
     <resultMap id="commentResultMap" type="com.nyangmeong.community.domain.Comment">
         <id     column="CMNT_SN"         property="cmntSn" />
         <result column="PRNT_CMNT_SN"    property="prntCmntSn" />
+        <result column="RPLY_TRGT_CMNT_SN" property="rplyTrgtCmntSn" />
         <result column="PST_SN"          property="pstSn" />
         <result column="MBR_SN"          property="mbrSn" />
         <result column="CMNT_CN"         property="cmntCn" />
@@ -17,6 +18,8 @@
     <resultMap id="commentSummaryResultMap" type="com.nyangmeong.community.dto.CommentSummary">
         <id     column="CMNT_SN"           property="cmntSn" />
         <result column="PRNT_CMNT_SN"      property="prntCmntSn" />
+        <result column="RPLY_TRGT_CMNT_SN" property="rplyTrgtCmntSn" />
+        <result column="RPLY_TRGT_MBR_NCNM" property="rplyTrgtMbrNcnm" />
         <result column="DEL_FLAG"          property="delYn" />
         <result column="CMNT_CN"           property="cmntCn" />
         <result column="MBR_SN"            property="mbrSn" />
@@ -28,9 +31,12 @@
     </resultMap>
 
     <!-- 삭제된 댓글도 읽음 : 대체 문구 표시와 답글 유지용, 내용·작성자는 비움 -->
+    <!-- 답글 대상 닉네임은 대상 댓글이 삭제돼도 준다 (답글 본문의 일부) -->
     <select id="selectList" resultMap="commentSummaryResultMap">
         SELECT C.CMNT_SN
              , C.PRNT_CMNT_SN
+             , CASE WHEN C.DEL_YN = 'Y' THEN NULL ELSE C.RPLY_TRGT_CMNT_SN END AS RPLY_TRGT_CMNT_SN
+             , CASE WHEN C.DEL_YN = 'Y' OR TM.MBR_SN IS NULL THEN NULL ELSE <include refid="com.nyangmeong.global.mapper.MemberDisplay.ncnm"><property name="alias" value="TM" /></include> END AS RPLY_TRGT_MBR_NCNM
              , CASE WHEN C.DEL_YN = 'Y' THEN 1 ELSE 0 END AS DEL_FLAG
              , CASE WHEN C.DEL_YN = 'Y' THEN NULL ELSE C.CMNT_CN END AS CMNT_CN
              , CASE WHEN C.DEL_YN = 'Y' THEN NULL ELSE C.MBR_SN END AS MBR_SN
@@ -44,6 +50,10 @@
             ON M.MBR_SN = C.MBR_SN
           JOIN CMNT RT
             ON RT.CMNT_SN = COALESCE(C.PRNT_CMNT_SN, C.CMNT_SN)
+          LEFT JOIN CMNT TC
+            ON TC.CMNT_SN = C.RPLY_TRGT_CMNT_SN
+          LEFT JOIN MBR TM
+            ON TM.MBR_SN = TC.MBR_SN
          WHERE C.PST_SN = #{pstSn}
          ORDER BY CASE WHEN RT.SYS_AUTO_CRT_YN = 'Y' THEN 0 ELSE 1 END
                 , COALESCE(C.PRNT_CMNT_SN, C.CMNT_SN)
@@ -55,6 +65,7 @@
     <select id="selectComment" parameterType="long" resultMap="commentResultMap">
         SELECT CMNT_SN
              , PRNT_CMNT_SN
+             , RPLY_TRGT_CMNT_SN
              , PST_SN
              , MBR_SN
              , CMNT_CN
@@ -71,6 +82,7 @@
             useGeneratedKeys="true" keyProperty="cmntSn" keyColumn="CMNT_SN">
         INSERT INTO CMNT
              ( PRNT_CMNT_SN
+             , RPLY_TRGT_CMNT_SN
              , PST_SN
              , MBR_SN
              , CMNT_CN
@@ -80,6 +92,7 @@
              , MDFCN_DT )
         VALUES
              ( #{prntCmntSn}
+             , #{rplyTrgtCmntSn}
              , #{pstSn}
              , #{mbrSn}
              , #{cmntCn}

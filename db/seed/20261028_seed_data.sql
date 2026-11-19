@@ -115,7 +115,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `CARE_MSN` WRITE;
 /*!40000 ALTER TABLE `CARE_MSN` DISABLE KEYS */;
-INSERT INTO `CARE_MSN` (`CARE_MSN_SN`, `MSN_POOL_CD`, `MSN_NM`, `CMPN_PNT`, `ACHV_CRTR_NMTM`, `MVMN_PATH`, `USE_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) VALUES (1,'MYPC0010','화장실 청소하기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(2,'MYPC0010','양치하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(3,'MYPC0010','빗질하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(4,'MYPC0010','발 관리하기',3,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(5,'MYPC0010','놀이하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(6,'MYPC0010','체중 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(7,'MYPC0010','식사량 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(8,'MYPC0010','음수량 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(9,'MYPC0010','배변 기록하기',5,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(10,'MYPC0011','가계부 지출 등록하기',5,1,'/mypage/expenses','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(11,'MYPC0011','케어 캘린더 일정 등록하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(12,'MYPC0011','귀 청소하기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(13,'MYPC0011','발톱 관리하기',15,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(14,'MYPC0011','목욕하기',20,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(15,'MYPC0011','눈 주변 관리하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(16,'MYPC0011','발바닥 털 관리하기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(17,'MYPC0011','구강 상태 확인하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(18,'MYPC0011','산책 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(19,'MYPC0011','관찰 기록 추가하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(20,'MYPC0011','펫이야기 글 등록하기',20,1,'/community','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(21,'MYPC0011','펫이야기 댓글 작성하기',5,1,'/community','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED');
+INSERT INTO `CARE_MSN` (`CARE_MSN_SN`, `MSN_POOL_CD`, `MSN_NM`, `CMPN_PNT`, `ACHV_CRTR_NMTM`, `MVMN_PATH`, `USE_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) VALUES (1,'MYPC0010','화장실 청소하기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(2,'MYPC0010','양치하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(3,'MYPC0010','빗질하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(4,'MYPC0010','발 상태 확인하기',3,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(5,'MYPC0010','놀이하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(6,'MYPC0010','체중 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(7,'MYPC0010','식사량 기록하기',10,2,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(8,'MYPC0010','음수량 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(9,'MYPC0010','배변 기록하기',5,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(10,'MYPC0011','가계부 지출 등록하기',5,1,'/mypage/expenses','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(11,'MYPC0011','케어 캘린더 일정 등록하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(12,'MYPC0011','귀 청소하기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(13,'MYPC0011','발톱 관리하기',15,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(14,'MYPC0011','목욕하기',20,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(15,'MYPC0011','눈곱 닦기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(16,'MYPC0011','발바닥 털 다듬기',10,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(17,'MYPC0011','잇몸·치석 확인하기',5,1,'/health/calendar','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(18,'MYPC0011','산책 기록하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(19,'MYPC0011','관찰 기록 추가하기',10,1,'/health','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(20,'MYPC0011','펫이야기 글 등록하기',20,1,'/community','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED'),(21,'MYPC0011','펫이야기 댓글 작성하기',5,1,'/community','Y','2026-04-11 19:17:03','2026-04-11 19:17:03','SEED','SEED');
 /*!40000 ALTER TABLE `CARE_MSN` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -378,39 +378,19 @@ INSERT INTO `ITEM` (`ITEM_SN`, `ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_
 /*!40000 ALTER TABLE `ITEM` ENABLE KEYS */;
 UNLOCK TABLES;
 
--- 굽기 지시 (v0.12 (3)과 같다. 신발은 NULL, 시드에 없던 12개는 새로 넣는다)
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','빨간 비니',500,250,'Y','a red knitted beanie with a pompom',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','야구모자',500,260,'Y','a blue baseball cap with a pale gray front panel',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','버킷햇',500,270,'Y','a soft olive green bucket hat with a wide drooping brim',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','귀달이 모자',500,280,'Y','a brown warm hat with fur-lined ear flaps hanging down',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','분홍 버킷햇',500,290,'Y','a soft pink bucket hat with a wide drooping brim',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','초록 귀달이 모자',500,300,'Y','a green warm hat with fur-lined ear flaps hanging down',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','초록 스웨터',500,310,'Y','a green knitted dog sweater',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','청재킷',500,320,'Y','an open blue denim jacket with a collar',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','후드티',500,330,'Y','a plain gray pullover hoodie with the hood down',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','패딩 조끼',500,340,'Y','a quilted red puffer vest with horizontal padded seams',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','보라 청재킷',500,350,'Y','an open purple denim jacket with a collar',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `BAKE_HINT`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','청록 패딩 조끼',500,360,'Y','a quilted teal puffer vest with horizontal padded seams',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
-UPDATE `ITEM` SET `BAKE_HINT`='a straw sun hat with a wide brim and a brown hat band' WHERE `ITEM_NM`='밀짚모자';
-UPDATE `ITEM` SET `BAKE_HINT`='round thin black glasses with clear lenses' WHERE `ITEM_NM`='동그란 안경';
-UPDATE `ITEM` SET `BAKE_HINT`='black sunglasses with dark lenses' WHERE `ITEM_NM`='선글라스';
-UPDATE `ITEM` SET `BAKE_HINT`='pink heart-shaped glasses' WHERE `ITEM_NM`='하트 안경';
-UPDATE `ITEM` SET `BAKE_HINT`='a round golden monocle with a thin chain' WHERE `ITEM_NM`='외알 안경';
-UPDATE `ITEM` SET `BAKE_HINT`='a red collar with one round golden bell at the front of its neck' WHERE `ITEM_NM`='방울 목걸이';
-UPDATE `ITEM` SET `BAKE_HINT`='a red and cream checked scarf wrapped around its neck' WHERE `ITEM_NM`='체크 스카프';
-UPDATE `ITEM` SET `BAKE_HINT`='a navy blue bow tie at the front of its neck' WHERE `ITEM_NM`='나비넥타이';
-UPDATE `ITEM` SET `BAKE_HINT`='a white pearl necklace of round beads around its neck' WHERE `ITEM_NM`='진주 목걸이';
-UPDATE `ITEM` SET `BAKE_HINT`='a bright yellow dog raincoat' WHERE `ITEM_NM`='노란 우비';
-UPDATE `ITEM` SET `BAKE_HINT`='a small red backpack with both shoulder straps clearly visible across the chest from the front' WHERE `ITEM_NM`='작은 배낭';
-UPDATE `ITEM` SET `BAKE_HINT`='a small brown crossbody bag resting on its side with the strap crossing the chest' WHERE `ITEM_NM`='크로스백';
-UPDATE `ITEM` SET `BAKE_HINT`='a small checked lunch bag hanging at the front of its chest from a strap around the neck' WHERE `ITEM_NM`='도시락 가방';
-UPDATE `ITEM` SET `BAKE_HINT`='a small woven basket of colorful flowers hanging at the front of its chest from a strap around the neck' WHERE `ITEM_NM`='꽃바구니';
-UPDATE `ITEM` SET `BAKE_HINT`='a red satin ribbon bow on top of its head' WHERE `ITEM_NM`='빨간 리본';
-UPDATE `ITEM` SET `BAKE_HINT`='a small shiny golden crown on top of its head' WHERE `ITEM_NM`='작은 왕관';
-UPDATE `ITEM` SET `BAKE_HINT`='a cream knitted wool hat with a folded brim' WHERE `ITEM_NM`='털모자';
-UPDATE `ITEM` SET `BAKE_HINT`='a navy and white horizontally striped dog t-shirt' WHERE `ITEM_NM`='줄무늬 티셔츠';
-UPDATE `ITEM` SET `BAKE_HINT`='a colorful Korean hanbok jacket with rainbow striped sleeves' WHERE `ITEM_NM`='꼬까 한복';
-UPDATE `ITEM` SET `BAKE_HINT`='a brown dog hoodie with small round bear ears on the hood' WHERE `ITEM_NM`='곰돌이 후드티';
+-- 시드에 없던 아이템 12개 (v0.12 (3)에서 넣은 것, 그림은 빨간 리본과 같이 쓴다. 굽기 지시는 v0.14 (19)에서 없앴고 굽기 대상(BAKE_IMG_REF_YN)은 기본 'N')
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','빨간 비니',500,250,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','야구모자',500,260,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','버킷햇',500,270,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','귀달이 모자',500,280,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','분홍 버킷햇',500,290,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0001','초록 귀달이 모자',500,300,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='빨간 리본';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','초록 스웨터',500,310,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','청재킷',500,320,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','후드티',500,330,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','패딩 조끼',500,340,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','보라 청재킷',500,350,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
+INSERT INTO `ITEM` (`ATCH_FILE_SN`, `ITEM_REGN_CD`, `ITEM_NM`, `NEED_PNT`, `SORT_SEQ`, `NTSL_YN`, `REG_DT`, `MDFCN_DT`, `RGTR_ID`, `MDFR_ID`) SELECT `ATCH_FILE_SN`,'MYPC0004','청록 패딩 조끼',500,360,'Y',NOW(),NOW(),'SEED','SEED' FROM `ITEM` WHERE `ITEM_NM`='노란 우비';
 
 --
 -- Dumping data for table `JNT_BRUP_INVTN`
@@ -1186,14 +1166,14 @@ SELECT P.PET_SN, B.ZONE_CD, B.CYCLE_CD, B.NM, B.ICON,
         SELECT  1 ORD, '화장실 청소'    NM, 'HLTC0036' ZONE_CD, NULL       CYCLE_CD, 'cleaning_services'   ICON
   UNION ALL SELECT  2, '양치',          'HLTC0036', NULL,       'dentistry'
   UNION ALL SELECT  3, '빗질',          'HLTC0036', NULL,       'brush'
-  UNION ALL SELECT  4, '발 관리',       'HLTC0036', NULL,       'task_alt'
+  UNION ALL SELECT  4, '발 상태 확인',  'HLTC0036', NULL,       'task_alt'
   UNION ALL SELECT  5, '놀이',          'HLTC0036', NULL,       'task_alt'
   UNION ALL SELECT  6, '귀 청소',       'HLTC0037', 'HLTC0038', 'hearing'
   UNION ALL SELECT  7, '발톱 관리',     'HLTC0037', 'HLTC0039', 'content_cut'
   UNION ALL SELECT  8, '목욕',          'HLTC0037', 'HLTC0040', 'bathtub'
-  UNION ALL SELECT  9, '눈 주변 관리',  'HLTC0037', 'HLTC0039', 'task_alt'
-  UNION ALL SELECT 10, '발바닥 털 관리', 'HLTC0037', 'HLTC0039', 'content_cut'
-  UNION ALL SELECT 11, '구강 상태 확인', 'HLTC0037', 'HLTC0039', 'sentiment_satisfied'
+  UNION ALL SELECT  9, '눈곱 닦기',     'HLTC0037', 'HLTC0039', 'task_alt'
+  UNION ALL SELECT 10, '발바닥 털 다듬기', 'HLTC0037', 'HLTC0039', 'content_cut'
+  UNION ALL SELECT 11, '잇몸·치석 확인', 'HLTC0037', 'HLTC0039', 'sentiment_satisfied'
  ) B
  WHERE P.DEL_YN = 'N'
    AND NOT EXISTS (SELECT 1 FROM CARE_ARTCL A

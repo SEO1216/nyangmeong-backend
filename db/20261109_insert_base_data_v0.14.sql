@@ -84,6 +84,26 @@
 -- v0.14 (18) 펫돌봄 지난 모집 자동 마감 배치 구분(SYSC0033) 추가 (2026-11-16, KSJ, 번호는 DDL v0.14 (16)과 겹쳐 2026-11-16에 (16)→(18)로 바꿈, SQL은 그대로, 근거: 프론트 요청서 backend-request-care-chat.md 2번 사람 요청 2026-11-15, SCR-CMU-004). 없으면 관리자 배치 화면·실행 이력 코드가 비어 보인다
 --   SET NAMES utf8mb4;
 --   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
+-- v0.14 (20) 케어리스트 기본 항목 이름 변경 (2026-11-18, JAJ, 근거: ※신규 정책 케어리스트 기본 항목 이름 변경, 대상 BasicCareItem 4개 PAW_CARE '발 관리' → '발 상태 확인', PAW_HAIR_CARE '발바닥 털 관리' → '발바닥 털 다듬기', MOUTH_CHECK '구강 상태 확인' → '잇몸·치석 확인', EYE_CARE '눈 주변 관리' → '눈곱 닦기'). BasicCareItem.of(이름)가 이름으로 기본 항목을 찾으므로 바꾸지 않으면 기존 반려동물의 케어미션 연결이 끊긴다. 삭제된 행(DEL_YN='Y')도 같이 바꾼다. 케어미션 이름(CARE_MSN)은 바꾸지 않는다. 공용 DB 실행함(2026-11-18 08:59, 3,940건)
+--   SET NAMES utf8mb4;
+--   UPDATE `CARE_ARTCL`
+--      SET `CARE_ARTCL_NM` = CASE `CARE_ARTCL_NM` WHEN '발 관리' THEN '발 상태 확인' WHEN '발바닥 털 관리' THEN '발바닥 털 다듬기' WHEN '구강 상태 확인' THEN '잇몸·치석 확인' WHEN '눈 주변 관리' THEN '눈곱 닦기' END,
+--          `MDFR_ID` = 'SYSTEM'
+--    WHERE `BSC_ARTCL_YN` = 'Y'
+--      AND `CARE_ARTCL_NM` IN ('발 관리','발바닥 털 관리','구강 상태 확인','눈 주변 관리');
+-- v0.14 (22) 펫돌봄 매칭취소요청상태 공통코드 PCAG07(PCAC0021~0024) 추가 (2026-11-18, KSJ, 번호는 JAJ v0.14 (20)과 겹쳐 2026-11-18에 (21)→(22)로 바꿈, SQL은 그대로, 근거: DDL v0.14 (21) MTCH_CNCL_DMND, SCR-CMU-005 거래 취소 요청). 없으면 취소 요청 insert가 FK 오류. 공용 DB 실행 전(사람이 실행)
+--   SET NAMES utf8mb4;
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES (NULL,'PCAG07','매칭취소요청상태','사용 컬럼: MTCH_CNCL_DMND.DMND_STTS_CD',45);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0021','요청중','상대 응답 대기',10);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0022','동의','상대가 동의해 거래 취소',20);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0023','거절','상대가 거절해 거래 유지',30);
+--   INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0024','철회','요청자가 철회해 거래 유지',40);
+-- v0.14 (23) 케어미션 개편: 미션 이름 4개 변경·식사량 달성 기준 2회 (2026-11-18, SJM, 번호는 KSJ v0.14 (21)·(22)와 겹쳐 2026-11-18에 (21)→(23)으로 바꿈, SQL은 그대로, 근거: ※신규 정책 케어미션 등급 배점·출제 대상 개편, SCR-MYP-020 FN-MYP-020-04·05, 케어리스트 기본 항목 이름 변경 (20)과 같은 이름). CareMission enum의 미션 이름과 짝지어 찾으므로 코드 배포 직전·직후에 바로 실행한다(한쪽만 바뀐 동안 그 4개 미션은 출제에서 빠진다). 이미 출제된 DAY_MSN은 복사된 달성 기준으로 정산되므로 건드리지 않는다. 배점은 CareMission 등급(5·10·15P)으로 정해져 CARE_MSN.CMPN_PNT는 배점에 쓰지 않는다
+--   SET NAMES utf8mb4;
+--   UPDATE `CARE_MSN`
+--      SET `MSN_NM` = CASE `MSN_NM` WHEN '발 관리하기' THEN '발 상태 확인하기' WHEN '눈 주변 관리하기' THEN '눈곱 닦기' WHEN '발바닥 털 관리하기' THEN '발바닥 털 다듬기' WHEN '구강 상태 확인하기' THEN '잇몸·치석 확인하기' END
+--    WHERE `MSN_NM` IN ('발 관리하기','눈 주변 관리하기','발바닥 털 관리하기','구강 상태 확인하기');
+--   UPDATE `CARE_MSN` SET `ACHV_CRTR_NMTM` = 2 WHERE `MSN_NM` = '식사량 기록하기';
 SET NAMES utf8mb4;
 START TRANSACTION;
 
@@ -628,6 +648,13 @@ INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT
 -- ■ SYS 시스템 — v0.14 추가: 펫돌봄 지난 모집 마감 배치 (v0.14 (18))
 INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='SYSG02') p),'SYSC0033','펫돌봄 지난 모집 마감','community/CareRecruitmentCloseJob',110);
 
+-- ■ PCA 펫돌봄 — v0.14 추가: 매칭취소요청상태 (v0.14 (22))
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES (NULL,'PCAG07','매칭취소요청상태','사용 컬럼: MTCH_CNCL_DMND.DMND_STTS_CD',45);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0021','요청중','상대 응답 대기',10);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0022','동의','상대가 동의해 거래 취소',20);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0023','거절','상대가 거절해 거래 유지',30);
+INSERT INTO `COM_CD` (`COM_CD_PRNT_SN`,`COM_CD`,`COM_CD_NM`,`COM_CD_EXPLN`,`SORT_SEQ`) VALUES ((SELECT p.`COM_CD_SN` FROM (SELECT `COM_CD_SN` FROM `COM_CD` WHERE `COM_CD`='PCAG07') p),'PCAC0024','철회','요청자가 철회해 거래 유지',40);
+
 -- =====================================================================
 -- [2] 케어미션 마스터 (CARE_MSN) — 20261027_02_update_care_msn_and_ckup_pnt 의 최종 상태
 --     일상케어(MYPC0010) 9개, 활동기반(MYPC0011) 12개. 근거: FN-MYP-020-03·05, FN-HLT-003-12
@@ -636,10 +663,10 @@ INSERT INTO `CARE_MSN` (`MSN_POOL_CD`,`MSN_NM`,`CMPN_PNT`,`ACHV_CRTR_NMTM`,`MVMN
   ('MYPC0010','화장실 청소하기',10,1,'/health/calendar'),
   ('MYPC0010','양치하기',5,1,'/health/calendar'),
   ('MYPC0010','빗질하기',5,1,'/health/calendar'),
-  ('MYPC0010','발 관리하기',3,1,'/health/calendar'),
+  ('MYPC0010','발 상태 확인하기',3,1,'/health/calendar'),
   ('MYPC0010','놀이하기',5,1,'/health/calendar'),
   ('MYPC0010','체중 기록하기',10,1,'/health'),
-  ('MYPC0010','식사량 기록하기',10,1,'/health'),
+  ('MYPC0010','식사량 기록하기',10,2,'/health'),
   ('MYPC0010','음수량 기록하기',10,1,'/health'),
   ('MYPC0010','배변 기록하기',5,1,'/health'),
   ('MYPC0011','가계부 지출 등록하기',5,1,'/mypage/expenses'),
@@ -647,9 +674,9 @@ INSERT INTO `CARE_MSN` (`MSN_POOL_CD`,`MSN_NM`,`CMPN_PNT`,`ACHV_CRTR_NMTM`,`MVMN
   ('MYPC0011','귀 청소하기',10,1,'/health/calendar'),
   ('MYPC0011','발톱 관리하기',15,1,'/health/calendar'),
   ('MYPC0011','목욕하기',20,1,'/health/calendar'),
-  ('MYPC0011','눈 주변 관리하기',5,1,'/health/calendar'),
-  ('MYPC0011','발바닥 털 관리하기',10,1,'/health/calendar'),
-  ('MYPC0011','구강 상태 확인하기',5,1,'/health/calendar'),
+  ('MYPC0011','눈곱 닦기',5,1,'/health/calendar'),
+  ('MYPC0011','발바닥 털 다듬기',10,1,'/health/calendar'),
+  ('MYPC0011','잇몸·치석 확인하기',5,1,'/health/calendar'),
   ('MYPC0011','산책 기록하기',10,1,'/health'),
   ('MYPC0011','관찰 기록 추가하기',10,1,'/health'),
   ('MYPC0011','펫이야기 글 등록하기',20,1,'/community'),

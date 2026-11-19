@@ -218,6 +218,7 @@ public enum ErrorCode {
     CARE_MATCH_ROLE_DENIED(HttpStatus.FORBIDDEN, "현재 역할에서는 할 수 없는 요청입니다."),
     CARE_MATCH_ALREADY_MATCHED(HttpStatus.CONFLICT, "이미 다른 분과 매칭된 모집글입니다."),
     CARE_MATCH_INVALID_STATE(HttpStatus.CONFLICT, "현재 매칭 단계에서는 할 수 없는 요청입니다."),
+    CHAT_LEAVE_IN_DEAL(HttpStatus.CONFLICT, "거래가 진행 중이라 나갈 수 없어요. 거래 취소를 먼저 요청해 주세요."),
 
     /** ai */
     HEALTH_REPORT_REFRESH_LIMIT(HttpStatus.CONFLICT, "오늘은 이미 새로고침했어요. 내일 다시 시도해 주세요."),

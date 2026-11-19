@@ -30,6 +30,7 @@ import com.nyangmeong.global.security.domain.MemberStatus;
 import com.nyangmeong.notification.domain.InappNotification;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
 import com.nyangmeong.notification.domain.NotificationReceiveSetting;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSettingResponse;
 import com.nyangmeong.notification.dto.NotificationSettingUpdateRequest;
 import com.nyangmeong.notification.dto.NotificationSummary;
@@ -361,5 +362,15 @@ class NotificationServiceTest {
         notificationService.create(event(NotificationType.CO_PARENTING));
 
         verify(notificationMapper, never()).insert(any());
+    }
+
+    @Test
+    void 모두_읽음은_Mapper가_바꾼_건수를_그대로_돌려준다() {
+        when(notificationMapper.updateReadAll(1L)).thenReturn(3);
+
+        NotificationReadAllResponse response = notificationService.markAllRead(1L);
+
+        assertThat(response.count()).isEqualTo(3);
+        verify(notificationMapper).updateReadAll(1L);
     }
 }

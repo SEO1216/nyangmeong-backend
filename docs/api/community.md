@@ -27,12 +27,16 @@
 | POST | /care-matches | 매칭 요청(채팅방 기준, 보호자만. 요청 시점의 모집글 조건을 복사해 조건 버전을 만든다. 요청 취소된 매칭은 같은 행으로 다시 요청해 조건 버전이 늘어난다) | CMU-005-06 | KSJ | CareMatchCreateRequest | CareMatchResponse |
 | POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내를 받고 읽기 전용(CHTC0002)이 됨) | CMU-005-07 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel | 수락 전 매칭 요청 취소(보호자만, 사유 필수) | CMU-005-06 | KSJ | CareMatchCancelRequest | - |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request | 거래 취소 요청(매칭 완료·확인 대기·수령 대기에서 두 당사자 누구나, 사유 필수, 요청중인 건이 있으면 409 `CARE_MATCH_INVALID_STATE`. 요청중인 동안 완료 요청·완료 확인·수령 확인은 409. 201) | CMU-005-06 | KSJ | CareDealCancelRequest | CareCancelDemandItem |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request/approve | 거래 취소 동의(요청한 사람의 상대만, 아니면 403 `CARE_MATCH_ROLE_DENIED`). 매칭이 요청 취소(PCAC0017), 모집글이 모집중, 이 방은 읽기 전용(CHTC0002), 같은 글의 읽기 전용 방은 다시 열린다 | CMU-005-06 | KSJ | - | - |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request/reject | 거래 취소 거절(요청한 사람의 상대만). 거래는 그대로 이어진다 | CMU-005-06 | KSJ | - | - |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request/withdraw | 거래 취소 요청 철회(요청한 사람만) | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/completion-requests | 돌봄 완료 요청(제공자만. 별도 입력 없음, 서버가 회차·요청 시각을 기록. 201) | CMU-005-08 | KSJ | CareCompletionRequestCreateRequest | CareCompletionRequestResponse |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-completion | 보호자 돌봄 완료 확정 | CMU-005-09 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-receipt | 제공자 비용 수령 확인(양측 충족 시 거래 완료) | CMU-005-10 | KSJ | CareMatchReceiptConfirmRequest | - |
 | POST | /care-recruitments | 펫돌봄 모집 등록(multipart/form-data. 반려동물·돌봄 형태·일정·비용 최저시급 검증·장소·사진·동의) | CMU-004-06~11·13 | KSJ | CareRecruitmentCreateRequest | CareRecruitmentResponse |
 | POST | /chat-rooms | 게시글·보호자·지원자 조합 채팅방 생성 또는 기존 방 반환(새 방 201, 기존 방 200) | CMU-004-05, CMU-005-01 | KSJ | ChatRoomCreateRequest | ChatRoomResponse |
-| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 진행 중 매칭은 요청 취소로 바뀌고 매칭 완료 이후였으면 모집글이 모집중으로 돌아가고, 그 글의 읽기 전용 방은 다시 열리며 「모집이 다시 열렸어요.」 안내). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
+| POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 수락 대기 매칭은 요청 취소로 바뀐다). 매칭 완료·확인 대기·수령 대기에는 나갈 수 없다(409 `CHAT_LEAVE_IN_DEAL`, 거래 취소 요청이 동의돼 매칭이 끝난 뒤에 나갈 수 있다). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
 | POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 방이 읽기 전용(CHTC0002)이거나 매칭이 무응답 종료(PCAC0018)면 409 `CHAT_ROOM_CLOSED`(이미 저장된 `idmptDmndId` 재전송은 200). 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/images/{atchFileSn} | 채팅 사진 보기(참여자만, 그 방 메시지에 붙은 사진만) | CMU-005-05 | KSJ | - | 이미지 바이너리 |
 | POST | /chat-rooms/{otoChatRoomSn}/read | 활성 대화창에 표시된 메시지까지 읽음 처리 | CMU-005-03, COM-009 | KSJ | ChatRoomReadRequest | - |
@@ -569,6 +573,24 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | atchFileSn | Long | Y | 게시글 사진(펫이야기 등)은 `GET /api/files/{atchFileSn}`, 1:1 문의 사진은 `GET /api/inquiries/{otoInqrySn}/images/{atchFileSn}`(본인만), 채팅 사진은 `GET /api/chat-rooms/{otoChatRoomSn}/images/{atchFileSn}`(방 참여자만) | PST_IMG·CHAT_MSG_PHOTO·INQRY_ATCH_PHOTO의 ATCH_FILE_SN |
 | sortSeq | Integer | Y | | 같은 테이블들의 SORT_SEQ |
 
+### CareCancelDemandItem
+쓰는 API: POST /care-matches/{petPrtcMtchSn}/cancel-request (201 응답); GET /chat-rooms/{otoChatRoomSn} (`ChatRoomResponse.cnclDmnd`)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| mtchCnclDmndSn | Long | Y | | MTCH_CNCL_DMND.MTCH_CNCL_DMND_SN |
+| dmndMbrSn | Long | Y | 요청한 회원 | MTCH_CNCL_DMND.DMND_MBR_SN |
+| mineYn | boolean | Y | 로그인한 회원이 요청한 쪽이면 true. 요청한 쪽 카드(「요청 철회하기」)와 받은 쪽 카드(「취소에 동의」·「거절하고 계속」)를 가른다 | MTCH_CNCL_DMND.DMND_MBR_SN |
+| cnclRsn | String | Y | 요청 사유 | MTCH_CNCL_DMND.CNCL_RSN |
+| dmndSttsCd | String | Y | 공통코드 PCAG07(PCAC0021 요청중·0022 동의·0023 거절·0024 철회) | MTCH_CNCL_DMND.DMND_STTS_CD |
+| regDt | LocalDateTime | Y | 요청 시각 | MTCH_CNCL_DMND.REG_DT |
+| prcsDt | LocalDateTime | N | 동의·거절·철회 시각. 요청중이면 null | MTCH_CNCL_DMND.PRCS_DT |
+
+### CareDealCancelRequest
+쓰는 API: POST /care-matches/{petPrtcMtchSn}/cancel-request (프론트 요청서 5번의 사유 시안: 일정이 맞지 않게 됐어요 / 상대와 연락이 어려워요 / 조건이 달라졌어요 / 기타 직접 입력. 칩 문구 또는 직접 입력을 문자열 하나로 받는다)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| cnclRsn | String | Y | 거래 취소 사유. 최대 50자, 공백만 불가. 채팅 시스템 메시지와 동의 때 매칭 상태 이력 `CHG_RSN`에 남는다 | MTCH_CNCL_DMND.CNCL_RSN, PET_PRTC_MTCH_STTS_HSTRY.CHG_RSN |
+
 ### CareMatchCancelRequest
 쓰는 API: POST /care-matches/{petPrtcMtchSn}/cancel
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
@@ -818,6 +840,7 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | petPrtcMtchSn | Long | N | 이 방의 매칭. 요청 전이면 null | PET_PRTC_MTCH.PET_PRTC_MTCH_SN, CMU-005-11 |
 | mtchDlngSttsCd | String | N | 매칭 진행 상태. 공통코드 PCAG05 | PET_PRTC_MTCH.MTCH_DLNG_STTS_CD, CMU-005-11 |
 | created | boolean | Y | 이번 요청으로 방을 새로 만들었는지. `POST /chat-rooms`는 새 방 201, 기존 방 200 | OTO_CHAT_ROOM, CMU-004-05 |
+| cnclDmnd | CareCancelDemandItem | N | 이 매칭의 가장 최근 거래 취소 요청. `GET /chat-rooms/{sn}`에서만 채운다(`POST /chat-rooms`는 null). 매칭이 확정 상태면 동의 외의 요청(요청중·거절·철회), 요청 취소 상태면 동의된 요청만 보이고, 그 밖에는 null | MTCH_CNCL_DMND, CMU-005-06 |
 
 ### ChatRoomSummary
 쓰는 API: GET /chat-rooms
@@ -857,6 +880,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | cmntSn | Long | Y | | CMNT.CMNT_SN |
 | pstSn | Long | Y | | CMNT.PST_SN |
 | prntCmntSn | Long | N | | CMNT.PRNT_CMNT_SN |
+| rplyTrgtCmntSn | Long | N | 대댓글에 단 답글이면 실제로 답한 대댓글. 최상위 댓글에 바로 단 답글과 일반 댓글은 null | CMNT.RPLY_TRGT_CMNT_SN, 사람 요청 2026-11-18 |
+| rplyTrgtMbrNcnm | String | N | 답글 대상 작성자 닉네임(「@닉네임」 표시). 대상이 없으면 null. 파기된 회원은 「탈퇴한 회원」 | MBR.MBR_NCNM, 사람 요청 2026-11-18 |
 | cmntCn | String | Y | | CMNT.CMNT_CN |
 | mbrSn | Long | Y | | CMNT.MBR_SN |
 | mbrNcnm | String | Y | | MBR.MBR_NCNM |
@@ -869,6 +894,8 @@ REST는 보내기·과거 조회·읽음 처리만 맡고, 새 메시지와 읽�
 | --- | --- | --- | --- | --- |
 | cmntSn | Long | Y | | CMNT.CMNT_SN |
 | prntCmntSn | Long | N | 대댓글이면 부모 댓글 | CMNT.PRNT_CMNT_SN, CMU-001-11 |
+| rplyTrgtCmntSn | Long | N | 대댓글에 단 답글이면 실제로 답한 대댓글(부모는 최상위 댓글). 최상위 댓글에 바로 단 답글·일반 댓글·삭제된 댓글이면 null | CMNT.RPLY_TRGT_CMNT_SN, 사람 요청 2026-11-18 |
+| rplyTrgtMbrNcnm | String | N | 답글 대상 작성자 닉네임(「@닉네임」 표시). 대상 댓글이 나중에 삭제돼도 준다. 대상이 없거나 이 댓글이 삭제됐으면 null. 파기된 회원은 「탈퇴한 회원」 | MBR.MBR_NCNM, 사람 요청 2026-11-18 |
 | delYn | boolean | Y | true면 화면이 "삭제된 댓글입니다"로 표시(issues 14) | CMNT.DEL_YN, CMU-001-11 |
 | cmntCn | String | N | 삭제된 댓글이면 null | CMNT.CMNT_CN |
 | mbrSn | Long | N | 삭제된 댓글이면 null | CMNT.MBR_SN |

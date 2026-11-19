@@ -19,6 +19,7 @@ import com.nyangmeong.global.aitool.AiTool;
 import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
+import com.nyangmeong.health.dto.PrescriptionBulkSaveRequest;
 import com.nyangmeong.health.dto.PrescriptionCreateRequest;
 import com.nyangmeong.health.dto.PrescriptionResponse;
 import com.nyangmeong.health.dto.PrescriptionSearchCond;
@@ -62,6 +63,13 @@ public class PrescriptionController {
     public ResponseEntity<ApiResponse<PrescriptionResponse>> update(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn, @PathVariable Long prscSn, @Valid @RequestBody PrescriptionUpdateRequest req) {
         return ResponseEntity.ok(ApiResponse.success(prescriptionService.update(me.id(), petSn, prscSn, req)));
+    }
+
+    @Operation(summary = "처방약 일괄 저장", description = "prscSn이 있으면 수정, 없으면 추가한다. 하나라도 실패하면 전부 저장하지 않는다. 삭제는 DELETE /{prscSn}")
+    @PostMapping("/bulk-save")
+    public ResponseEntity<ApiResponse<List<PrescriptionResponse>>> bulkSave(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @Valid @RequestBody PrescriptionBulkSaveRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(prescriptionService.saveAll(me.id(), petSn, req)));
     }
 
     @Operation(summary = "처방약 삭제")

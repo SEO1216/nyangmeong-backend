@@ -48,6 +48,12 @@ public interface CareItemMapper {
     List<CareItem> selectNamesByPets(@Param("petSns") List<Long> petSns);
 
     /**
+     * 모든 반려동물의 삭제되지 않은 기본 케어 항목 조회 (케어미션 출제 후보용)
+     * - 반려동물·항목명·구역·표시여부·다음 예정일만 채움
+     */
+    List<CareItem> selectBasicItemsForMission();
+
+    /**
      * 케어 항목 단건 조회 (목록 행 형태)
      */
     CareItemSummary selectSummary(@Param("careArtclSn") Long careArtclSn, @Param("today") LocalDate today);

@@ -287,4 +287,14 @@
            AND MBR_SN = #{mbrSn}
            AND PRSL_DT IS NULL
     </update>
+
+    <update id="updateReadAll" parameterType="long">
+        /* 알림 모두 읽음 처리 */
+        UPDATE INAPP_NOTI
+           SET PRSL_DT = NOW()
+             , MDFCN_DT = NOW()
+         WHERE MBR_SN = #{mbrSn}
+           AND PRSL_DT IS NULL
+           AND AUTO_HIDE_DT &gt; NOW()
+    </update>
 </mapper>

@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -89,6 +90,42 @@ public class CareItemService {
      * - created : 새로 체크했는지(201), 이미 체크한 항목이면 false(200)
      */
     public record Completed(CareCompletionResponse response, boolean created) {
+    }
+
+    /**
+     * 케어미션 출제 후보 조회 (※신규 정책, SCR-MYP-020 케어미션 개편)
+     * - 케어리스트 기본 항목이 있는 반려동물만 담음 : 후보가 없으면 빈 집합, 기본 항목이 없는 반려동물은 pet 이 기본 후보를 씀
+     * - 보이는 항목만 : INDCT_YN 이 Y 이거나, 고른 적 없으면(NULL) 추천 항목
+     * - 매일 항목은 매일 후보, 정기 항목은 다음 예정일이 오늘이거나 지났을 때만(비어 있으면 후보 아님), 구분은 항목의 현재 구역으로 함
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Set<CareMission>> searchMissionCandidates(LocalDate today) {
+        Map<Long, Set<CareMission>> candidates = new HashMap<>();
+        for (CareItem item : careItemMapper.selectBasicItemsForMission()) {
+            Set<CareMission> missions = candidates.computeIfAbsent(item.getPetSn(), k -> EnumSet.noneOf(CareMission.class));
+            BasicCareItem basic = BasicCareItem.of(item.getCareArtclNm()).orElse(null);
+            CareMission mission = basic == null ? null : MISSIONS.get(basic);
+            if (mission == null || !isShown(item, basic) || !isDue(item, today)) {
+                continue;
+            }
+            missions.add(mission);
+        }
+        return candidates;
+    }
+
+    private boolean isShown(CareItem item, BasicCareItem basic) {
+        if (item.getIndctYn() == null) {
+            return basic.isRecommended();
+        }
+        return "Y".equals(item.getIndctYn());
+    }
+
+    private boolean isDue(CareItem item, LocalDate today) {
+        if (CareZone.DAILY.is(item.getCareZoneCd())) {
+            return true;
+        }
+        return CareZone.REGULAR.is(item.getCareZoneCd()) && item.getNxtmPrnmntYmd() != null
+                && !item.getNxtmPrnmntYmd().isAfter(today);
     }
 
     /**
@@ -530,7 +567,7 @@ public class CareItemService {
 
     /**
      * 목록 행에 표시여부·오늘 케어미션 채우기
-     * - 미션은 기본 항목만 : MISSIONS로 오늘 출제된 미션(DAY_MSN)과 미션명 대조
+     * - 미션은 기본 항목만 : MISSIONS로 오늘 출제된 미션(DAY_MSN)과 미션명 대조 (이름은 CareMission 기준, 등급 배점은 DAY_MSN.SCOR_PNT)
      * - 포인트는 주양육자에게만 (※신규 정책)
      */
     private List<CareItemSummary> decorate(Long mbrSn, Long petSn, List<CareItemSummary> items) {

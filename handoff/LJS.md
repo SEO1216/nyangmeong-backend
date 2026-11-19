@@ -2,16 +2,13 @@
 
 ## 지금 하는 것
 
-SCR-COM-004 알림 드롭다운 · 모두 읽음 — 끝 (2026-11-17). `POST /api/notifications/read-all`이 탭과 상관없이 숨김 기준 안의 내 미읽음 알림을 모두 읽음 처리하고 `{count}`(바꾼 건수, 0건도 200)를 돌려준다. 조건은 미읽음 개수 쿼리와 같다. 오류는 비로그인 401뿐. `docs/api/notification.md` 행·DTO 추가. 검증 `통과`(1회차), 사람 확인 2026-11-17, 시작 2026-11-17 16:08
+SCR-MYP-010 픽셀 캐릭터 관리 · 기본 캐릭터 도트 그림 — 끝 (2026-11-19). 캐릭터가 없거나 오류 확인 중인 반려동물의 `GET /api/pets/{petSn}/character-image` 기본 그림을 네모 임시 그림에서 도트 그림(프론트 `default-character-*-full.png`)으로 교체. `part=face`는 기존 얼굴 자르기로 프론트 얼굴 그림과 같게 나온다. 코드·API 그대로, 프론트 할 일 없음. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 12:27
 
 ## 다음에 할 것
 
-- SCR-COM-004 연결 남음: FN-COM-004-17 (프론트 연결 헤더 알림 드롭다운 "모두 읽음" 버튼, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-COM-004 알림 드롭다운 · 모두 읽음 — 대기" 있음). 계약: `POST /api/notifications/read-all`, 응답 `{ count }`(읽음 처리한 건수, 0건도 200), 오류는 401 `UNAUTHORIZED`뿐. 성공 뒤 unread-count·목록을 다시 읽는다
 - 사람(SCR-COM-004 모두 읽음): DMS 공통레이아웃 기능명세서에 FN-COM-004-17 "모두 읽음" 행 추가(코드·`docs/api`는 이 ID로 씀). 헤더 목록 5건 제한을 늘릴지 정한다(전체 보기 화면은 FN-COM-004-16으로 만들지 않음)
 - 사람(SCR-ADM-070 굽기를 그림 참고로만): 공용 DB에 기준 SQL v0.14 (19) 실행(지우기 전 `BAKE_HINT` 백업은 선택). 검증용 아이템 itemSn 55(`verify-test-1117`, 판매 중지)가 공용 DB에 남아 있어 지우려면 SQL로. ERDCloud `ITEM.BAKE_IMG_REF_YN`이 맨 끝에 붙어 있어 화면에서 `NTSL_YN` 뒤로 옮긴다. 기존 아이템은 서버 관리자 화면에서 픽셀 그림을 새로 올리며 굽기를 켠다(그 전에는 새 캐릭터에 굽지 않음, 서버의 옛 아이템 그림 경로 문제로 1번 main에서 49·51·53 bake-image 실패 보고 있음)
 - SCR-ADM-070 연결 남음: FN-ADM-070-03 (프론트 연결 관리자 아이템 수정 모달에서 굽기 대상 아이템의 그림을 바꿔 저장하면 전체 굽기 다시 시작, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 그림 교체 뒤 전체 굽기 다시 시작 — 대기" 넣음). 생성기(ai·러스트) 선택 정리: `POST /ai/items/bake-hints` 삭제, `POST /ai/items/trial-preview`는 `bakeHint`만 받아 그림 참고 없이 구우므로 쓰려면 그림 참고로 바꾼다(프론트는 시험 굽기를 쓰지 않음)
-- SCR-MYP-010 연결 남음: FN-ADM-042-07 (프론트 연결 관리자 1:1 문의 상세 캐릭터 오류 처리 뒤 Python `POST /ai/admin/characters/jobs/{regenJobSn}/regenerate` 호출·재생성 상태 표시·실패 때 다시 처리 버튼, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-042 1:1 문의 · 캐릭터 무료 재생성 Python 호출 — 대기" 넣음)
-- SCR-MYP-010 연결 남음: FN-MYP-010-23 (ai 연결 첫 생성 success에 `photo` 파트(확장자 jpg·png·webp, 업로드 원본 그대로) 보내기와 사진 문제 failRsn `CHARACTER_INPUT_ERROR`, ai 저장소 다음 세션. 재생성 입구는 ai-39가 구현함). 백엔드 develop 병합 뒤 ai-39·frontend-07에 화면 확인해도 된다고 알린다
 - SCR-MYP-011 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx`가 `IDEMPOTENCY_KEY_REUSED`를 받으면 새 `idmptDmndId`를 만들고 상점을 다시 읽기, `PURCHASE_ERRORS` 문구, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 409 처리 — 대기" 넣음). 그 전까지는 이 오류를 받으면 모달을 닫았다 열어야 다시 살 수 있다
 - 남김(SCR-MYP-010 파일 저장 경로 재구성 범위 밖): 기존 공지·뉴스 이미지(`public/…`) 이동(옮긴 뒤 `FileStore.requireStored`의 `public/` 허용을 뺀다. 지금은 `public/` 아래면 뉴스 이미지가 아니어도 뉴스 썸네일로 받는다, 파일 이동·`PHYS_STRG_PATH` UPDATE·공지 본문 URL 교체, 운영 디스크 작업이라 사람), 영수증 원본 저장 중단(따로 기획), 지운·교체한 파일 정리 배치, 채팅·문의 이미지 상한 상수 10
 - 사람: 관리자 기능명세서 FN-ADM-110-01 비고 "대시보드 케어 최대 노출 수 포함(2026-10-30 재결정)" 정리(ERDCloud 컬럼은 2026-11-16 삭제함). SCR-ADM-081 키워드 사전 삭제(2026-11-16)를 요구사항정의서·관리자 기능명세서·화면설계서·IA에 반영

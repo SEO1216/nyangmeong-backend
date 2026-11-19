@@ -44,6 +44,7 @@ import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 
 /**
  * [검사 - 펫돌봄 채팅 메시지]
@@ -62,7 +63,7 @@ class ChatMessageServiceTest {
     private final FieldCryptoService fieldCryptoService = mock(FieldCryptoService.class);
     private final ChatMessageService service = new ChatMessageService(chatRoomMapper, chatMessageMapper,
             careMatchMapper, new ChatRoomGuard(chatRoomMapper), chatRealtimePublisher, fileStore,
-            fieldCryptoService);
+            fieldCryptoService, mock(ProfanityFilter.class));
 
     @BeforeEach
     void stubCommon() {

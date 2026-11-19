@@ -16,6 +16,8 @@ public enum ErrorCode {
     /** 공통(global). 입력값 검증 오류는 INVALID_INPUT_VALUE 하나, 틀린 항목은 응답 data의 필드 목록 */
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다."),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
+    /** 금칙어가 든 입력. 걸린 칸은 응답 data의 필드 목록 (global/validation/ProfanityFilter) */
+    PROFANITY_DETECTED(HttpStatus.BAD_REQUEST, "부적절한 표현이 포함되어 있어요."),
     FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "파일 크기는 10MB 이하여야 합니다."),
     FILE_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "허용하지 않는 파일 형식입니다."),
     FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."),

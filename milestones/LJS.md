@@ -685,10 +685,12 @@
 - 완료 조건 결과: 검증 `통과`(2026-11-19, 1회차, 거부는 테스트로만 확인. 8082에서 SYSC0009 수동 실행 회귀 200·이력 성공·`runningYn` false), 사람 확인 2026-11-19. `BatchRunner.reject`가 실패 사유 "실행 스레드가 없어 시작하지 못함"으로 이력을 남기고 잠금을 푼다. `AdminBatchService` 커밋 뒤 콜백이 `TaskRejectedException`을 잡는다(응답은 그대로 200, API 계약 변경 없음)
 - 연결 남음: 없음
 
-## SCR-ADM-070 아이템 · 순서 저장 400 칸 이름 — 대기
+## SCR-ADM-070 아이템 · 순서 저장 400 칸 이름 — 끝
 - 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-070-04
 - 기다리는 것: 없음
 - 완료 조건: `PUT /api/admin/items/order` 400 `INVALID_INPUT_VALUE`의 `data`에 틀린 칸 이름(`itemSns` 또는 `itemRegnCd`)이 실린다
+- 완료 조건 결과: `AdminItemService.saveOrder`가 빠짐·중복·다른 부위면 `itemSns`, `checkRegion`이 없는 부위·신발이면 `itemRegnCd`(목록 조회·등록·수정도 같은 칸 이름). 빠진 아이템 번호는 싣지 않는다. 검증 `통과`(2026-11-19, 1회차, 8082에서 빠진 목록·신발·바른 목록 확인), 사람 확인 2026-11-19
+- 연결 남음: FN-ADM-070-04 (프론트 연결 관리자 아이템 순서 저장 실패 문구를 `data[0].field`로 가르기, 프론트 저장소에서 /start)
 
 ## SCR-ADM-010 회원 · 잘못 인코딩된 요청 값 400 — 끝
 - 기능: 명세 기능 ID 추가 없음, 걸치는 기능 FN-ADM-010 검색(처음 발견한 곳. 고치는 곳은 `global/error`라 쿼리 문자열·폼 값을 받는 모든 API에 적용)

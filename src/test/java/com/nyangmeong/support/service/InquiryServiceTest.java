@@ -32,6 +32,7 @@ import com.nyangmeong.global.notification.EventPublisher;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.PixelCharacterService;
 import com.nyangmeong.support.domain.Inquiry;
 import com.nyangmeong.support.domain.InquiryPhoto;
@@ -58,7 +59,7 @@ class InquiryServiceTest {
     private final PixelCharacterService pixelCharacterService = mock(PixelCharacterService.class);
     private final EventPublisher eventPublisher = mock(EventPublisher.class);
     private final InquiryService service = new InquiryService(inquiryMapper, fileStore, pixelCharacterService,
-            eventPublisher);
+            eventPublisher, mock(ProfanityFilter.class));
 
     @AfterEach
     void clearPage() {

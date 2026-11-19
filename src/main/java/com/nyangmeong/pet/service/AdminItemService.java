@@ -152,7 +152,7 @@ public class AdminItemService {
         List<Long> itemSns = req.itemSns();
         if (itemSns.size() != current.size() || new HashSet<>(itemSns).size() != itemSns.size()
                 || !new HashSet<>(current).equals(new HashSet<>(itemSns))) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "itemSns");
         }
         String actorId = String.valueOf(actorSn);
         for (int i = 0; i < itemSns.size(); i++) {
@@ -175,7 +175,7 @@ public class AdminItemService {
      */
     private void checkRegion(String itemRegnCd) {
         if (ItemRegion.from(itemRegnCd).isEmpty() || ItemRegion.SHOES.is(itemRegnCd)) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "itemRegnCd");
         }
     }
 

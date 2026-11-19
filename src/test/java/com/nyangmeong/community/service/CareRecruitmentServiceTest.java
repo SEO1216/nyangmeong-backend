@@ -47,6 +47,7 @@ import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.setting.SystemSetting;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.BreedService;
 
 /**
@@ -83,7 +84,7 @@ class CareRecruitmentServiceTest {
     private final RegionService regionService = mock(RegionService.class);
     private final BreedService breedService = mock(BreedService.class);
     private final CareRecruitmentService service = new CareRecruitmentService(careRecruitmentMapper, postMapper,
-            fileStore, new OwnerAuthorizer(), systemSettingService, fieldCryptoService, regionService, breedService);
+            fileStore, new OwnerAuthorizer(), systemSettingService, fieldCryptoService, regionService, breedService, mock(ProfanityFilter.class));
 
     @AfterEach
     void clearPage() {

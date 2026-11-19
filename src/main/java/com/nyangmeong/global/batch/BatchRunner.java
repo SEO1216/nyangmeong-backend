@@ -26,6 +26,7 @@ public class BatchRunner {
 
     private static final int FAIL_RSN_MAX_LENGTH = 1000;
     private static final String INTERRUPTED_RSN = "서버 재시작으로 중단";
+    private static final String REJECTED_RSN = "실행 스레드가 없어 시작하지 못함";
 
     private final BatchExecutionMapper batchExecutionMapper;
 
@@ -75,6 +76,17 @@ public class BatchRunner {
     @Async(AsyncConfig.BATCH_EXECUTOR)
     public void runManual(BatchJob job, BatchExecution execution) {
         run(job, execution);
+    }
+
+    /**
+     * 수동 실행 거부 처리 : 실행 풀이 받지 않은 실행을 실패로 남기고 잠금 해제
+     */
+    public void reject(BatchJob job, BatchExecution execution, RuntimeException e) {
+        log.error("[Batch] 수동 실행 시작 실패 type={} : {}", job.type(), e.getMessage());
+        execution.setExcnRsltCd(BatchExecutionResult.FAIL.getCode());
+        execution.setFailRsn(REJECTED_RSN);
+        unlock(job.type());
+        finish(execution);
     }
 
     /**

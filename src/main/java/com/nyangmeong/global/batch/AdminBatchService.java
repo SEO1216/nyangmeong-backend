@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
  * [관리자 배치 현황]
  * - SCR-ADM-111 (FN-ADM-111-01·02·03)
  * - 수동 실행은 커밋 뒤 비동기 시작 : 실행 이력 행이 먼저 보여야 결과를 쓸 수 있음
+ * - 실행 풀이 거부하면 이력을 실패로 남기고 잠금 해제 : 커밋 뒤라 응답은 그대로 200
  */
 @Service
 @RequiredArgsConstructor
@@ -79,10 +81,14 @@ public class AdminBatchService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status == STATUS_COMMITTED) {
-                    batchRunner.runManual(job, execution);
-                } else {
+                if (status != STATUS_COMMITTED) {
                     batchRunner.unlock(type);
+                    return;
+                }
+                try {
+                    batchRunner.runManual(job, execution);
+                } catch (TaskRejectedException e) {
+                    batchRunner.reject(job, execution, e);
                 }
             }
         });

@@ -217,6 +217,14 @@
 - 연결 남음: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면 안내 문구의 "10마리"를 `petMaxCnt`로, 400 문구는 서버 `message`, 프론트 저장소에서 /start)
 - 연결 남음: 공통 오류 처리 파일 4개와 `ErrorCode` 두 문구 `%d` 서식 (LJS에게 PR 전에 알리기, SJM)
 
+## SCR-MYP-003 반려동물 등록/수정 · 인식칩 번호 12·15자리 검증 — 끝
+
+- 기능: 명세 기능 ID 추가 없음, FN-MYP-003-05(인식칩 번호)에 붙인다(명세 문구 수정은 /end 때 문서 작업). 확정 정책: 인식칩 번호는 숫자 12자리 또는 15자리만 허용하고 빈 값(미입력)은 허용한다. 지금은 `^[0-9]{0,20}$`
+- 기다리는 것: 없음
+- 완료 조건: `PetCreateRequest`·`PetUpdateRequest`의 `chipNo`가 12·15자리 숫자와 빈 값만 받고 나머지는 400. AI매니저 수정 카드(`draft_pet_update`)의 `chipNo` 규칙도 같은 값으로 나온다. 테스트와 `docs/api/pet.md` 반영, `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-003-05 (프론트 연결 SCR-MYP-003 등록·수정 모달 인식칩 입력 12·15자리 안내·검증, 수정 때 바꾸지 않은 값은 보내지 않기, 프론트 저장소에서 /start)
+- 연결 남음: AI 저장소 `data/tool_prompts.yaml`의 `chip_no` 설명과 `data/tools.snapshot.json`의 `chipNo.pattern` 갱신 (담당 확인)
+
 ## 제외
 
 - FN-MYP-001-02·05: 화면만 있다(더보기 펼침, 0마리 안내)

@@ -16,8 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 
 import com.nyangmeong.auth.dto.AuthMeResponse;
 import com.nyangmeong.auth.service.AuthService;
@@ -26,6 +30,8 @@ import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationTab;
 import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.domain.MemberStatus;
 import com.nyangmeong.notification.domain.InappNotification;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
@@ -44,6 +50,11 @@ class NotificationServiceTest {
     private final NotificationMapper notificationMapper = mock(NotificationMapper.class);
     private final AuthService authService = mock(AuthService.class);
     private final NotificationService notificationService = new NotificationService(notificationMapper, authService);
+
+    @AfterEach
+    void clearPage() {
+        PageHelper.clearPage();
+    }
 
     private NotificationReceiveSetting allOn() {
         NotificationReceiveSetting setting = new NotificationReceiveSetting();
@@ -176,22 +187,66 @@ class NotificationServiceTest {
     }
 
     @Test
-    void 전체_탭은_유형_조건_없이_5건을_조회한다() {
-        when(notificationMapper.selectRecentList(eq(1L), isNull(), eq(5))).thenReturn(new ArrayList<>());
+    void 전체_탭은_유형_조건_없이_조회한다() {
+        when(notificationMapper.selectList(eq(1L), isNull())).thenReturn(new ArrayList<>());
 
-        notificationService.search(1L, NotificationTab.ALL);
-        notificationService.search(1L, null);
+        notificationService.search(1L, NotificationTab.ALL, new PageQuery(null, null, null));
+        notificationService.search(1L, null, new PageQuery(null, null, null));
 
-        verify(notificationMapper, times(2)).selectRecentList(eq(1L), isNull(), eq(5));
+        verify(notificationMapper, times(2)).selectList(eq(1L), isNull());
+    }
+
+    @Test
+    void size를_생략하면_1쪽_5건으로_페이지를_건다() {
+        when(notificationMapper.selectList(eq(1L), isNull())).thenAnswer(inv -> {
+            Page<Object> page = PageHelper.getLocalPage();
+            assertThat(page.getPageNum()).isEqualTo(1);
+            assertThat(page.getPageSize()).isEqualTo(5);
+            return new ArrayList<>();
+        });
+
+        notificationService.search(1L, NotificationTab.ALL, new PageQuery(null, null, null));
+
+        verify(notificationMapper).selectList(eq(1L), isNull());
+    }
+
+    @Test
+    void size는_최대_50이고_page가_1보다_작으면_1쪽이다() {
+        when(notificationMapper.selectList(eq(1L), isNull())).thenAnswer(inv -> {
+            Page<Object> page = PageHelper.getLocalPage();
+            assertThat(page.getPageNum()).isEqualTo(1);
+            assertThat(page.getPageSize()).isEqualTo(50);
+            return new ArrayList<>();
+        });
+
+        notificationService.search(1L, NotificationTab.ALL, new PageQuery(0, 100, null));
+
+        verify(notificationMapper).selectList(eq(1L), isNull());
+    }
+
+    @Test
+    void 다음_쪽이_있으면_hasNext가_true다() {
+        Page<NotificationSummary> page = new Page<>(1, 5);
+        page.setTotal(6);
+        page.add(row(NotificationType.NOTICE));
+        when(notificationMapper.selectList(eq(1L), isNull())).thenReturn(page);
+
+        PageResponse<NotificationSummary> res = notificationService.search(1L, NotificationTab.ALL,
+                new PageQuery(1, 5, null));
+
+        assertThat(res.totalElements()).isEqualTo(6);
+        assertThat(res.hasNext()).isTrue();
+        assertThat(res.content()).extracting(NotificationSummary::getTab).containsExactly("INFO");
     }
 
     @Test
     void 케어_탭은_케어_일정과_가계부_유형만_조회하고_행마다_탭을_채운다() {
         List<String> careCodes = List.of("AIMC0008", "AIMC0013");
-        when(notificationMapper.selectRecentList(1L, careCodes, 5))
+        when(notificationMapper.selectList(1L, careCodes))
                 .thenReturn(new ArrayList<>(List.of(row(NotificationType.CARE_SCHEDULE), row(NotificationType.EXPENSE))));
 
-        List<NotificationSummary> rows = notificationService.search(1L, NotificationTab.CARE);
+        List<NotificationSummary> rows = notificationService.search(1L, NotificationTab.CARE,
+                new PageQuery(null, null, null)).content();
 
         assertThat(rows).extracting(NotificationSummary::getTab).containsExactly("CARE", "CARE");
     }

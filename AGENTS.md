@@ -30,7 +30,7 @@ Java 25, Spring Boot 4.1, Spring Security 7, MyBatis(Mapper 인터페이스 + XM
 com.nyangmeong
 ├─ global/                 공통 모듈. 도메인을 모른다
 │  ├─ response/  error/  security/  auth/  validation/  file/
-│  ├─ notification/  mail/  code/  setting/
+│  ├─ notification/  mail/  code/  setting/  aitool/
 │  └─ external/  batch/  config/  log/
 ├─ member/  auth/  pet/  health/  community/  place/
 ├─ support/  notification/  expense/  ai/

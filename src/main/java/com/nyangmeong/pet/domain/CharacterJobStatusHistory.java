@@ -17,4 +17,17 @@ public class CharacterJobStatusHistory {
     private String aftrSttsCd;
     private String chgRsn;
     private LocalDateTime regDt;
+
+    /**
+     * 상태 이력 생성 : 처음 등록이면 before 는 null
+     */
+    public static CharacterJobStatusHistory of(Long charCrtJobSn, Long mbrSn, CharacterJobStatus before,
+            CharacterJobStatus after) {
+        CharacterJobStatusHistory history = new CharacterJobStatusHistory();
+        history.setCharCrtJobSn(charCrtJobSn);
+        history.setMbrSn(mbrSn);
+        history.setBfrSttsCd(before != null ? before.getCode() : null);
+        history.setAftrSttsCd(after.getCode());
+        return history;
+    }
 }

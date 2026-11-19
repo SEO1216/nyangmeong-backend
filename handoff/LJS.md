@@ -2,11 +2,12 @@
 
 ## 지금 하는 것
 
-SCR-MYP-010 픽셀 캐릭터 관리 · 기본 캐릭터 도트 그림 — 끝 (2026-11-19). 캐릭터가 없거나 오류 확인 중인 반려동물의 `GET /api/pets/{petSn}/character-image` 기본 그림을 네모 임시 그림에서 도트 그림(프론트 `default-character-*-full.png`)으로 교체. `part=face`는 기존 얼굴 자르기로 프론트 얼굴 그림과 같게 나온다. 코드·API 그대로, 프론트 할 일 없음. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 12:27
+SCR-MYP-010 픽셀 캐릭터 관리 · 리팩토링(동작 변경 없음) — 끝 (2026-11-19). 동작·API·SQL 변경 없이 `PixelCharacter.isUnderReview()`, `CharacterJobStatusHistory.of(...)`로 중복 판정·이력 생성을 모으고 안 쓰는 `getCharacterOfPetOrThrow`를 지웠다. `AGENTS.md` 패키지 구조에 `global/aitool/` 추가. 범위 밖으로 남긴 것: Mapper 테이블별 분리(SJM `PetService`까지 바뀜), 관리자 상태별 건수 쿼리 합치기. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 14:58
 
 ## 다음에 할 것
 
-- 사람(SCR-COM-004 모두 읽음): DMS 공통레이아웃 기능명세서에 FN-COM-004-17 "모두 읽음" 행 추가(코드·`docs/api`는 이 ID로 씀). 헤더 목록 5건 제한을 늘릴지 정한다(전체 보기 화면은 FN-COM-004-16으로 만들지 않음)
+- SCR-COM-004 연결 남음: FN-COM-004-05 (프론트 연결 헤더 알림 드롭다운: 응답 `data.content` 읽기, 목록 끝에서 다음 쪽, `hasNext` false면 멈춤, `inappNotiSn` 중복 거르기, 프론트 저장소에서 /start. 프론트 세션에 계약 알림·프론트 핸드오프에 기록됨). 응답 모양이 바뀌어 지금 프론트 드롭다운은 병합 뒤 목록을 못 읽는다 → 백엔드 PR은 프론트 연결 PR과 같이 병합(PR 번호를 프론트 세션에 알린다)
+- 사람(SCR-COM-004 모두 읽음): DMS 공통레이아웃 기능명세서에 FN-COM-004-17 "모두 읽음" 행 추가(코드·`docs/api`는 이 ID로 씀). FN-COM-004-05와 화면설계서 SCR-COM-004 ③의 "최대 5건 미리보기"를 "5건씩 보여 주고 목록 끝에서 다음 5건을 불러온다"로 고친다(2026-11-19 결정, 전체 보기 화면은 FN-COM-004-16대로 만들지 않음)
 - 사람(SCR-ADM-070 굽기를 그림 참고로만): 공용 DB에 기준 SQL v0.14 (19) 실행(지우기 전 `BAKE_HINT` 백업은 선택). 검증용 아이템 itemSn 55(`verify-test-1117`, 판매 중지)가 공용 DB에 남아 있어 지우려면 SQL로. ERDCloud `ITEM.BAKE_IMG_REF_YN`이 맨 끝에 붙어 있어 화면에서 `NTSL_YN` 뒤로 옮긴다. 기존 아이템은 서버 관리자 화면에서 픽셀 그림을 새로 올리며 굽기를 켠다(그 전에는 새 캐릭터에 굽지 않음, 서버의 옛 아이템 그림 경로 문제로 1번 main에서 49·51·53 bake-image 실패 보고 있음)
 - SCR-ADM-070 연결 남음: FN-ADM-070-03 (프론트 연결 관리자 아이템 수정 모달에서 굽기 대상 아이템의 그림을 바꿔 저장하면 전체 굽기 다시 시작, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 그림 교체 뒤 전체 굽기 다시 시작 — 대기" 넣음). 생성기(ai·러스트) 선택 정리: `POST /ai/items/bake-hints` 삭제, `POST /ai/items/trial-preview`는 `bakeHint`만 받아 그림 참고 없이 구우므로 쓰려면 그림 참고로 바꾼다(프론트는 시험 굽기를 쓰지 않음)
 - SCR-MYP-011 연결 남음: FN-MYP-011-05 (프론트 연결 `features/pet/character/ItemShopModal.jsx`가 `IDEMPOTENCY_KEY_REUSED`를 받으면 새 `idmptDmndId`를 만들고 상점을 다시 읽기, `PURCHASE_ERRORS` 문구, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-MYP-011 아이템 상점 모달 · 구매 멱등키 재사용 409 처리 — 대기" 넣음). 그 전까지는 이 오류를 받으면 모달을 닫았다 열어야 다시 살 수 있다

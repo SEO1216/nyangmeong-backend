@@ -135,7 +135,7 @@ public class ItemService {
             throw new CustomException(ErrorCode.PIXEL_CHARACTER_NOT_FOUND);
         }
         petAuthorizer.checkPrimary(mbrSn, character.getPetSn());
-        if (checkUnderReview && "Y".equals(character.getBscCharSbstYn())) {
+        if (checkUnderReview && character.isUnderReview()) {
             throw new CustomException(ErrorCode.PIXEL_CHARACTER_UNDER_REVIEW);
         }
     }

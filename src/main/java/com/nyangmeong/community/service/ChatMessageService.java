@@ -36,6 +36,7 @@ import com.nyangmeong.global.file.FileCategory;
 import com.nyangmeong.global.file.FileOwner;
 import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -62,6 +63,7 @@ public class ChatMessageService {
     private final ChatRealtimePublisher chatRealtimePublisher;
     private final FileStore fileStore;
     private final FieldCryptoService fieldCryptoService;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 메시지 조회 (커서, 최신순)
@@ -94,6 +96,9 @@ public class ChatMessageService {
         chatRoomGuard.checkJoined(mbrSn, otoChatRoomSn);
         List<MultipartFile> images = attached(req.images());
         checkRequest(req, images);
+        if (ChatMessageType.TEXT.is(req.msgTypeCd())) {
+            profanityFilter.check("msgCn", req.msgCn());
+        }
 
         /** 방 잠금 뒤에 중복 요청과 순서를 확인 : 같은 방의 전송이 한 줄로 처리됨 */
         ChatRoom lockedRoom = chatRoomMapper.selectRoomForUpdate(otoChatRoomSn);

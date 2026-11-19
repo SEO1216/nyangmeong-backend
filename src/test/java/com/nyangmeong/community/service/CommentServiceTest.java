@@ -27,6 +27,7 @@ import com.nyangmeong.community.mapper.PostMapper;
 import com.nyangmeong.global.auth.OwnerAuthorizer;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.CareMission;
 
 /**
@@ -45,7 +46,7 @@ class CommentServiceTest {
     private final LostReportMapper lostReportMapper = mock(LostReportMapper.class);
     private final PetStoryMissionReflector missionReflector = mock(PetStoryMissionReflector.class);
     private final CommentService service = new CommentService(commentMapper, postMapper, lostReportMapper,
-            new OwnerAuthorizer(), missionReflector);
+            new OwnerAuthorizer(), missionReflector, mock(ProfanityFilter.class));
 
     private Comment comment(Long cmntSn, Long prntCmntSn, Long pstSn, Long mbrSn) {
         Comment comment = new Comment();

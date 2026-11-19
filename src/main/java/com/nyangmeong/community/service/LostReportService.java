@@ -46,6 +46,7 @@ import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.BreedService;
 
 import lombok.RequiredArgsConstructor;
@@ -81,6 +82,7 @@ public class LostReportService {
     private final RegionService regionService;
     private final BreedService breedService;
     private final EventPublisher eventPublisher;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 목록 조회 (실종 먼저·찾았어요 뒤, 한 페이지 12건. mineYn 이면 내 글만, 만료 글은 맨 뒤)
@@ -140,6 +142,7 @@ public class LostReportService {
      */
     @Transactional
     public LostReportResponse create(Long mbrSn, LostReportCreateRequest req) {
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn(), "chrcCn", req.chrcCn());
         validate(req);
         Long rgnSn = findRegionOrThrow(req);
         List<MultipartFile> images = attached(req.images());
@@ -177,6 +180,7 @@ public class LostReportService {
     public LostReportResponse update(Long mbrSn, Long lostTpofSn, LostReportUpdateRequest req) {
         LostReportDetail detail = getDetailOrThrow(lostTpofSn);
         ownerAuthorizer.checkOwner(mbrSn, detail.getMbrSn());
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn(), "chrcCn", req.chrcCn());
         if (!LostReportStatus.MISSING.is(detail.getLostTpofSttsCd()) || isExpired(detail)) {
             throw new CustomException(ErrorCode.LOST_REPORT_NOT_EDITABLE);
         }

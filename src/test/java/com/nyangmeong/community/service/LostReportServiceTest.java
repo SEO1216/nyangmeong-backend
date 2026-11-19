@@ -50,6 +50,7 @@ import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.setting.SystemSetting;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.BreedService;
 
 /**
@@ -78,7 +79,7 @@ class LostReportServiceTest {
     private final EventPublisher eventPublisher = mock(EventPublisher.class);
     private final LostReportService service = new LostReportService(lostReportMapper, postMapper, commentMapper,
             fileStore, new OwnerAuthorizer(), systemSettingService, fieldCryptoService, regionService,
-            breedService, eventPublisher);
+            breedService, eventPublisher, mock(ProfanityFilter.class));
 
     @AfterEach
     void clearPage() {

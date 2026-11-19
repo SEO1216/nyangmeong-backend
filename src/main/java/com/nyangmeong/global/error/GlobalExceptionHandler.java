@@ -3,6 +3,7 @@ package com.nyangmeong.global.error;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -89,9 +90,10 @@ public class GlobalExceptionHandler {
 
     /**
      * 요청 형식 오류 처리 핸들러 메소드
+     * - InvalidParameterException : Tomcat이 쿼리 문자열·폼 값을 UTF-8로 풀지 못함 (예: ?q=%FF)
      */
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-            MissingServletRequestParameterException.class})
+            MissingServletRequestParameterException.class, InvalidParameterException.class})
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception e, HttpServletRequest request) {
         logException(e);
         return respond(ErrorCode.BAD_REQUEST, request);

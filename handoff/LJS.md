@@ -2,10 +2,12 @@
 
 ## 지금 하는 것
 
-SCR-ADM-001 대시보드 · 전체 게시글 수 삭제 글 제외 — 끝 (2026-11-19). 대시보드 `totPstCnt`·`recentPsts`와 이용 통계 `pstCntByBbs`에서 삭제(CMUC0005) 글을 빼고 정상·블라인드만 센다(사람 결정 2026-11-19, 2026-11-05 "삭제 포함"을 바꿈). 계약 `docs/api/admin.md`. 검증 `통과`(1회차), 사람 확인 2026-11-19, 시작 2026-11-19 16:48
+SCR-MAN-001 메인 · 서비스 튜토리얼 봤음 조회·저장 API — 끝 (2026-11-20). `GET·PUT /api/members/me/tutorial`(`tutrlViewYn`), MBR `TUTRL_VIEW_YN`(신규 가입 'N', 기존 회원 'Y', v0.14 (26)), DB 기준 파일 v0.15로 올림(추가-1). 계약 `docs/api/member.md`. 검증 `통과`(2회차), 사람 확인 2026-11-20, 시작 2026-11-20 11:20
 
 ## 다음에 할 것
 
+- SCR-MAN-001 연결 남음: 새 기능(ID 없음) 튜토리얼 조회·저장 (프론트 연결 `features/dashboard/api.js` 튜토리얼 가짜 API를 `GET·PUT /api/members/me/tutorial`(`tutrlViewYn`)로, 프론트 저장소에서 /start). frontend-dd 세션에 경로·필드 알림(2026-11-20, 받음). 프론트 저장소 마일스톤 `## 제외` 앞에 넣을 절(사람): `## SCR-MAN-001 메인 · 서비스 튜토리얼 봤음 API 연결 — 대기`
+- 사람(SCR-MAN-001 튜토리얼): ERDCloud `MBR`에 `TUTRL_VIEW_YN`(`D7_BFHD_NOTI_YN` 뒤) 추가, ERD 버전 v0.15 여부 정하기. YAY에게 `member`에 컬럼 하나·API 두 개 추가를 알린다. PR 본문에 "DB 변경 있음 v0.14 (26), 기준 파일 v0.15로 바뀜". 공용 DB 시드 회원 12(씩씩한산책러)는 확인용으로 'N'으로 바꿔 둠(2026-11-20), 되돌리려면 `UPDATE MBR SET TUTRL_VIEW_YN='Y' WHERE MBR_SN=12;`
 - SCR-ADM-070 연결 남음: FN-ADM-070-04 (프론트 연결 관리자 아이템 순서 저장 실패 문구를 `data[0].field`로 가르기, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 순서 저장 400 칸 이름 표시 — 대기" 넣음)
 - 사람(SCR-ADM-070 굽기를 그림 참고로만): (공용 DB 기준 SQL v0.14 (19)는 실행돼 있음, 검증용 아이템 55는 2026-11-19 지움·첨부파일 4922 `USE_YN=N`) ERDCloud `ITEM.BAKE_IMG_REF_YN`이 맨 끝에 붙어 있어 화면에서 `NTSL_YN` 뒤로 옮긴다. 기존 아이템은 서버 관리자 화면에서 픽셀 그림을 새로 올리며 굽기를 켠다(그 전에는 새 캐릭터에 굽지 않음, 서버의 옛 아이템 그림 경로 문제로 1번 main에서 49·51·53 bake-image 실패 보고 있음)
 - SCR-ADM-070 연결 남음: FN-ADM-070-03 (프론트 연결 관리자 아이템 수정 모달에서 굽기 대상 아이템의 그림을 바꿔 저장하면 전체 굽기 다시 시작, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 그림 교체 뒤 전체 굽기 다시 시작 — 대기" 넣음). 생성기(ai·러스트) 선택 정리: `POST /ai/items/bake-hints` 삭제, `POST /ai/items/trial-preview`는 `bakeHint`만 받아 그림 참고 없이 구우므로 쓰려면 그림 참고로 바꾼다(프론트는 시험 굽기를 쓰지 않음)

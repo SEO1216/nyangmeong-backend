@@ -55,7 +55,8 @@ class ProfanityGuardTest {
         PostMapper postMapper = mock(PostMapper.class);
         when(postMapper.selectPost(PST, NORMAL)).thenReturn(new Post());
         CommentService service = new CommentService(commentMapper, postMapper, mock(LostReportMapper.class),
-                new OwnerAuthorizer(), mock(PetStoryMissionReflector.class), filter);
+                new OwnerAuthorizer(), mock(PetStoryMissionReflector.class), filter,
+                mock(com.nyangmeong.global.notification.EventPublisher.class));
 
         assertThatThrownBy(() -> service.create(MBR, PST, new CommentCreateRequest("시 발 뭐야", null)))
                 .isInstanceOfSatisfying(CustomException.class, e -> {

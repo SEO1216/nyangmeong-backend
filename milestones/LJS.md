@@ -704,6 +704,14 @@
 - 완료 조건: `GET /api/admin/dashboard`의 `totPstCnt`·`recentPsts`와 `GET /api/admin/dashboard/stats`의 `pstCntByBbs`가 삭제(CMUC0005) 글을 빼고 정상·블라인드 글만 센다. `totPstCnt` = `GET /api/admin/posts?status=CMUC0003` + `?status=CMUC0004`의 `totalElements` 합
 - 완료 조건 결과: 검증 `통과`(2026-11-19, 1회차), 사람 확인 2026-11-19. 정한 것: 매퍼는 `excludeSttsCd` 파라미터로 받고 서비스가 `PostStatus.DELETED.getCode()`를 넘긴다, 게시판별 수는 LEFT JOIN ON 조건이라 글 없는 게시판 0 유지. 남김: `AdminDashboardPostResponse` 클래스 주석의 "삭제 글 전부"는 기획 밖이라 고치지 않았다
 
+## SCR-MAN-001 메인 · 서비스 튜토리얼 봤음 조회·저장 API — 끝
+- 기능: 명세 기능 ID 추가 없음(프론트 LJS 요청 2026-11-20, 기능명세서·화면설계서에 튜토리얼 기능 ID 없음, 문서는 사람이 추가 예정)
+- 기다리는 것: 없음
+- 완료 조건: 신규 가입 회원은 `GET /api/members/me/tutorial`이 `tutrlViewYn=false`, `PUT` 뒤 true를 주고 PUT을 다시 불러도 200 같은 응답. 기존 회원(변경 SQL 실행 전 가입)은 처음부터 true
+- 완료 조건 결과: 검증 `통과`(2026-11-20, 2회차. 1회차는 공용 DB에 컬럼이 없어 `확인 못 함 있음`, 2회차는 로컬 임시 스키마로 확인), 사람 확인 2026-11-20. 정한 것: 신규 가입 회원만 본다(MBR `TUTRL_VIEW_YN` 기본 'N', 기존 회원은 변경 SQL에서 'Y'), 저장 시점은 프론트의 모달 닫힘 전부(X·[시작해 볼게요]·바깥 클릭·ESC·[?] 다시 보기 뒤 닫기), 저장은 멱등, 필드 이름은 README 규칙대로 `tutrlViewYn`(프론트 제안 `tutorialSeenYn` 아님). DB v0.14 (26)(공용 DB 실행됨, 2026-11-20 확인). `member` 도메인(YAY)에 추가. 계약 `docs/api/member.md`
+- 추가: 추가-1 DB 기준 파일 v0.15로 올림(v0.14 두 파일은 `db/archive/v0.14/`, 사람 결정 2026-11-20)
+- 연결 남음: 새 기능(ID 없음) 조회·저장 (프론트 연결 `features/dashboard/api.js` 튜토리얼 가짜 API를 `GET·PUT /api/members/me/tutorial`로, 프론트 저장소에서 /start)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +32,7 @@ import com.nyangmeong.member.dto.MemberRecoveryInfoRequest;
 import com.nyangmeong.member.dto.MemberRecoveryResponse;
 import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.dto.MemberSnsLinkRequest;
+import com.nyangmeong.member.dto.MemberTutorialResponse;
 import com.nyangmeong.member.dto.MemberUpdateRequest;
 import com.nyangmeong.member.dto.MemberWithdrawRequest;
 import com.nyangmeong.member.dto.PasswordChangeRequest;
@@ -58,6 +60,7 @@ import lombok.RequiredArgsConstructor;
  * - 현재 비밀번호 확인·변경(POST /api/members/me/password-verification, PATCH /api/members/me/password)도 로그인 회원만
  * - 회원탈퇴(POST /api/members/me/withdraw)도 로그인 회원만, 성공하면 요청한 기기의 쿠키도 지운다
  * - SNS 계정 연동(POST /api/members/me/sns-links)도 로그인 회원만
+ * - 서비스 튜토리얼 봤음 조회·저장(GET·PUT /api/members/me/tutorial, SCR-MAN-001)도 로그인 회원만
  */
 @RestController
 @RequiredArgsConstructor
@@ -161,6 +164,19 @@ public class MemberController {
     public ResponseEntity<ApiResponse<MemberResponse>> updateMe(@AuthenticationPrincipal LoginMember me,
             @ModelAttribute MemberUpdateRequest req) {
         return ResponseEntity.ok(ApiResponse.success(memberService.updateMember(me.id(), req)));
+    }
+
+    @Operation(summary = "서비스 튜토리얼 봤음 여부 조회")
+    @GetMapping("/me/tutorial")
+    public ResponseEntity<ApiResponse<MemberTutorialResponse>> getTutorial(@AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(memberService.getTutorial(me.id())));
+    }
+
+    @Operation(summary = "서비스 튜토리얼 봤음 저장")
+    @PutMapping("/me/tutorial")
+    public ResponseEntity<ApiResponse<MemberTutorialResponse>> markTutorialViewed(
+            @AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(memberService.markTutorialViewed(me.id())));
     }
 
     @Operation(summary = "닉네임 설정 완료")

@@ -299,6 +299,22 @@
          WHERE MBR_SN = #{mbrSn}
     </update>
 
+    <select id="selectTutrlViewYn" resultType="string">
+        /* 서비스 튜토리얼 봤음 여부 조회 */
+        SELECT TUTRL_VIEW_YN
+          FROM MBR
+         WHERE MBR_SN = #{mbrSn}
+    </select>
+
+    <update id="updateTutrlView">
+        /* 서비스 튜토리얼 봤음 저장 */
+        UPDATE MBR
+           SET TUTRL_VIEW_YN = 'Y'
+             , MDFR_ID = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE MBR_SN = #{mbrSn}
+    </update>
+
     <update id="updateLastLogin">
         /* 최근 로그인 일시 갱신 */
         UPDATE MBR

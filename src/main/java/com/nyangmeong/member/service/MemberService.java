@@ -37,6 +37,7 @@ import com.nyangmeong.member.dto.MemberNicknameUpdateRequest;
 import com.nyangmeong.member.dto.MemberPhoneAvailabilityResponse;
 import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.dto.MemberSnsAccountSummary;
+import com.nyangmeong.member.dto.MemberTutorialResponse;
 import com.nyangmeong.member.dto.MemberUpdateRequest;
 import com.nyangmeong.member.dto.EmailCertificationResponse;
 import com.nyangmeong.member.dto.PasswordResetAccount;
@@ -554,6 +555,30 @@ public class MemberService {
         summary.setRecentMbrs(memberMapper.selectRecentMembers(userCd,
                 List.of(MemberStatus.NORMAL.getCode(), MemberStatus.SUSPENDED.getCode()), DASHBOARD_RECENT_LIMIT));
         return summary;
+    }
+
+    /**
+     * 서비스 튜토리얼 봤음 여부 조회
+     */
+    @Transactional(readOnly = true)
+    public MemberTutorialResponse getTutorial(Long mbrSn) {
+        String tutrlViewYn = memberMapper.selectTutrlViewYn(mbrSn);
+        if (tutrlViewYn == null) {
+            throw new CustomException(ErrorCode.MEMBER_NOT_FOUND);
+        }
+        return MemberTutorialResponse.from(tutrlViewYn);
+    }
+
+    /**
+     * 서비스 튜토리얼 봤음 저장
+     * - 이미 봤어도 오류 없이 같은 응답 (모달을 다시 열고 닫을 때도 부른다)
+     */
+    @Transactional
+    public MemberTutorialResponse markTutorialViewed(Long mbrSn) {
+        if (memberMapper.updateTutrlView(mbrSn, String.valueOf(mbrSn)) != 1) {
+            throw new CustomException(ErrorCode.MEMBER_NOT_FOUND);
+        }
+        return new MemberTutorialResponse(true);
     }
 
     /**

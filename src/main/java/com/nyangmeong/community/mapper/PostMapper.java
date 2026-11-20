@@ -189,18 +189,20 @@ public interface PostMapper {
     List<AdminPostStatusHistorySummary> selectAdminStatusHistories(Long pstSn);
 
     /**
-     * 전체 게시글 수 조회
+     * 전체 게시글 수 조회 (excludeSttsCd 상태 제외)
      */
-    long countAll();
+    long countAll(@Param("excludeSttsCd") String excludeSttsCd);
 
     /**
-     * 관리자 대시보드 최근 게시글 조회
+     * 관리자 대시보드 최근 게시글 조회 (excludeSttsCd 상태 제외)
      */
-    List<AdminRecentPostSummary> selectRecentPosts(@Param("limit") int limit);
+    List<AdminRecentPostSummary> selectRecentPosts(@Param("excludeSttsCd") String excludeSttsCd,
+            @Param("limit") int limit);
 
     /**
-     * 관리자 대시보드 게시판별 게시글 수 조회 (fromDt 이상 toDt 미만)
+     * 관리자 대시보드 게시판별 게시글 수 조회 (fromDt 이상 toDt 미만, excludeSttsCd 상태 제외)
      */
     List<AdminBoardPostCountSummary> selectBoardPostCounts(@Param("bbsGrpCd") String bbsGrpCd,
-            @Param("fromDt") LocalDateTime fromDt, @Param("toDt") LocalDateTime toDt);
+            @Param("excludeSttsCd") String excludeSttsCd, @Param("fromDt") LocalDateTime fromDt,
+            @Param("toDt") LocalDateTime toDt);
 }

@@ -248,10 +248,7 @@ public class CharacterCreationService {
      * 상태 이력 등록
      */
     private void insertHistory(Long charCrtJobSn, CharacterJobStatus before, CharacterJobStatus after, String reason) {
-        CharacterJobStatusHistory history = new CharacterJobStatusHistory();
-        history.setCharCrtJobSn(charCrtJobSn);
-        history.setBfrSttsCd(before.getCode());
-        history.setAftrSttsCd(after.getCode());
+        CharacterJobStatusHistory history = CharacterJobStatusHistory.of(charCrtJobSn, null, before, after);
         history.setChgRsn(reason);
         pixelCharacterMapper.insertJobStatusHistory(history);
     }

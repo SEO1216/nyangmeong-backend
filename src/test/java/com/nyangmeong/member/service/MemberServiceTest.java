@@ -850,4 +850,36 @@ class MemberServiceTest {
         assertCode(catchThrowable(() -> service.linkSns(7L, NAVER, "naver-1")), ErrorCode.MEMBER_NOT_FOUND);
         verify(memberMapper, never()).selectSnsLink(anyString(), anyString());
     }
+
+    @Test
+    void 튜토리얼_조회는_Y_N을_true_false로_바꾼다() {
+        when(memberMapper.selectTutrlViewYn(7L)).thenReturn("N");
+        assertThat(service.getTutorial(7L).tutrlViewYn()).isFalse();
+
+        when(memberMapper.selectTutrlViewYn(7L)).thenReturn("Y");
+        assertThat(service.getTutorial(7L).tutrlViewYn()).isTrue();
+    }
+
+    @Test
+    void 튜토리얼_조회는_회원이_없으면_거절한다() {
+        when(memberMapper.selectTutrlViewYn(7L)).thenReturn(null);
+
+        assertCode(catchThrowable(() -> service.getTutorial(7L)), ErrorCode.MEMBER_NOT_FOUND);
+    }
+
+    @Test
+    void 튜토리얼_저장은_다시_불러도_같은_응답이다() {
+        when(memberMapper.updateTutrlView(7L, "7")).thenReturn(1);
+
+        assertThat(service.markTutorialViewed(7L).tutrlViewYn()).isTrue();
+        assertThat(service.markTutorialViewed(7L).tutrlViewYn()).isTrue();
+        verify(memberMapper, org.mockito.Mockito.times(2)).updateTutrlView(7L, "7");
+    }
+
+    @Test
+    void 튜토리얼_저장은_회원이_없으면_거절한다() {
+        when(memberMapper.updateTutrlView(7L, "7")).thenReturn(0);
+
+        assertCode(catchThrowable(() -> service.markTutorialViewed(7L)), ErrorCode.MEMBER_NOT_FOUND);
+    }
 }

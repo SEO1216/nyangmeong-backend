@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,11 +13,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.nyangmeong.community.domain.Comment;
+import com.nyangmeong.community.domain.LostReport;
 import com.nyangmeong.community.domain.Post;
 import com.nyangmeong.community.dto.CommentCreateRequest;
 import com.nyangmeong.community.dto.CommentResponse;
@@ -27,6 +30,10 @@ import com.nyangmeong.community.mapper.PostMapper;
 import com.nyangmeong.global.auth.OwnerAuthorizer;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.notification.EventPublisher;
+import com.nyangmeong.global.notification.NotificationEvent;
+import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.CareMission;
 
 /**
@@ -44,8 +51,9 @@ class CommentServiceTest {
     private final PostMapper postMapper = mock(PostMapper.class);
     private final LostReportMapper lostReportMapper = mock(LostReportMapper.class);
     private final PetStoryMissionReflector missionReflector = mock(PetStoryMissionReflector.class);
+    private final EventPublisher eventPublisher = mock(EventPublisher.class);
     private final CommentService service = new CommentService(commentMapper, postMapper, lostReportMapper,
-            new OwnerAuthorizer(), missionReflector);
+            new OwnerAuthorizer(), missionReflector, mock(ProfanityFilter.class), eventPublisher);
 
     private Comment comment(Long cmntSn, Long prntCmntSn, Long pstSn, Long mbrSn) {
         Comment comment = new Comment();
@@ -155,6 +163,110 @@ class CommentServiceTest {
         assertError(() -> service.create(MBR, PST, new CommentCreateRequest("답글", 11L)),
                 ErrorCode.COMMENT_NOT_FOUND);
         verify(commentMapper, never()).insertComment(any(Comment.class));
+    }
+
+    private static final Long POST_OWNER = 3L;
+
+    private void stubPost(String bbsCd) {
+        stubInsert();
+        Post post = new Post();
+        post.setPstSn(PST);
+        post.setMbrSn(POST_OWNER);
+        post.setBbsCd(bbsCd);
+        when(postMapper.selectPost(PST, NORMAL)).thenReturn(post);
+    }
+
+    private List<NotificationEvent> published() {
+        ArgumentCaptor<NotificationEvent> captor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(eventPublisher, atLeast(0)).publish(captor.capture());
+        return captor.getAllValues();
+    }
+
+    @Test
+    void 남의_글에_댓글을_달면_글_작성자에게_알림_1건() {
+        stubPost("CMUC0001");
+
+        service.create(MBR, PST, new CommentCreateRequest("댓글", null));
+
+        List<NotificationEvent> events = published();
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).mbrSn()).isEqualTo(POST_OWNER);
+        assertThat(events.get(0).type()).isEqualTo(NotificationType.COMMUNITY);
+        assertThat(events.get(0).notiTtl()).isEqualTo("내 글에 댓글이 달렸어요");
+        assertThat(events.get(0).notiCn()).isEqualTo("닉네임: 댓글");
+        assertThat(events.get(0).mvmnPath()).isEqualTo("/community/posts/" + PST);
+    }
+
+    @Test
+    void 내_글에_내가_댓글을_달면_알림이_없다() {
+        stubPost("CMUC0001");
+        when(postMapper.selectAuthor(POST_OWNER)).thenReturn(new PostAuthor());
+
+        service.create(POST_OWNER, PST, new CommentCreateRequest("댓글", null));
+
+        assertThat(published()).isEmpty();
+    }
+
+    @Test
+    void 남의_댓글에_답글을_달면_댓글_작성자와_글_작성자에게_알림() {
+        stubPost("CMUC0001");
+        when(commentMapper.selectComment(10L)).thenReturn(comment(10L, null, PST, OTHER));
+
+        service.create(MBR, PST, new CommentCreateRequest("답글", 10L));
+
+        List<NotificationEvent> events = published();
+        assertThat(events).extracting(NotificationEvent::mbrSn).containsExactly(OTHER, POST_OWNER);
+        assertThat(events.get(0).notiTtl()).isEqualTo("내 댓글에 답글이 달렸어요");
+        assertThat(events.get(1).notiTtl()).isEqualTo("내 글에 댓글이 달렸어요");
+    }
+
+    @Test
+    void 글_작성자의_댓글에_답글을_달면_답글_알림_1건() {
+        stubPost("CMUC0001");
+        when(commentMapper.selectComment(10L)).thenReturn(comment(10L, null, PST, POST_OWNER));
+
+        service.create(MBR, PST, new CommentCreateRequest("답글", 10L));
+
+        List<NotificationEvent> events = published();
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).mbrSn()).isEqualTo(POST_OWNER);
+        assertThat(events.get(0).notiTtl()).isEqualTo("내 댓글에 답글이 달렸어요");
+    }
+
+    @Test
+    void 내_댓글에_내가_답글을_달면_글_작성자에게만_알림() {
+        stubPost("CMUC0001");
+        when(commentMapper.selectComment(10L)).thenReturn(comment(10L, null, PST, MBR));
+
+        service.create(MBR, PST, new CommentCreateRequest("답글", 10L));
+
+        assertThat(published()).extracting(NotificationEvent::mbrSn).containsExactly(POST_OWNER);
+    }
+
+    @Test
+    void 대댓글에_단_답글은_그_대댓글_작성자에게_알림() {
+        stubPost("CMUC0001");
+        when(commentMapper.selectComment(20L)).thenReturn(comment(20L, 10L, PST, OTHER));
+        when(postMapper.selectAuthor(OTHER)).thenReturn(new PostAuthor());
+
+        service.create(MBR, PST, new CommentCreateRequest("답글의 답글", 20L));
+
+        List<NotificationEvent> events = published();
+        assertThat(events).extracting(NotificationEvent::mbrSn).containsExactly(OTHER, POST_OWNER);
+        assertThat(events.get(0).notiTtl()).isEqualTo("내 댓글에 답글이 달렸어요");
+    }
+
+    @Test
+    void 실종_글의_댓글_알림은_실종센터_상세_경로() {
+        stubPost("CMUC0024");
+        LostReport lostReport = new LostReport();
+        lostReport.setLostTpofSn(55L);
+        lostReport.setLostTpofSttsCd("CMUC0006");
+        when(lostReportMapper.selectByPstSn(PST)).thenReturn(lostReport);
+
+        service.create(MBR, PST, new CommentCreateRequest("제보", null));
+
+        assertThat(published()).extracting(NotificationEvent::mvmnPath).containsExactly("/community/missing/55");
     }
 
     private void stubFoundLostReport() {

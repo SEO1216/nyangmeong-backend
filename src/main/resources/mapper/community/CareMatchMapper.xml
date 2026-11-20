@@ -294,6 +294,62 @@
            AND DMND_STTS_CD = #{bfrSttsCd}
     </update>
 
+    <!-- 이번 거래 = 가장 최근에 매칭 완료로 바뀐 이력 이후 (이력이 없으면 전체) -->
+    <select id="existsRejectedCancelDemand" resultType="boolean">
+        SELECT EXISTS ( SELECT 1
+                          FROM MTCH_CNCL_DMND D
+                         WHERE D.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
+                           AND D.DMND_MBR_SN = #{dmndMbrSn}
+                           AND D.DMND_STTS_CD = #{rejectedCd}
+                           AND D.REG_DT <![CDATA[>=]]> COALESCE(( SELECT MAX(H.REG_DT)
+                                                                   FROM PET_PRTC_MTCH_STTS_HSTRY H
+                                                                  WHERE H.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+                                                                    AND H.AFTR_STTS_CD = #{matchedCd} ), D.REG_DT) )
+    </select>
+
+    <select id="selectCancelDemandById" parameterType="long" resultMap="careCancelDemandResultMap">
+        SELECT D.MTCH_CNCL_DMND_SN
+             , D.PET_PRTC_MTCH_SN
+             , D.DMND_MBR_SN
+             , D.CNCL_RSN
+             , D.DMND_STTS_CD
+             , D.PRCS_MBR_SN
+             , D.PRCS_DT
+             , D.REG_DT
+             , D.MDFCN_DT
+          FROM MTCH_CNCL_DMND D
+         WHERE D.MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
+    </select>
+
+    <!-- 요청중 + 매칭 상태 + 등록 경과일 (toDays 가 있으면 그 미만까지만) -->
+    <sql id="cancelDemandDueCond">
+               D.DMND_STTS_CD = #{requestingCd}
+           AND M.MTCH_DLNG_STTS_CD IN
+               <foreach collection="sttsCds" item="sttsCd" open="(" separator="," close=")">#{sttsCd}</foreach>
+           AND D.REG_DT <![CDATA[<=]]> NOW() - INTERVAL #{fromDays} DAY
+        <if test="toDays != null">
+           AND D.REG_DT <![CDATA[>]]> NOW() - INTERVAL #{toDays} DAY
+        </if>
+    </sql>
+
+    <select id="selectCancelDemandDueTargets" resultType="long">
+        SELECT D.MTCH_CNCL_DMND_SN
+          FROM MTCH_CNCL_DMND D
+          JOIN PET_PRTC_MTCH M
+            ON M.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+         WHERE <include refid="cancelDemandDueCond" />
+         ORDER BY D.MTCH_CNCL_DMND_SN
+    </select>
+
+    <select id="existsCancelDemandDue" resultType="boolean">
+        SELECT EXISTS ( SELECT 1
+                          FROM MTCH_CNCL_DMND D
+                          JOIN PET_PRTC_MTCH M
+                            ON M.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+                         WHERE D.MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
+                           AND <include refid="cancelDemandDueCond" /> )
+    </select>
+
     <select id="selectLatestCondition" parameterType="long" resultMap="careMatchConditionResultMap">
         SELECT V.MTCH_CND_VER_SN
              , V.PET_PRTC_MTCH_SN

@@ -386,6 +386,18 @@ public class PetService {
         history.setMbrSn(target.getMbrSn());
         history.setLinkChgTypeCd(type.getCode());
         petMapper.insertLinkHistory(history);
+
+        /** 해제가 성공한 뒤에만 알린다. 커밋 뒤에 나가므로 롤백되면 안 나간다 */
+        String actorNcnm = memberService.getMember(mbrSn).mbrNcnm();
+        String petNm = loadPet(petSn).getPetNm();
+        if (type == LinkChangeType.FORCED_UNLINKED) {
+            eventPublisher.publish(new NotificationEvent(target.getMbrSn(), NotificationType.CO_PARENTING,
+                    actorNcnm + "님이 " + petNm + "의 공동양육 연동을 해제했어요", null, PET_LIST_PATH));
+        } else {
+            eventPublisher.publish(new NotificationEvent(getPrimaryCaregiverMbrSn(petSn),
+                    NotificationType.CO_PARENTING, actorNcnm + "님이 " + petNm + "의 공동양육을 그만뒀어요", null,
+                    PET_LIST_PATH));
+        }
     }
 
     /**

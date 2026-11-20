@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -57,6 +58,7 @@ import com.nyangmeong.member.dto.MemberRecoverRequest;
 import com.nyangmeong.member.dto.MemberRecoveryInfoRequest;
 import com.nyangmeong.member.dto.MemberRecoveryResponse;
 import com.nyangmeong.member.dto.MemberResponse;
+import com.nyangmeong.member.dto.MemberTutorialResponse;
 import com.nyangmeong.member.dto.MemberUpdateRequest;
 import com.nyangmeong.member.dto.MemberWithdrawRequest;
 import com.nyangmeong.member.dto.PasswordChangeRequest;
@@ -719,5 +721,36 @@ class MemberControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verify(memberWithdrawService, never()).withdraw(any(), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 튜토리얼_조회는_로그인_회원의_봤음_여부를_준다() throws Exception {
+        when(memberService.getTutorial(5L)).thenReturn(new MemberTutorialResponse(false));
+
+        mockMvc.perform(get("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tutrlViewYn").value(false));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 튜토리얼_저장은_본문_없이_봤음_true를_준다() throws Exception {
+        when(memberService.markTutorialViewed(5L)).thenReturn(new MemberTutorialResponse(true));
+
+        mockMvc.perform(put("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tutrlViewYn").value(true));
+    }
+
+    @Test
+    void 튜토리얼_조회와_저장은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(get("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberService, never()).getTutorial(any());
+        verify(memberService, never()).markTutorialViewed(any());
     }
 }

@@ -38,6 +38,7 @@ import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.log.AdminTaskLogService;
 import com.nyangmeong.global.log.AdminTaskType;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 
 /**
  * [검사 - 관리자 노출 콘텐츠 (SCR-ADM-023)]
@@ -55,7 +56,7 @@ class AdminExposureServiceTest {
     private final CommunityAiCommentaryMapper commentaryMapper = mock(CommunityAiCommentaryMapper.class);
     private final AdminTaskLogService adminTaskLogService = mock(AdminTaskLogService.class);
     private final PostService postService = new PostService(postMapper, mock(FileStore.class), new OwnerAuthorizer(),
-            mock(SystemSettingService.class), mock(PetStoryMissionReflector.class));
+            mock(SystemSettingService.class), mock(PetStoryMissionReflector.class), mock(ProfanityFilter.class));
     private final AdminExposureService service = new AdminExposureService(postService, postMapper,
             todayPhraseMapper, commentaryMapper, adminTaskLogService);
 

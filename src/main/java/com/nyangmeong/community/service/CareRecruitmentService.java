@@ -56,6 +56,7 @@ import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.crypto.FieldCryptoService;
 import com.nyangmeong.global.setting.SystemSetting;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.PetSe;
 import com.nyangmeong.pet.service.BreedService;
 
@@ -88,6 +89,7 @@ public class CareRecruitmentService {
     private final FieldCryptoService fieldCryptoService;
     private final RegionService regionService;
     private final BreedService breedService;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 목록 조회 (최신순 10건, 반려동물·돌봄 형태는 목록 조회 뒤 한 번에 채움)
@@ -160,6 +162,7 @@ public class CareRecruitmentService {
      */
     @Transactional
     public CareRecruitmentResponse create(Long mbrSn, CareRecruitmentCreateRequest req) {
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         boolean schdlCnsltn = Boolean.TRUE.equals(req.schdlCnsltnPsbltyYn());
         if (!Boolean.TRUE.equals(req.utztnRulAgreYn())) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
@@ -216,6 +219,7 @@ public class CareRecruitmentService {
     public CareRecruitmentResponse update(Long mbrSn, Long petPrtcRcrtSn, CareRecruitmentUpdateRequest req) {
         CareRecruitmentDetail detail = getDetailOrThrow(petPrtcRcrtSn);
         ownerAuthorizer.checkOwner(mbrSn, detail.getMbrSn());
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         if (!CareRecruitmentStatus.RECRUITING.is(detail.getRcrtSttsCd())) {
             throw new CustomException(ErrorCode.CARE_RECRUITMENT_NOT_EDITABLE);
         }

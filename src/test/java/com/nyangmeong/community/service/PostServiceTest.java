@@ -44,6 +44,7 @@ import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.setting.SystemSetting;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.CareMission;
 
 /**
@@ -61,7 +62,7 @@ class PostServiceTest {
     private final SystemSettingService systemSettingService = mock(SystemSettingService.class);
     private final PetStoryMissionReflector missionReflector = mock(PetStoryMissionReflector.class);
     private final PostService service = new PostService(postMapper, fileStore, new OwnerAuthorizer(),
-            systemSettingService, missionReflector);
+            systemSettingService, missionReflector, mock(ProfanityFilter.class));
 
     @BeforeEach
     void stubAuthor() {

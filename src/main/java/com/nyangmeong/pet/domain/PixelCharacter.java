@@ -24,4 +24,11 @@ public class PixelCharacter {
     private LocalDateTime regDt;
     private LocalDateTime mdfcnDt;
     private String mdfrId;
+
+    /**
+     * 오류 확인 중(기본 캐릭터로 대체 표시) 여부
+     */
+    public boolean isUnderReview() {
+        return "Y".equals(bscCharSbstYn);
+    }
 }

@@ -6,7 +6,7 @@
 
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
-| GET | /admin/dashboard | 관리자 대시보드 운영 현황·처리 대기. 기간과 무관한 지금 값. 회원 수는 일반 회원 권한(USRC0004)만 센다(관리자 계정 제외). 게시글은 관리자 게시글 목록(`GET /admin/posts`) 기본 조건과 같게 정상·블라인드·삭제 글을 모두 센다. 처리 대기 건수는 각 목록 화면의 필터 건수와 같은 조건이다(아래 `AdminDashboardResponse`). 일반 회원 403 ADMIN_ONLY | ADM-001-01·02·03 | LJS | - | AdminDashboardResponse |
+| GET | /admin/dashboard | 관리자 대시보드 운영 현황·처리 대기. 기간과 무관한 지금 값. 회원 수는 일반 회원 권한(USRC0004)만 센다(관리자 계정 제외). 게시글은 삭제(CMUC0005) 글을 빼고 정상·블라인드 글만 센다(2026-11-19 사람 결정). 처리 대기 건수는 각 목록 화면의 필터 건수와 같은 조건이다(아래 `AdminDashboardResponse`). 일반 회원 403 ADMIN_ONLY | ADM-001-01·02·03 | LJS | - | AdminDashboardResponse |
 | GET | /admin/dashboard/stats | 관리자 대시보드 이용 통계. `fromYmd`·`toYmd`(yyyy-MM-dd, 둘 다 필수, 양끝 포함) 기간의 건수만 준다(건강기록·AI 대화 내용 없음, 결정 26). 최근 7일·30일은 프론트가 날짜로 바꿔 보낸다. 시작 > 종료, 종료 > 오늘, 91일 이상, 빠진 값, 날짜 형식 오류는 400 INVALID_INPUT_VALUE. 일반 회원 403 ADMIN_ONLY | ADM-001-04·05 | LJS | AdminDashboardStatsSearchCond | AdminDashboardStatsResponse |
 
 ## DTO
@@ -20,9 +20,9 @@
 | stopMbrCnt | long | Y | 정지(USRC0002) | MBR.MBR_STTS_CD |
 | todayJoinCnt | long | Y | 오늘 가입. 상태 무관(오늘 가입 후 탈퇴한 회원 포함). `GET /admin/members?role=USRC0004&bgngYmd=<오늘>` 건수와 같다 | MBR.REG_DT |
 | weekJoinCnt | long | Y | 최근 7일 가입(오늘 포함 7일). 상태 무관. `bgngYmd=<오늘-6일>` 건수와 같다 | MBR.REG_DT |
-| totPstCnt | long | Y | 전체 게시글(정상·블라인드·삭제 전부). `GET /admin/posts`(조건 없음)의 `totalElements` | PST |
+| totPstCnt | long | Y | 전체 게시글(삭제 글 제외, 정상·블라인드). `GET /admin/posts?status=CMUC0003`과 `?status=CMUC0004`의 `totalElements` 합 | PST.PST_STTS_CD |
 | recentMbrs | List<AdminRecentMemberSummary> | Y | 최근 가입 5명. 정상·정지 회원 중 `REG_DT` 최신순(같으면 번호 내림차순) | MBR |
-| recentPsts | List<AdminRecentPostSummary> | Y | 최근 게시글 5건. 상태 무관 `REG_DT` 최신순(같으면 번호 내림차순), `GET /admin/posts` 첫 5행과 같다 | PST |
+| recentPsts | List<AdminRecentPostSummary> | Y | 최근 게시글 5건. 삭제 글 제외(정상·블라인드) `REG_DT` 최신순(같으면 번호 내림차순) | PST.PST_STTS_CD |
 | dclrRcptCnt | long | Y | 접수(CMUC0015) 신고. `GET /admin/reports?status=CMUC0015`의 `totalElements` | DCLR.DCLR_PRCS_STTS_CD, ADM-001-03 |
 | unansInqryCnt | long | Y | 미답변(접수 CSCC0012) 1:1 문의, 회원이 삭제한 문의 제외. `GET /admin/inquiries?inqryPrcsSttsCd=CSCC0012` 건수 | OTO_INQRY.INQRY_PRCS_STTS_CD |
 | pixelInqryCnt | long | Y | 그중 픽셀 캐릭터 유형(CSCC0006). `…&inqryTypeCd=CSCC0006` 건수 | OTO_INQRY.INQRY_TYPE_CD |
@@ -82,7 +82,7 @@
 | --- | --- | --- | --- | --- |
 | bbsCd | String | Y | 공통코드 CMUG01 | COM_CD.COM_CD |
 | bbsNm | String | Y | 게시판 이름 | COM_CD.COM_CD_NM |
-| cnt | long | Y | 기간 안 작성 글 수. 정상·블라인드·삭제 글 모두(`totPstCnt`와 같은 기준) | PST.REG_DT |
+| cnt | long | Y | 기간 안 작성 글 수. 삭제 글 제외, 정상·블라인드(`totPstCnt`와 같은 기준) | PST.REG_DT·PST_STTS_CD |
 
 ### AdminExpenseCategoryCountSummary
 쓰는 API: GET /admin/dashboard/stats (`expnsCntByCtgry` 행)

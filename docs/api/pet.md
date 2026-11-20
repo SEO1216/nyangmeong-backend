@@ -492,7 +492,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | vrtySn | Long | N | 종에 맞는 품종 목록에서 선택. `vrtyDrctInptNm`과 둘 중 하나 필수 | PET.VRTY_SN, MYP-003-02 |
 | vrtyDrctInptNm | String | N | [직접 입력] 선택 시. 최대 40자 | PET.VRTY_DRCT_INPT_NM, MYP-003-02 |
 | petBrdt | LocalDate | Y | | PET.PET_BRDT, MYP-003-01 |
-| chipNo | String | N | 숫자만, 최대 20자리 | PET.CHIP_NO, MYP-003-05 |
+| chipNo | String | N | 숫자 12자리 또는 15자리, 빈 값 허용 | PET.CHIP_NO, MYP-003-05 |
 | petGndrCd | String | Y | 성별(PETG02) | PET.PET_GNDR_CD, MYP-003-01 |
 | nutrYn | Boolean | Y | 중성화 여부 | PET.NUTR_YN, MYP-003-01·06 |
 | petBdwg | BigDecimal | Y | 0보다 큼, 소수 둘째 자리까지, 200 이하 | PET.PET_BDWG, MYP-003-01 |
@@ -592,7 +592,7 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | vrtySn | Long | N | 종에 맞는 품종 목록에서 선택 | PET.VRTY_SN, MYP-003-02 |
 | vrtyDrctInptNm | String | N | 최대 40자 | PET.VRTY_DRCT_INPT_NM, MYP-003-02 |
 | petBrdt | LocalDate | N | | PET.PET_BRDT, MYP-003-01 |
-| chipNo | String | N | 숫자만, 최대 20자리 | PET.CHIP_NO, MYP-003-05 |
+| chipNo | String | N | 숫자 12자리 또는 15자리, 빈 값 허용 | PET.CHIP_NO, MYP-003-05 |
 | petGndrCd | String | N | 성별(PETG02) | PET.PET_GNDR_CD, MYP-003-01 |
 | nutrYn | Boolean | N | | PET.NUTR_YN, MYP-003-06 |
 | petBdwg | BigDecimal | N | 0보다 큼, 소수 둘째 자리까지, 200 이하. 체중 잠금은 화면에서만(서버는 막지 않음) | PET.PET_BDWG, MYP-002-04, MYP-003-01 |

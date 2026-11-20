@@ -27,30 +27,30 @@
 | POST | /care-matches | 매칭 요청(채팅방 기준, 보호자만. 요청 시점의 모집글 조건을 복사해 조건 버전을 만든다. 요청 취소된 매칭은 같은 행으로 다시 요청해 조건 버전이 늘어난다) | CMU-005-06 | KSJ | CareMatchCreateRequest | CareMatchResponse |
 | POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내를 받고 읽기 전용(CHTC0002)이 됨) | CMU-005-07 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel | 수락 전 매칭 요청 취소(보호자만, 사유 필수) | CMU-005-06 | KSJ | CareMatchCancelRequest | - |
-| POST | /care-matches/{petPrtcMtchSn}/cancel-request | 거래 취소 요청(매칭 완료·확인 대기·수령 대기에서 두 당사자 누구나, 사유 필수, 요청중인 건이 있으면 409 `CARE_MATCH_INVALID_STATE`. 요청중인 동안 완료 요청·완료 확인·수령 확인은 409. 201) | CMU-005-06 | KSJ | CareDealCancelRequest | CareCancelDemandItem |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request | 거래 취소 요청(매칭 완료·확인 대기·수령 대기에서 두 당사자 누구나, 사유 필수, 요청중인 건이 있으면 409 `CARE_MATCH_INVALID_STATE`. 이번 거래에서 내 요청이 거절된 적이 있으면 409 `CARE_DEAL_CANCEL_REJECTED`(상대는 요청할 수 있음). 요청중인 동안 완료 요청·완료 확인·수령 확인은 409. 201) | CMU-005-06 | KSJ | CareDealCancelRequest | CareCancelDemandItem |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/approve | 거래 취소 동의(요청한 사람의 상대만, 아니면 403 `CARE_MATCH_ROLE_DENIED`). 매칭이 요청 취소(PCAC0017), 모집글이 모집중, 이 방은 읽기 전용(CHTC0002), 같은 글의 읽기 전용 방은 다시 열린다 | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/reject | 거래 취소 거절(요청한 사람의 상대만). 거래는 그대로 이어진다 | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/withdraw | 거래 취소 요청 철회(요청한 사람만) | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/completion-requests | 돌봄 완료 요청(제공자만. 별도 입력 없음, 서버가 회차·요청 시각을 기록. 201) | CMU-005-08 | KSJ | CareCompletionRequestCreateRequest | CareCompletionRequestResponse |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-completion | 보호자 돌봄 완료 확정 | CMU-005-09 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/confirm-receipt | 제공자 비용 수령 확인(양측 충족 시 거래 완료) | CMU-005-10 | KSJ | CareMatchReceiptConfirmRequest | - |
-| POST | /care-recruitments | 펫돌봄 모집 등록(multipart/form-data. 반려동물·돌봄 형태·일정·비용 최저시급 검증·장소·사진·동의) | CMU-004-06~11·13 | KSJ | CareRecruitmentCreateRequest | CareRecruitmentResponse |
+| POST | /care-recruitments | 펫돌봄 모집 등록(multipart/form-data. 반려동물·돌봄 형태·일정·비용 최저시급 검증·장소·사진·동의). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn만 `data[].field`) | CMU-004-06~11·13 | KSJ | CareRecruitmentCreateRequest | CareRecruitmentResponse |
 | POST | /chat-rooms | 게시글·보호자·지원자 조합 채팅방 생성 또는 기존 방 반환(새 방 201, 기존 방 200) | CMU-004-05, CMU-005-01 | KSJ | ChatRoomCreateRequest | ChatRoomResponse |
 | POST | /chat-rooms/{otoChatRoomSn}/leave | 채팅방 나가기(내 목록에서만 숨기고 기록 유지, 수락 대기 매칭은 요청 취소로 바뀐다). 매칭 완료·확인 대기·수령 대기에는 나갈 수 없다(409 `CHAT_LEAVE_IN_DEAL`, 거래 취소 요청이 동의돼 매칭이 끝난 뒤에 나갈 수 있다). 이미 나갔으면 200 | CMU-005-11 | KSJ | - | - |
-| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 방이 읽기 전용(CHTC0002)이거나 매칭이 무응답 종료(PCAC0018)면 409 `CHAT_ROOM_CLOSED`(이미 저장된 `idmptDmndId` 재전송은 200). 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간") | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
+| POST | /chat-rooms/{otoChatRoomSn}/messages | 메시지 전송(텍스트·사진·주소 공유, multipart/form-data, 멱등 요청 ID). 처음은 201, 같은 `idmptDmndId` 재전송은 200과 같은 응답. 방이 읽기 전용(CHTC0002)이거나 매칭이 무응답 종료(PCAC0018)면 409 `CHAT_ROOM_CLOSED`(이미 저장된 `idmptDmndId` 재전송은 200). 저장 뒤 참여자에게 실시간으로 보낸다(아래 "실시간"). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 텍스트 메시지 msgCn만 `data[].field`) | CMU-004-05, CMU-005-04·05, COM-009 | KSJ | ChatMessageCreateRequest | ChatMessageResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/images/{atchFileSn} | 채팅 사진 보기(참여자만, 그 방 메시지에 붙은 사진만) | CMU-005-05 | KSJ | - | 이미지 바이너리 |
 | POST | /chat-rooms/{otoChatRoomSn}/read | 활성 대화창에 표시된 메시지까지 읽음 처리 | CMU-005-03, COM-009 | KSJ | ChatRoomReadRequest | - |
-| POST | /lost-reports | 실종 제보 등록(게시글+제보, 품종 마스터/직접입력, 목격 좌표, 개인정보 동의) | CMU-002-10·13 | KSJ | LostReportCreateRequest | LostReportResponse |
+| POST | /lost-reports | 실종 제보 등록(게시글+제보, 품종 마스터/직접입력, 목격 좌표, 개인정보 동의). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn·chrcCn만 `data[].field`) | CMU-002-10·13 | KSJ | LostReportCreateRequest | LostReportResponse |
 | POST | /lost-reports/{lostTpofSn}/found | 찾았어요 전환(완료 안내 댓글 자동 생성) | CMU-002-09 | KSJ | - | - |
 | POST | /lost-reports/{lostTpofSn}/renew | 만료 전 게시 기간 갱신(종료 7일 전부터 종료 전까지 한 번) | CMU-002-09 | KSJ | - | - |
-| PATCH | /lost-reports/{lostTpofSn} | 실종 제보 수정(작성자, 실종 상태만, 모든 항목, 사진 유지·추가, 좌표가 바뀌면 지역 재계산) | 명세 없음(화면설계서 SCR-CMU-002-03·06) | KSJ | LostReportUpdateRequest | LostReportResponse |
+| PATCH | /lost-reports/{lostTpofSn} | 실종 제보 수정(작성자, 실종 상태만, 모든 항목, 사진 유지·추가, 좌표가 바뀌면 지역 재계산). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn·chrcCn만 `data[].field`) | 명세 없음(화면설계서 SCR-CMU-002-03·06) | KSJ | LostReportUpdateRequest | LostReportResponse |
 | DELETE | /lost-reports/{lostTpofSn} | 실종 제보 삭제(작성자, 찾았어요·만료 글도 가능, 게시글 상태를 삭제로) | 명세 없음(화면설계서 SCR-CMU-002-03) | KSJ | - | - |
-| POST | /posts | 펫이야기 게시글 작성(사진 최대 10장) | CMU-001-14 | KSJ | PostCreateRequest | PostResponse |
-| POST | /posts/{pstSn}/comments | 댓글·대댓글(1depth) 등록 | CMU-001-11, CMU-002-07 | KSJ | CommentCreateRequest | CommentResponse |
+| POST | /posts | 펫이야기 게시글 작성(사진 최대 10장). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn만 `data[].field`) | CMU-001-14 | KSJ | PostCreateRequest | PostResponse |
+| POST | /posts/{pstSn}/comments | 댓글·대댓글(1depth) 등록. 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 cmntCn만 `data[].field`) | CMU-001-11, CMU-002-07 | KSJ | CommentCreateRequest | CommentResponse |
 | POST | /posts/{pstSn}/likes | 좋아요 등록. 멱등: 이미 누른 상태여도 200과 현재 좋아요 수(`UK_PST_RCMDTN_1`로 중복 행을 막는다) | CMU-001-09, CMU-002-08, CMU-004-12 | KSJ | - | PostLikeResponse |
 | POST | /reports | 게시글·댓글 신고(사유·상세, 중복 신고 제한, 누적 처리) | CMU-001-13, CMU-002-12, CMU-004-12 | KSJ | ReportCreateRequest | ReportResponse |
-| PATCH | /care-recruitments/{petPrtcRcrtSn} | 펫돌봄 모집 수정(작성자, 모집중만, multipart/form-data) | CMU-004-11 | KSJ | CareRecruitmentUpdateRequest | CareRecruitmentResponse |
-| PATCH | /posts/{pstSn} | 게시글 수정(작성자) | CMU-001-15 | KSJ | PostUpdateRequest | PostResponse |
+| PATCH | /care-recruitments/{petPrtcRcrtSn} | 펫돌봄 모집 수정(작성자, 모집중만, multipart/form-data). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn만 `data[].field`) | CMU-004-11 | KSJ | CareRecruitmentUpdateRequest | CareRecruitmentResponse |
+| PATCH | /posts/{pstSn} | 게시글 수정(작성자). 금칙어가 있으면 400 `PROFANITY_DETECTED`(걸린 칸 pstTtl·pstCn만 `data[].field`) | CMU-001-15 | KSJ | PostUpdateRequest | PostResponse |
 | DELETE | /care-recruitments/{petPrtcRcrtSn} | 펫돌봄 모집 삭제(작성자, 매칭·채팅 기록 유지) | CMU-004-11 | KSJ | - | - |
 | DELETE | /posts/{pstSn} | 게시글 삭제(작성자) | CMU-001-15 | KSJ | - | - |
 | DELETE | /posts/{pstSn}/comments/{cmntSn} | 댓글 삭제(답글 유지) | CMU-001-11, CMU-002-07 | KSJ | - | - |

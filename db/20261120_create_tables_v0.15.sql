@@ -1,95 +1,14 @@
 -- =====================================================================
--- 냥멍케어 MySQL DDL v0.14  |  MySQL 8.0.16+ / InnoDB / utf8mb4_0900_ai_ci
+-- 냥멍케어 MySQL DDL v0.15  |  MySQL 8.0.16+ / InnoDB / utf8mb4_0900_ai_ci
 -- 대상: DBeaver (전체 선택 후 스크립트 실행 Alt+X, 또는 스키마 우클릭 → Tools → Execute script)
--- 원천: DDL v0.13(db/archive/v0.13/) 본문(v0.13 변경 절 (1)이 들어 있다) 위에 아래 "v0.13 → v0.14 변경"을 더한 것 (95 테이블 / 1006 컬럼 / 관계 FK 157 / 공통코드 FK 120)
+-- 원천: DDL v0.14(db/archive/v0.14/) 본문(v0.14 변경 절 (1)~(26) 중 DDL 항목이 모두 들어 있다) 위에 아래 "v0.14 → v0.15 변경"을 더한 것 (96 테이블 / 1019 컬럼 / 관계 FK 160 / 공통코드 FK 121)
 --       UK·INDEX·CHECK·생성열·공통코드 FK 는 v0.8 그대로 유지
 -- 구성: [1] DROP  [2] CREATE(PK·UK·INDEX·CHECK·생성열)  [3] 관계 FK  [4] 공통코드 FK
 -- 주의: 전체 DROP 후 재생성합니다. 기존 데이터가 있으면 먼저 백업하세요. 공용 DB에는 실행하지 않습니다.
--- 실행 순서: 이 파일 → 20261109_insert_base_data_v0.14.sql (공통코드·케어미션 마스터) → (선택) db/seed/
--- 기존 DB: v0.13 변경 절(db/archive/v0.13/)을 다 실행한 DB는 v0.14 본문과 같다. 아래 변경 절만 실행한다
+-- 실행 순서: 이 파일 → 20261120_insert_base_data_v0.15.sql (공통코드·케어미션 마스터) → (선택) db/seed/
+-- 기존 DB: v0.14 변경 절(db/archive/v0.14/)을 다 실행한 DB는 v0.15 본문과 같다. 아래 변경 절만 실행한다
 -- =====================================================================
--- v0.13 → v0.14 변경 (기존 DB에 실행할 SQL. 공용 DB에는 이 절의 SQL만 실행한다, docs/convention/shared-files.md)
--- v0.14 (1) 반려동물별 메인 바로가기 (2026-11-09, LJS, 근거: 팀 회의 2026-11-08 메인 개편, 메인페이지_기능명세서 FN-MAN-008, 메인 SCR-MAN-001). 회원·반려동물마다 바로가기 종류(MANG02)를 모두 행으로 두고 보이는 것만 INDCT_YN='Y'. 행이 없으면 저장 안 함(기본값), 전부 'N'이면 빈 목록
---   SET NAMES utf8mb4;
---   CREATE TABLE `PET_MAIN_SHRTC` (
---     `PET_MAIN_SHRTC_SN` bigint NOT NULL AUTO_INCREMENT COMMENT '반려동물메인바로가기일련번호',
---     `MBR_SN` bigint NOT NULL COMMENT '회원일련번호',
---     `PET_SN` bigint NOT NULL COMMENT '반려동물일련번호',
---     `SHRTC_CD` char(8) NOT NULL COMMENT '바로가기공통코드(MANG02)',
---     `INDCT_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '표시여부',
---     `SORT_SEQ` decimal(10,0) NOT NULL DEFAULT '0' COMMENT '정렬순서',
---     `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
---     `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
---     PRIMARY KEY (`PET_MAIN_SHRTC_SN`),
---     UNIQUE KEY `UK_PET_MAIN_SHRTC_1` (`MBR_SN`, `PET_SN`, `SHRTC_CD`),
---     KEY `IDX_PET_MAIN_SHRTC_1` (`PET_SN`),
---     KEY `IDX_PET_MAIN_SHRTC_2` (`SHRTC_CD`),
---     CONSTRAINT `CK_PET_MAIN_SHRTC_INDCT_YN` CHECK (`INDCT_YN` IN ('Y','N'))
---   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='반려동물메인바로가기';
---   ALTER TABLE `PET_MAIN_SHRTC` ADD CONSTRAINT `FK_PET_MAIN_SHRTC_MBR` FOREIGN KEY (`MBR_SN`) REFERENCES `MBR` (`MBR_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
---   ALTER TABLE `PET_MAIN_SHRTC` ADD CONSTRAINT `FK_PET_MAIN_SHRTC_PET` FOREIGN KEY (`PET_SN`) REFERENCES `PET` (`PET_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
---   ALTER TABLE `PET_MAIN_SHRTC` ADD CONSTRAINT `FK_PET_MAIN_SHRTC_SHRTC_CD` FOREIGN KEY (`SHRTC_CD`) REFERENCES `COM_CD` (`COM_CD`) ON DELETE RESTRICT ON UPDATE RESTRICT;
--- v0.14 (3) 회원대시보드위젯 코드 그룹을 건강기록 대시보드 항목(HLTG25)으로 변경 (2026-11-09, JAJ, 근거: 마일스톤 JAJ SCR-HLT-011 건강기록 대시보드 고른 항목 저장). 컬럼 주석만 바뀐다. 공통코드는 기준 데이터 v0.14 (4). 공용 DB 실행함(2026-11-09)
---   SET NAMES utf8mb4;
---   ALTER TABLE `MBR_DSHBD_WDGT` MODIFY COLUMN `DSHBD_WDGT_CD` char(8) NOT NULL COMMENT '대시보드위젯공통코드(HLTG25)';
--- v0.14 (7) 대시보드 케어 최대 노출 수 설정 삭제 (2026-11-10, LJS, 근거: 메인 표시(★) 기능 제거 사람 결정 2026-11-10(프론트 PR #311, 백엔드 PR #205), 관리자 화면설계서 v0.5 운영 설정에서 제외, SCR-ADM-110). 이 컬럼을 쓰는 Java 코드(관리자 운영 설정)를 뺀 PR이 병합된 뒤에 실행한다. CARE_ARTCL 메인 표시 컬럼은 health(JAJ)가 따로 정한다. 공용 DB 실행함(2026-11-10)
---   SET NAMES utf8mb4;
---   ALTER TABLE `SYS_STNG` DROP COLUMN `DSHBD_CARE_MAX_EXPSR_CNT`;
--- v0.14 (10) 케어 항목 메인 표시 컬럼 삭제 (2026-11-10, LJS, 근거: 메인 표시(★) 기능 제거 사람 결정 2026-11-10(백엔드 PR #205), 공용 DB에서 두 컬럼이 먼저 지워져 케어 API가 500 → 컬럼 복구가 아니라 코드에서 뺀다는 사람 결정 2026-11-10(Java 정리는 JAJ PR #212), SCR-HLT-003). 이 컬럼을 쓰는 Java 코드를 뺀 PR #212가 병합된 뒤에 실행한다(병합됨 2026-11-11). 공용 DB에는 이 절을 적기 전에 이미 실행돼 있었다(2026-11-10 확인, 실행자 미상)
---   SET NAMES utf8mb4;
---   ALTER TABLE `CARE_ARTCL` DROP CHECK `CK_CARE_ARTCL_MAIN_EXPSR_YN`;
---   ALTER TABLE `CARE_ARTCL` DROP INDEX `IDX_CARE_ARTCL_1`, ADD INDEX `IDX_CARE_ARTCL_1` (`PET_SN`, `DEL_YN`);
---   ALTER TABLE `CARE_ARTCL` DROP COLUMN `MAIN_EXPSR_YN`, DROP COLUMN `MAIN_SORT_SEQ`;
--- v0.14 (11) 아이템 그림 참고 굽기 여부 (2026-11-11, LJS, 근거: 사람 결정 2026-11-11 "굽기에 상점 그림을 둘째 그림으로", ai 저장소 docs/design/pixel-character-engine.md 9절, SCR-MYP-011). 'Y'면 굽기 지시 없이도 굽기 대상이고 AI 서버가 아이템 그림을 참고로 굽는다. 기존 아이템은 'N'(굽기 지시 방식 그대로)
---   SET NAMES utf8mb4;
---   ALTER TABLE `ITEM` ADD COLUMN `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '그림참고굽기여부' AFTER `BAKE_HINT`;
---   ALTER TABLE `ITEM` ADD CONSTRAINT `CK_ITEM_BAKE_IMG_REF_YN` CHECK (`BAKE_IMG_REF_YN` IN ('Y','N'));
--- v0.14 (12) 반려동물 체중 정상범위 직접 입력 여부 (2026-11-13, SJM, 근거: 사람 결정 2026-11-13 정상범위 = 기준 체중 × 0.9 ~ × 1.1 자동 계산, SCR-MYP-003 FN-MYP-003-04). 'Y'면 사용자가 범위를 직접 입력한 것이라 자동으로 바꾸지 않고, 'N'이면 기준 체중으로 자동 계산한다. 기존 행은 지금까지 사용자가 직접 넣었으므로 모두 'Y'(DEFAULT). 공용 DB 실행함(2026-11-13)
---   SET NAMES utf8mb4;
---   ALTER TABLE `PET` ADD COLUMN `BDWG_RNG_DRCT_INPT_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '체중범위직접입력여부' AFTER `MAX_BDWG`;
---   ALTER TABLE `PET` ADD CONSTRAINT `CK_PET_BDWG_RNG_DRCT_INPT_YN` CHECK (`BDWG_RNG_DRCT_INPT_YN` IN ('Y','N'));
--- v0.14 (15) 공동양육 초대 삭제 여부 (2026-11-16, SJM, 근거: 사람 결정 2026-11-16 취소한 초대는 보낸 초대 목록에서 삭제, 삭제는 DEL_YN 숨김이라 상태 이력·대상 반려동물은 그대로 남는다, SCR-MYP-004·005 FN-MYP-005-03). 기존 행은 모두 'N'(DEFAULT). 공용 DB 실행 전(사람이 실행)
---   SET NAMES utf8mb4;
---   ALTER TABLE `JNT_BRUP_INVTN` ADD COLUMN `DEL_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부' AFTER `INVTN_TKN_HASH`;
---   ALTER TABLE `JNT_BRUP_INVTN` ADD CONSTRAINT `CK_JNT_BRUP_INVTN_DEL_YN` CHECK (`DEL_YN` IN ('Y','N'));
--- v0.14 (16) 케어리스트 표시 여부 (2026-11-16, JAJ, 근거: 사람 결정 2026-11-16 ※신규 정책 고른 케어 항목 5개 이상, 마일스톤 JAJ SCR-HLT-003 케어리스트 개편, FN-HLT-003-12). NULL = 고른 적 없음(기본 항목은 추천 5개 화장실 청소·양치·빗질·놀이·귀 청소만, 직접 추가 항목은 보임), 고르면 그 반려동물의 항목을 모두 Y/N으로 저장. 처방·반복 예방 연동 항목은 값과 관계없이 항상 보임. 기존 행은 모두 NULL이라 UPDATE 없음. 공용 DB 반영 완료(2026-11-16)
---   SET NAMES utf8mb4;
---   ALTER TABLE `CARE_ARTCL` ADD COLUMN `INDCT_YN` char(1) NULL COMMENT '표시여부' AFTER `BSC_ARTCL_YN`;
---   ALTER TABLE `CARE_ARTCL` ADD CONSTRAINT `CK_CARE_ARTCL_INDCT_YN` CHECK (`INDCT_YN` IS NULL OR `INDCT_YN` IN ('Y','N'));
--- v0.14 (17) 시스템설정 거래완료 숨김 기준 일수 (2026-11-16, KSJ, 근거: 프론트 요청서 backend-request-care-chat.md 3번 사람 요청 2026-11-15, SCR-CMU-004 거래완료 글은 이 일수가 지나면 공개 목록에서 빠진다). 기존 행은 기본값 7로 채워진다
---   SET NAMES utf8mb4;
---   ALTER TABLE `SYS_STNG` ADD COLUMN `DLNG_CMPTN_HIDE_CRTR_DAY_CNT` decimal(2,0) NOT NULL DEFAULT '7' COMMENT '거래완료숨김기준일수' AFTER `MTCH_NO_RSPNS_END_CRTR_DAY_CNT`;
--- v0.14 (19) 아이템 굽기 지시 삭제 (2026-11-17, LJS, 근거: 사람 결정 2026-11-17 착용 시트는 아이템 그림 참고로만 굽는다, 마일스톤 LJS SCR-ADM-070 아이템 · 굽기를 그림 참고로만, FN-ADM-070-02·03, FN-MYP-011-01). 굽기 대상은 BAKE_IMG_REF_YN='Y' 아이템뿐. 기존 아이템은 'Y'로 옮기지 않는다(서버의 아이템 그림 파일이 옛 경로일 수 있어 그림 참고로 바꾸면 굽기가 실패한다. 관리자가 서버에서 픽셀 그림을 새로 올리며 켠다). 이미 구운 착용 시트는 그대로. 공용 DB 실행 전(사람이 실행)
---   SET NAMES utf8mb4;
---   ALTER TABLE `ITEM` DROP COLUMN `BAKE_HINT`;
---   ALTER TABLE `ITEM` MODIFY COLUMN `BAKE_IMG_REF_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '굽기여부(그림참고)';
--- v0.14 (21) 펫돌봄 거래 취소 요청 (2026-11-18, KSJ, 번호는 JAJ v0.14 (20)과 겹쳐 2026-11-18에 (20)→(21)로 바꿈, SQL은 그대로, 근거: 프론트 요청서 backend-request-care-chat.md 5번 사람 요청 2026-11-15, SCR-CMU-005 매칭완료·확인 대기·수령 대기 거래를 사유와 함께 취소 요청하고 상대가 동의·거절, 요청자가 철회). 공통코드 PCAG07은 기준 데이터 v0.14 (22). 공용 DB 실행 전(사람이 실행)
---   SET NAMES utf8mb4;
---   CREATE TABLE `MTCH_CNCL_DMND` (
---     `MTCH_CNCL_DMND_SN` bigint NOT NULL AUTO_INCREMENT COMMENT '매칭취소요청일련번호',
---     `PET_PRTC_MTCH_SN` bigint NOT NULL COMMENT '펫돌봄매칭일련번호',
---     `DMND_MBR_SN` bigint NOT NULL COMMENT '요청회원일련번호',
---     `CNCL_RSN` varchar(200) NOT NULL COMMENT '취소사유',
---     `DMND_STTS_CD` char(8) NOT NULL COMMENT '요청상태공통코드(PCAG07)',
---     `PRCS_MBR_SN` bigint NULL COMMENT '처리회원일련번호',
---     `PRCS_DT` datetime NULL COMMENT '처리일시',
---     `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
---     `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
---     PRIMARY KEY (`MTCH_CNCL_DMND_SN`),
---     KEY `IDX_MTCH_CNCL_DMND_1` (`PET_PRTC_MTCH_SN`),
---     KEY `IDX_MTCH_CNCL_DMND_2` (`DMND_MBR_SN`),
---     KEY `IDX_MTCH_CNCL_DMND_3` (`PRCS_MBR_SN`),
---     KEY `IDX_MTCH_CNCL_DMND_4` (`DMND_STTS_CD`)
---   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='매칭취소요청';
---   ALTER TABLE `MTCH_CNCL_DMND` ADD CONSTRAINT `FK_MTCH_CNCL_DMND_PET_PRTC_MTCH` FOREIGN KEY (`PET_PRTC_MTCH_SN`) REFERENCES `PET_PRTC_MTCH` (`PET_PRTC_MTCH_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
---   ALTER TABLE `MTCH_CNCL_DMND` ADD CONSTRAINT `FK_MTCH_CNCL_DMND_DMND_MBR` FOREIGN KEY (`DMND_MBR_SN`) REFERENCES `MBR` (`MBR_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
---   ALTER TABLE `MTCH_CNCL_DMND` ADD CONSTRAINT `FK_MTCH_CNCL_DMND_PRCS_MBR` FOREIGN KEY (`PRCS_MBR_SN`) REFERENCES `MBR` (`MBR_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
---   ALTER TABLE `MTCH_CNCL_DMND` ADD CONSTRAINT `FK_MTCH_CNCL_DMND_DMND_STTS_CD` FOREIGN KEY (`DMND_STTS_CD`) REFERENCES `COM_CD` (`COM_CD`) ON DELETE RESTRICT ON UPDATE RESTRICT;
--- v0.14 (24) 댓글 답글 대상 (2026-11-18, KSJ, 근거: 사람 요청 2026-11-18 커뮤니티 댓글 「@닉네임」 답글 대상 저장, 마일스톤 KSJ SCR-CMU-001 펫이야기 · 답글 대상 닉네임, FN-CMU-001-11·FN-CMU-002-07). 대댓글에 단 답글은 PRNT_CMNT_SN이 최상위 댓글이라 실제로 답한 대댓글을 여기에 남긴다. 기존 행은 NULL이라 UPDATE 없음. 공용 DB 실행함(2026-11-18)
---   SET NAMES utf8mb4;
---   ALTER TABLE `CMNT` ADD COLUMN `RPLY_TRGT_CMNT_SN` bigint NULL COMMENT '답글대상댓글일련번호' AFTER `PRNT_CMNT_SN`;
---   ALTER TABLE `CMNT` ADD KEY `IDX_CMNT_4` (`RPLY_TRGT_CMNT_SN`);
---   ALTER TABLE `CMNT` ADD CONSTRAINT `FK_CMNT_RPLY_TRGT` FOREIGN KEY (`RPLY_TRGT_CMNT_SN`) REFERENCES `CMNT` (`CMNT_SN`) ON DELETE RESTRICT ON UPDATE RESTRICT;
+-- v0.14 → v0.15 변경 (기존 DB에 실행할 SQL. 공용 DB에는 이 절의 SQL만 실행한다, docs/convention/shared-files.md)
 -- =====================================================================
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -344,6 +263,7 @@ CREATE TABLE `MBR` (
   `D1_BFHD_NOTI_YN` char(1) NOT NULL DEFAULT 'Y' COMMENT '1일전사전알림여부',
   `D3_BFHD_NOTI_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '3일전사전알림여부',
   `D7_BFHD_NOTI_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '7일전사전알림여부',
+  `TUTRL_VIEW_YN` char(1) NOT NULL DEFAULT 'N' COMMENT '튜토리얼조회여부',
   `REG_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록일시',
   `MDFCN_DT` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
   `RGTR_ID` varchar(20) NOT NULL DEFAULT 'SYSTEM' COMMENT '등록자ID',
@@ -368,7 +288,8 @@ CREATE TABLE `MBR` (
   CONSTRAINT `CK_MBR_THDY_BFHD_NOTI_YN` CHECK (`THDY_BFHD_NOTI_YN` IN ('Y','N')),
   CONSTRAINT `CK_MBR_D1_BFHD_NOTI_YN` CHECK (`D1_BFHD_NOTI_YN` IN ('Y','N')),
   CONSTRAINT `CK_MBR_D3_BFHD_NOTI_YN` CHECK (`D3_BFHD_NOTI_YN` IN ('Y','N')),
-  CONSTRAINT `CK_MBR_D7_BFHD_NOTI_YN` CHECK (`D7_BFHD_NOTI_YN` IN ('Y','N'))
+  CONSTRAINT `CK_MBR_D7_BFHD_NOTI_YN` CHECK (`D7_BFHD_NOTI_YN` IN ('Y','N')),
+  CONSTRAINT `CK_MBR_TUTRL_VIEW_YN` CHECK (`TUTRL_VIEW_YN` IN ('Y','N'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='회원';
 
 CREATE TABLE `MBR_STTS_HSTRY` (

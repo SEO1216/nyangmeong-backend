@@ -38,6 +38,7 @@ import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.domain.CareMission;
 
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,7 @@ public class PostService {
     private final OwnerAuthorizer ownerAuthorizer;
     private final SystemSettingService systemSettingService;
     private final PetStoryMissionReflector missionReflector;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 게시글 목록 조회 (mineYn 이면 내 글만, 항목마다 owner 표시)
@@ -181,6 +183,7 @@ public class PostService {
      */
     @Transactional
     public PostResponse create(Long mbrSn, PostCreateRequest req) {
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         checkBoard(req.bbsCd());
         List<MultipartFile> images = attached(req.images());
         if (images.size() > maxImages()) {
@@ -212,6 +215,7 @@ public class PostService {
     public PostResponse update(Long mbrSn, Long pstSn, PostUpdateRequest req) {
         Post post = getPetStoryOrThrow(pstSn);
         ownerAuthorizer.checkOwner(mbrSn, post.getMbrSn());
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         if (req.bbsCd() != null) {
             checkBoard(req.bbsCd());
         }

@@ -239,6 +239,26 @@ class PetControllerTest {
 
     @Test
     @WithMockLoginMember
+    void 칩_번호는_숫자_12자리_또는_15자리만_받는다() throws Exception {
+        when(petService.createPet(eq(1L), any())).thenReturn(null);
+        when(petService.updatePet(eq(1L), eq(10L), any())).thenReturn(null);
+
+        for (String chipNo : new String[] {"410000000012", "410000000000015"}) {
+            mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.25", chipNo)))
+                    .andExpect(status().isCreated());
+            mockMvc.perform(json(patch("/api/pets/10"), "{\"chipNo\":\"" + chipNo + "\"}"))
+                    .andExpect(status().isOk());
+        }
+        for (String chipNo : new String[] {"41000000001", "4100000000013", "41000000000014", "4100000000000016"}) {
+            mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.25", chipNo)))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(patch("/api/pets/10"), "{\"chipNo\":\"" + chipNo + "\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    @WithMockLoginMember
     void 체중_범위_직접_입력_여부는_Y_N만_받는다() throws Exception {
         mockMvc.perform(json(post("/api/pets"), """
                 {"petNm":"뭉치","petSeCd":"PETC0001","vrtySn":15,"petBrdt":"2023-05-01","petGndrCd":"PETC0003",

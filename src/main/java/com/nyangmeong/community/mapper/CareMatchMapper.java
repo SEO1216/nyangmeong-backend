@@ -141,6 +141,31 @@ public interface CareMatchMapper {
             @Param("aftrSttsCd") String aftrSttsCd, @Param("prcsMbrSn") Long prcsMbrSn);
 
     /**
+     * 이번 거래(가장 최근 매칭 완료 전환 이후)에서 이 회원의 거래 취소 요청이 거절된 적이 있는지
+     * - 같은 매칭 행이 요청 취소 뒤 다시 요청돼 재사용되므로 지난 거래의 거절은 세지 않는다
+     */
+    boolean existsRejectedCancelDemand(@Param("petPrtcMtchSn") Long petPrtcMtchSn, @Param("dmndMbrSn") Long dmndMbrSn,
+            @Param("rejectedCd") String rejectedCd, @Param("matchedCd") String matchedCd);
+
+    /**
+     * 거래 취소 요청 단건 (없으면 null)
+     */
+    CareCancelDemand selectCancelDemandById(Long mtchCnclDmndSn);
+
+    /**
+     * 기한이 된 거래 취소 요청 번호 : 요청중, 매칭이 sttsCds 중 하나, 등록 후 fromDays 일 이상 (toDays 가 있으면 toDays 일 미만)
+     */
+    List<Long> selectCancelDemandDueTargets(@Param("requestingCd") String requestingCd,
+            @Param("sttsCds") List<String> sttsCds, @Param("fromDays") long fromDays, @Param("toDays") Long toDays);
+
+    /**
+     * 이 거래 취소 요청이 지금도 기한 조건에 맞는지 (잠근 뒤 다시 확인)
+     */
+    boolean existsCancelDemandDue(@Param("mtchCnclDmndSn") Long mtchCnclDmndSn,
+            @Param("requestingCd") String requestingCd, @Param("sttsCds") List<String> sttsCds,
+            @Param("fromDays") long fromDays, @Param("toDays") Long toDays);
+
+    /**
      * 모집글의 매칭 목록 (최신순)
      */
     List<AdminCareMatchResponse.Match> selectAdminMatches(@Param("petPrtcRcrtSn") Long petPrtcRcrtSn);

@@ -9,7 +9,7 @@
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | /members/me/notification-settings | 알림 수신 설정 조회(채널·유형·사전 알림 시점·한도 설정 여부) | COM-008-02·03·05~10 | LJS | - | NotificationSettingResponse |
-| GET | /notifications | 알림 드롭다운 최대 5건(안 읽음 우선, 같은 상태끼리 최신순, 탭 필터, 7일 경과 숨김 제외, 조회만으로 읽음 처리 안 함) `?tab=ALL` | COM-004-03~05·11·12 | LJS | - | List<NotificationSummary> |
+| GET | /notifications | 알림 드롭다운 목록 페이지. 기본 5건·최대 50(넘으면 50), 목록 끝에서 다음 쪽을 더 불러온다(안 읽음 우선, 같은 상태끼리 최신순, 탭 필터, 7일 경과 숨김 제외, 조회만으로 읽음 처리 안 함). 스크롤 중 새 알림이 오면 쪽 경계 행이 겹칠 수 있어 `inappNotiSn`으로 거른다 `?tab=ALL&page=1&size=5` | COM-004-03~05·11·12 | LJS | - | Page<NotificationSummary> |
 | GET | /notifications/unread-count | 미읽음 알림 수(헤더 배지·드롭다운 헤더) | COM-002-09, COM-004-02 | LJS | - | UnreadCountResponse |
 | POST | /notifications/{inappNotiSn}/read | 알림 개별 읽음 처리. 남의·없는 알림은 404 `NOTIFICATION_NOT_FOUND` | COM-004-06 | LJS | - | - |
 | POST | /notifications/read-all | 알림 모두 읽음. 탭과 상관없이 숨김 기준(7일) 안의 내 미읽음 알림 전부 읽음 처리(드롭다운을 여는 것만으로는 읽음 처리 안 함, COM-004-11). 0건이어도 200. 남의 알림은 조건에서 빠지므로 404 없음 | COM-004-17(명세 추가 예정) | LJS | - | NotificationReadAllResponse |

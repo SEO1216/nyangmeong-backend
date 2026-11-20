@@ -17,7 +17,7 @@ public record PixelCharacterResponse(Long pixelCharSn, Long petSn, Long charCrtJ
         return new PixelCharacterResponse(character.getPixelCharSn(), character.getPetSn(),
                 job != null ? job.getCharCrtJobSn() : null,
                 job != null ? job.getCrtJobSttsCd() : null,
-                "Y".equals(character.getBscCharSbstYn()),
+                character.isUnderReview(),
                 job != null && job.getOtoInqrySn() != null,
                 heldItems);
     }

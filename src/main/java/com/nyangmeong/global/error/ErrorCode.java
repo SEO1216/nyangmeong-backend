@@ -16,6 +16,8 @@ public enum ErrorCode {
     /** 공통(global). 입력값 검증 오류는 INVALID_INPUT_VALUE 하나, 틀린 항목은 응답 data의 필드 목록 */
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다."),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
+    /** 금칙어가 든 입력. 걸린 칸은 응답 data의 필드 목록 (global/validation/ProfanityFilter) */
+    PROFANITY_DETECTED(HttpStatus.BAD_REQUEST, "부적절한 표현이 포함되어 있어요."),
     FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "파일 크기는 10MB 이하여야 합니다."),
     FILE_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "허용하지 않는 파일 형식입니다."),
     FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."),
@@ -219,6 +221,7 @@ public enum ErrorCode {
     CARE_MATCH_ALREADY_MATCHED(HttpStatus.CONFLICT, "이미 다른 분과 매칭된 모집글입니다."),
     CARE_MATCH_INVALID_STATE(HttpStatus.CONFLICT, "현재 매칭 단계에서는 할 수 없는 요청입니다."),
     CHAT_LEAVE_IN_DEAL(HttpStatus.CONFLICT, "거래가 진행 중이라 나갈 수 없어요. 거래 취소를 먼저 요청해 주세요."),
+    CARE_DEAL_CANCEL_REJECTED(HttpStatus.CONFLICT, "상대가 거절한 거래 취소는 이 거래에서 다시 요청할 수 없어요."),
 
     /** ai */
     HEALTH_REPORT_REFRESH_LIMIT(HttpStatus.CONFLICT, "오늘은 이미 새로고침했어요. 내일 다시 시도해 주세요."),

@@ -40,6 +40,7 @@ import com.nyangmeong.global.setting.SystemSettingService;
 import com.nyangmeong.global.notification.EventPublisher;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.member.dto.MemberResponse;
 import com.nyangmeong.member.service.MemberService;
 import com.nyangmeong.pet.domain.BrupLinkSttsHstry;
 import com.nyangmeong.pet.domain.BrupRel;
@@ -106,6 +107,8 @@ class PetServiceTest {
         when(mapper.selectPet(PET)).thenAnswer(inv -> storedPet());
         when(mapper.selectBrupRel(anyLong(), eq(PET))).thenReturn(rel(BrupRole.PRIMARY.getCode(), "N"));
         when(mapper.selectCaregivers(PET, PRIMARY, ACCEPTED)).thenReturn(new ArrayList<>());
+        when(memberService.getMember(MBR)).thenReturn(
+                new MemberResponse("a@a.com", "하늘", "01012345678", null, "USRC0001", true, List.of(), null, null));
     }
 
     @Test
@@ -618,6 +621,56 @@ class PetServiceTest {
 
         assertCode(() -> service.unlinkCaregiver(MBR, PET, 60L), ErrorCode.CAREGIVER_NOT_FOUND);
         verify(mapper, never()).insertLinkHistory(any());
+    }
+
+    @Test
+    void 강제_해제하면_해제된_공동양육자에게_주양육자_닉네임으로_알린다() {
+        when(mapper.selectBrupRelBySn(60L)).thenReturn(target(60L, 7L, CO_PARENT));
+        when(mapper.updateBrupRelUnlink(60L, "1")).thenReturn(1);
+
+        service.unlinkCaregiver(MBR, PET, 60L);
+
+        ArgumentCaptor<NotificationEvent> event = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(events, times(1)).publish(event.capture());
+        assertThat(event.getValue().mbrSn()).isEqualTo(7L);
+        assertThat(event.getValue().type()).isEqualTo(NotificationType.CO_PARENTING);
+        assertThat(event.getValue().notiTtl()).isEqualTo("하늘님이 뭉치의 공동양육 연동을 해제했어요");
+        assertThat(event.getValue().mvmnPath()).isEqualTo("/mypage/pets");
+    }
+
+    @Test
+    void 자진_해제하면_주양육자에게_공동양육자_닉네임으로_알린다() {
+        when(mapper.selectBrupRel(MBR, PET)).thenReturn(rel(CO_PARENT, "N"));
+        when(mapper.selectBrupRelBySn(60L)).thenReturn(target(60L, MBR, CO_PARENT));
+        when(mapper.updateBrupRelUnlink(60L, "1")).thenReturn(1);
+        when(mapper.selectPrimaryCaregiverMbrSn(PET, PRIMARY)).thenReturn(9L);
+
+        service.unlinkCaregiver(MBR, PET, 60L);
+
+        ArgumentCaptor<NotificationEvent> event = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(events, times(1)).publish(event.capture());
+        assertThat(event.getValue().mbrSn()).isEqualTo(9L);
+        assertThat(event.getValue().type()).isEqualTo(NotificationType.CO_PARENTING);
+        assertThat(event.getValue().notiTtl()).isEqualTo("하늘님이 뭉치의 공동양육을 그만뒀어요");
+        assertThat(event.getValue().mvmnPath()).isEqualTo("/mypage/pets");
+    }
+
+    @Test
+    void 해제가_실패하면_알리지_않는다() {
+        when(mapper.selectBrupRelBySn(60L)).thenReturn(target(60L, 7L, CO_PARENT));
+        when(mapper.updateBrupRelUnlink(60L, "1")).thenReturn(0);
+        assertCode(() -> service.unlinkCaregiver(MBR, PET, 60L), ErrorCode.CAREGIVER_NOT_FOUND);
+
+        when(mapper.selectBrupRel(MBR, PET)).thenReturn(rel(CO_PARENT, "N"));
+        assertCode(() -> service.unlinkCaregiver(MBR, PET, 60L), ErrorCode.PET_PRIMARY_ONLY);
+
+        when(mapper.selectBrupRelBySn(50L)).thenReturn(target(50L, MBR, PRIMARY));
+        assertCode(() -> service.unlinkCaregiver(MBR, PET, 50L), ErrorCode.CAREGIVER_NOT_FOUND);
+
+        doThrow(new CustomException(ErrorCode.PET_ACCESS_DENIED)).when(authorizer).checkCaregiver(MBR, PET);
+        assertCode(() -> service.unlinkCaregiver(MBR, PET, 60L), ErrorCode.PET_ACCESS_DENIED);
+
+        verify(events, never()).publish(any(NotificationEvent.class));
     }
 
     @Test

@@ -1,15 +1,17 @@
 # SJM 핸드오프
 
 ## 지금 하는 것
-SCR-MYP-003 반려동물 등록/수정 · 인식칩 번호 12·15자리 검증 — 끝남 (승인 2026-11-19 16:36, 시작 2026-11-19). 검증 1회차 판정 `확인 못 함 있음`(사람 확인만 남음), 사람 확인 완료
-정책: 인식칩 번호는 숫자 12자리 또는 15자리만, 빈 값은 허용. 지금 `^[0-9]{0,20}$`. 기준 SQL은 바꾸지 않는다(`PET.CHIP_NO` varchar(20) NULL 그대로)
-공용 DB 조회(읽기 전용, 2026-11-19): `CHIP_NO`가 NULL·빈 값이 아닌 354행 중 12·15자리가 아닌 행은 2건. PET_SN 1004 `1111111111111111111`(19자리, DEL_YN N, 시험값으로 보임), PET_SN 1031 `12345678912345`(14자리, DEL_YN Y)
-- FN-MYP-003-05 검증: `pet/dto/PetCreateRequest.java`·`PetUpdateRequest.java`의 `chipNo`를 `@Pattern(regexp = "^([0-9]{12}|[0-9]{15})?$")`로(빈 문자열 허용, 서비스가 `emptyToNull`로 NULL 저장, 수정에서 `null`=안 바꿈은 그대로). 완료 조건 `명령: ./gradlew build -q`, `PetControllerTest`: 12자리·15자리·빈 값 통과, 11·13·14·16자리·문자 섞임 400(등록·수정 모두)
-- 기존 값 처리(결정 필요): 수정 DTO 검증은 요청 값만 보므로 규칙에 안 맞는 기존 값(PET_SN 1004)이 있는 반려동물은 프론트가 그 값을 다시 보내는 순간(수정 모달은 매번 `chipNo`를 보냄) 400이 된다. 결정(권장안 승인): 1004는 사람이 화면에서 인식칩 번호를 지워 정리하고 코드는 예외를 두지 않는다(1031은 삭제된 행이라 둠). 대안: 서비스에서 저장된 값과 같으면 통과시키려면 `PetUpdateRequest`의 `@Pattern`을 빼야 하는데, AI 도구 목록이 이 `@Pattern`에서 규칙을 만들어서 AI 쪽 규칙이 사라진다
-- AI매니저 경로: 있다. `draft_pet_update`(AI 저장소 `data/tool_prompts.yaml`)의 `chip_no`가 확인 카드를 거쳐 `PATCH /pets/{petSn}`(`PetUpdateRequest`)로 간다. 별도 검증 없이 같은 DTO 검증을 타고, AI 도구 목록(`PetCardAiToolCatalogTest` 86줄)이 `@Pattern`을 그대로 읽어 규칙으로 내보낸다. 그래서 DTO만 고치면 맞춰지고, `PetCardAiToolCatalogTest`의 기대값 `^[0-9]{0,20}$`를 새 정규식으로 고친다. AI 저장소의 `chip_no` 설명("숫자만")과 `tools.snapshot.json`의 `chipNo.pattern`은 그 저장소 몫이라 "다음에 할 것"에 남긴다
-- 문서: `docs/api/pet.md` `PetCreateRequest`·`PetUpdateRequest`의 `chipNo` 행("숫자만, 최대 20자리")을 "숫자 12자리 또는 15자리, 빈 값 허용"으로. 응답 DTO(`PetResponse`·`PetSummary`)는 바꾸지 않는다(기존 값 그대로 돌려줌)
-- API 변경 없음: 경로·필드 그대로, 검증만 좁아진다
-- 프론트 연결: 등록·수정 모달 인식칩 입력 12·15자리 안내·검증, 수정 때 바꾸지 않은 값은 보내지 않기 (프론트 저장소에서 /start)
+SCR-MYP-004 공동양육자 목록 · 연동 해제 인앱 알림 — 끝남 (승인 2026-11-20 11:29, 시작 2026-11-20 00:00). 검증 1회차 판정 `통과`, 사람 확인 완료(Postman으로 강제·자진 해제, 알림 문구·경로·재해제 404 미발송 확인)
+정책: 공동양육 연동을 해제하면 상대에게 인앱 알림을 보낸다. `NotificationEvent(상대 mbrSn, NotificationType.CO_PARENTING, 문구, null, PET_LIST_PATH)`, 이메일 없음. 반려동물 삭제 때와 같이 문구는 `notiTtl`, `notiCn`은 null
+- FN-MYP-004-01 강제 해제(주양육자가 해제): `pet/service/PetService.java` `unlinkCaregiver` 맨 끝(`insertLinkHistory` 뒤)에서 해제된 공동양육자(`target.getMbrSn()`)에게 "{주양육자 닉네임}님이 {반려동물 이름}의 공동양육 연동을 해제했어요". 닉네임 `memberService.getMember(mbrSn).mbrNcnm()`(주양육자=요청자), 이름 `loadPet(petSn).getPetNm()`
+- FN-MYP-006-02 자진 해제(공동양육자 본인이 해제): 같은 위치에서 주양육자에게 "{공동양육자 닉네임}님이 {반려동물 이름}의 공동양육을 그만뒀어요". 주양육자 mbrSn은 `petMapper.selectPrimaryCaregiverMbrSn(petSn, BrupRole.PRIMARY.getCode())`(이미 있는 메서드, 없거나 삭제면 PET_NOT_FOUND라 `getPrimaryCaregiverMbrSn` 재사용). 닉네임은 요청자 것
+- 미발송: 0건 갱신(`CAREGIVER_NOT_FOUND`)·권한 오류(`PET_ACCESS_DENIED`·`PET_PRIMARY_ONLY`)는 예외로 끝나므로 발행 코드에 닿지 않는다. 알림 조회(`getMember`·`loadPet`)는 갱신 성공 뒤에만 한다
+- 커밋 뒤 발송: `@Transactional` 메서드 안에서 기존 `EventPublisher.publish()`(리스너가 커밋 뒤에 받음, 롤백이면 안 나감). `ApplicationEventPublisher` 직접 사용 없음
+- 테스트 `pet/service/PetServiceTest.java`: ① 강제 해제 → `events.publish` 1회, 받는 사람 7L(해제된 사람), 유형 CO_PARENTING, 문구·경로 `/mypage/pets` ② 자진 해제 → 받는 사람 주양육자, 문구 ③ 0건 갱신·다른 공동양육자 해제 시도(`PET_PRIMARY_ONLY`)·주양육자 행 해제 시도(`CAREGIVER_NOT_FOUND`)·접근 거부(`PET_ACCESS_DENIED`)에서 `events` publish never. 완료 조건 `명령: ./gradlew build -q`
+- API 변경 없음: `DELETE /pets/{petSn}/caregivers/{brupRelSn}` 경로·요청·응답 그대로(`docs/api/pet.md` 고칠 것 없음). 새 알림 유형·DB 코드·SQL 없음
+- 공용 DB 시험 데이터: SQL 안 쓴다. 확인은 사람이 화면에서 초대 → 수락 → 해제(강제·자진 각각)로 만들고 알림함(COM-004)에서 본다
+- 프론트 연결: 없음(알림함은 기존 CO_PARENTING 표시·이동 경로 그대로)
+- 결정 메모: 닉네임 조회는 `memberService.getMember`(복호화까지 하는 무거운 메서드)지만 `CaregiverInvitationService`가 이미 같은 방식으로 쓴다. 해제는 드문 동작이라 그대로 쓴다
 새 의존성: 없음
 
 ## 다음에 할 것
@@ -34,3 +36,8 @@ SCR-MYP-003 반려동물 등록/수정 · 인식칩 번호 12·15자리 검증 �
 - JAJ 확인: 케어미션 `reflect` 중 일정은 직접 입력(`DIRECT`)일 때만 반영한다(`CareScheduleService.java:87`). 명세와 같은지 확인
 - LJS에게 알리기(SCR-MYP-003 인식칩 12·15자리, AI 저장소): `data/tool_prompts.yaml`의 `chip_no` 설명("숫자만")과 `data/tools.snapshot.json`의 `chipNo.pattern`(`^[0-9]{0,20}$`)을 새 규칙으로. 백엔드 PR 병합 뒤
 
+
+## 중단 2026-11-20 11:59 (5시간 한도 97%)
+- 자동 커밋한 변경 4개: handoff/SJM.md, milestones/SJM.md, src/main/java/com/nyangmeong/pet/service/PetService.java, src/test/java/com/nyangmeong/pet/service/PetServiceTest.java
+- 커밋 안 한 새 파일 0개 (사람이 판단): 없음
+- 이어서: 이 파일의 "지금 하는 것" 과 `git log -1` 을 본다

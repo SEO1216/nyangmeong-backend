@@ -142,9 +142,15 @@
                            WHERE H.PET_PRTC_MTCH_SN = T.PET_PRTC_MTCH_SN
                              AND H.AFTR_STTS_CD = T.MTCH_DLNG_STTS_CD ), T.REG_DT)
                <![CDATA[<=]]> NOW() - INTERVAL #{days} DAY
+           AND NOT EXISTS ( SELECT 1
+                              FROM MTCH_CNCL_DMND CD
+                             WHERE CD.PET_PRTC_MTCH_SN = T.PET_PRTC_MTCH_SN
+                               AND CD.DMND_STTS_CD = #{requestingDemandCd} )
     </sql>
 
+    <!-- 요청중인 거래 취소 요청이 있는 매칭은 취소 요청 기한(자동 동의)이 먼저라 무응답 종료에서 뺀다 -->
     <select id="selectNoResponseTargets" resultType="long">
+        <bind name="requestingDemandCd" value="@com.nyangmeong.community.domain.CareCancelDemandStatus@REQUESTING.getCode()" />
         SELECT T.PET_PRTC_MTCH_SN
           FROM PET_PRTC_MTCH T
          WHERE <include refid="noResponseExpiredCond" />
@@ -152,6 +158,7 @@
     </select>
 
     <select id="existsNoResponseExpired" resultType="boolean">
+        <bind name="requestingDemandCd" value="@com.nyangmeong.community.domain.CareCancelDemandStatus@REQUESTING.getCode()" />
         SELECT EXISTS ( SELECT 1
                           FROM PET_PRTC_MTCH T
                          WHERE T.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
@@ -293,6 +300,49 @@
          WHERE MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
            AND DMND_STTS_CD = #{bfrSttsCd}
     </update>
+
+    <select id="selectCancelDemandById" parameterType="long" resultMap="careCancelDemandResultMap">
+        SELECT D.MTCH_CNCL_DMND_SN
+             , D.PET_PRTC_MTCH_SN
+             , D.DMND_MBR_SN
+             , D.CNCL_RSN
+             , D.DMND_STTS_CD
+             , D.PRCS_MBR_SN
+             , D.PRCS_DT
+             , D.REG_DT
+             , D.MDFCN_DT
+          FROM MTCH_CNCL_DMND D
+         WHERE D.MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
+    </select>
+
+    <!-- 요청중 + 매칭 상태 + 등록 경과일 (toDays 가 있으면 그 미만까지만) -->
+    <sql id="cancelDemandDueCond">
+               D.DMND_STTS_CD = #{requestingCd}
+           AND M.MTCH_DLNG_STTS_CD IN
+               <foreach collection="sttsCds" item="sttsCd" open="(" separator="," close=")">#{sttsCd}</foreach>
+           AND D.REG_DT <![CDATA[<=]]> NOW() - INTERVAL #{fromDays} DAY
+        <if test="toDays != null">
+           AND D.REG_DT <![CDATA[>]]> NOW() - INTERVAL #{toDays} DAY
+        </if>
+    </sql>
+
+    <select id="selectCancelDemandDueTargets" resultType="long">
+        SELECT D.MTCH_CNCL_DMND_SN
+          FROM MTCH_CNCL_DMND D
+          JOIN PET_PRTC_MTCH M
+            ON M.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+         WHERE <include refid="cancelDemandDueCond" />
+         ORDER BY D.MTCH_CNCL_DMND_SN
+    </select>
+
+    <select id="existsCancelDemandDue" resultType="boolean">
+        SELECT EXISTS ( SELECT 1
+                          FROM MTCH_CNCL_DMND D
+                          JOIN PET_PRTC_MTCH M
+                            ON M.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+                         WHERE D.MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
+                           AND <include refid="cancelDemandDueCond" /> )
+    </select>
 
     <select id="selectLatestCondition" parameterType="long" resultMap="careMatchConditionResultMap">
         SELECT V.MTCH_CND_VER_SN

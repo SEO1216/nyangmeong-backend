@@ -38,7 +38,7 @@ class CommentReplyTargetTest {
     private final PostMapper postMapper = mock(PostMapper.class);
     private final CommentService service = new CommentService(commentMapper, postMapper,
             mock(LostReportMapper.class), new OwnerAuthorizer(), mock(PetStoryMissionReflector.class),
-            mock(ProfanityFilter.class));
+            mock(ProfanityFilter.class), mock(com.nyangmeong.global.notification.EventPublisher.class));
 
     private Comment comment(Long cmntSn, Long prntCmntSn, Long mbrSn) {
         Comment comment = new Comment();

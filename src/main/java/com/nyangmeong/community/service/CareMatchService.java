@@ -58,6 +58,9 @@ public class CareMatchService {
     static final String CHAT_ROOM_PATH = "/chat?otoChatRoomSn=%d";
     private static final String CANCEL_BY_LEAVE = "채팅방 나가기";
     private static final String CLOSE_BY_DEAL_CANCEL = "거래 취소 동의";
+    /** 거래 취소 요청을 받은 쪽이 이 일수 동안 응답하지 않으면 자동 동의 (사람 결정 2026-11-19, DB·운영 설정 아닌 코드 상수) */
+    static final long DEAL_CANCEL_AUTO_APPROVE_DAYS = 7;
+    private static final String CLOSE_BY_DEAL_CANCEL_AUTO = "거래 취소 요청 " + DEAL_CANCEL_AUTO_APPROVE_DAYS + "일 무응답 자동 동의";
     private static final String CLOSE_BY_OTHER_MATCH = "다른 분과 매칭되어 모집 종료";
     private static final String REOPEN_BY_CANCEL = "확정 매칭 취소로 모집 재개";
     private static final String CANCEL_BY_OTHER_MATCH = "다른 분과 매칭되어 요청이 취소되었어요.";
@@ -320,14 +323,115 @@ public class CareMatchService {
         checkCounterpartOfDemander(demand, mbrSn);
         markDemand(demand, CareCancelDemandStatus.APPROVED, mbrSn);
 
-        changeStatus(locked.match(), CareMatchStatus.CANCELED, mbrSn, demand.getCnclRsn());
-        changeRecruitmentStatus(locked.recruitment(), CareRecruitmentStatus.MATCHED, CareRecruitmentStatus.RECRUITING,
-                null, mbrSn, CLOSE_BY_DEAL_CANCEL);
-        reopenOtherRooms(locked.room(), mbrSn);
-        chatMessageService.createSystemMessage(locked.room().getOtoChatRoomSn(), "거래가 취소되었어요.");
-        changeRoomStatus(locked.room().getOtoChatRoomSn(), ChatRoomStatus.ACTIVE, ChatRoomStatus.READ_ONLY, mbrSn,
-                CLOSE_BY_DEAL_CANCEL);
+        cancelDeal(locked.room(), locked.recruitment(), locked.match(), mbrSn, demand.getCnclRsn(),
+                CLOSE_BY_DEAL_CANCEL, "거래가 취소되었어요.");
         notifyReceiver(demand.getDmndMbrSn(), locked.room().getOtoChatRoomSn(), "거래 취소 요청에 상대가 동의해 거래가 취소되었어요.");
+    }
+
+    /**
+     * 자동 동의 대상 거래 취소 요청 번호 (요청중, 매칭 완료·확인 대기, 등록 후 7일 이상)
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findDealCancelAutoApproveTargets() {
+        return careMatchMapper.selectCancelDemandDueTargets(CareCancelDemandStatus.REQUESTING.getCode(),
+                autoApproveStatusCodes(), DEAL_CANCEL_AUTO_APPROVE_DAYS, null);
+    }
+
+    /**
+     * 거래 취소 요청 무응답 자동 동의 (배치, 처리자 없음) : 직접 동의와 같은 결과
+     * - 수령 대기는 대상이 아님 (돌봄이 끝나 비용 분쟁이 될 수 있어 돌보미가 직접 동의해야 취소)
+     * - 잠근 뒤 요청 상태·매칭 상태·경과일을 다시 확인해 그사이 처리된 건은 건너뜀
+     *
+     * @return 처리했으면 true
+     */
+    @Transactional
+    public boolean autoApproveDealCancel(Long mtchCnclDmndSn) {
+        CareCancelDemand peekDemand = careMatchMapper.selectCancelDemandById(mtchCnclDmndSn);
+        if (peekDemand == null) {
+            return false;
+        }
+        CareMatch peek = careMatchMapper.selectById(peekDemand.getPetPrtcMtchSn());
+        if (peek == null) {
+            return false;
+        }
+        ChatRoomDetail room = chatRoomMapper.selectDetail(peek.getOtoChatRoomSn());
+        if (room == null) {
+            return false;
+        }
+        CareRecruitment recruitment = lockRecruitment(peek.getPetPrtcRcrtSn());
+        chatRoomMapper.selectRoomForUpdate(peek.getOtoChatRoomSn());
+        CareMatch match = careMatchMapper.selectByIdForUpdate(peek.getPetPrtcMtchSn());
+        if (match == null) {
+            return false;
+        }
+        CareCancelDemand demand = careMatchMapper.selectRequestingCancelDemandForUpdate(match.getPetPrtcMtchSn(),
+                CareCancelDemandStatus.REQUESTING.getCode());
+        if (demand == null || !demand.getMtchCnclDmndSn().equals(mtchCnclDmndSn)
+                || !careMatchMapper.existsCancelDemandDue(mtchCnclDmndSn, CareCancelDemandStatus.REQUESTING.getCode(),
+                        autoApproveStatusCodes(), DEAL_CANCEL_AUTO_APPROVE_DAYS, null)) {
+            return false;
+        }
+        markDemand(demand, CareCancelDemandStatus.APPROVED, null);
+
+        String message = DEAL_CANCEL_AUTO_APPROVE_DAYS + "일 동안 응답이 없어 거래 취소 요청에 자동 동의했어요. 거래가 취소되었어요.";
+        cancelDeal(room, recruitment, match, null, demand.getCnclRsn(), CLOSE_BY_DEAL_CANCEL_AUTO, message);
+        notifyReceiver(room.getOwnerMbrSn(), room.getOtoChatRoomSn(), message);
+        notifyReceiver(room.getCtptMbrSn(), room.getOtoChatRoomSn(), message);
+        return true;
+    }
+
+    /**
+     * 자동 동의 하루 전 알림 대상 거래 취소 요청 번호 (등록 후 6일 이상 7일 미만, 하루 한 번 배치라 한 번만 걸림)
+     */
+    @Transactional(readOnly = true)
+    public List<Long> findDealCancelReminderTargets() {
+        return careMatchMapper.selectCancelDemandDueTargets(CareCancelDemandStatus.REQUESTING.getCode(),
+                autoApproveStatusCodes(), DEAL_CANCEL_AUTO_APPROVE_DAYS - 1, DEAL_CANCEL_AUTO_APPROVE_DAYS);
+    }
+
+    /**
+     * 자동 동의 하루 전 알림 (배치) : 요청을 받은 쪽(요청자의 상대)에게만, 시스템 메시지는 남기지 않음
+     *
+     * @return 알렸으면 true
+     */
+    @Transactional
+    public boolean remindDealCancel(Long mtchCnclDmndSn) {
+        if (!careMatchMapper.existsCancelDemandDue(mtchCnclDmndSn, CareCancelDemandStatus.REQUESTING.getCode(),
+                autoApproveStatusCodes(), DEAL_CANCEL_AUTO_APPROVE_DAYS - 1, DEAL_CANCEL_AUTO_APPROVE_DAYS)) {
+            return false;
+        }
+        CareCancelDemand demand = careMatchMapper.selectCancelDemandById(mtchCnclDmndSn);
+        if (demand == null) {
+            return false;
+        }
+        CareMatch match = careMatchMapper.selectById(demand.getPetPrtcMtchSn());
+        if (match == null) {
+            return false;
+        }
+        ChatRoomDetail room = chatRoomMapper.selectDetail(match.getOtoChatRoomSn());
+        if (room == null) {
+            return false;
+        }
+        Long receiverMbrSn = demand.getDmndMbrSn().equals(room.getOwnerMbrSn()) ? room.getCtptMbrSn()
+                : room.getOwnerMbrSn();
+        notifyReceiver(receiverMbrSn, room.getOtoChatRoomSn(), "거래 취소 요청에 내일까지 응답하지 않으면 자동으로 동의돼요.");
+        return true;
+    }
+
+    /** 자동 동의할 수 있는 매칭 상태 (매칭 완료·확인 대기) */
+    private static List<String> autoApproveStatusCodes() {
+        return List.of(CareMatchStatus.MATCHED.getCode(), CareMatchStatus.AWAITING_CONFIRM.getCode());
+    }
+
+    /** 확정 거래 취소 : 매칭 요청 취소, 모집글 모집중, 같은 글의 닫힌 방 다시 열기, 이 방은 읽기 전용 */
+    private void cancelDeal(ChatRoomDetail room, CareRecruitment recruitment, CareMatch match, Long mbrSn,
+            String cnclRsn, String closeRsn, String message) {
+        changeStatus(match, CareMatchStatus.CANCELED, mbrSn, cnclRsn);
+        changeRecruitmentStatus(recruitment, CareRecruitmentStatus.MATCHED, CareRecruitmentStatus.RECRUITING, null,
+                mbrSn, closeRsn);
+        reopenOtherRooms(room, mbrSn);
+        chatMessageService.createSystemMessage(room.getOtoChatRoomSn(), message);
+        changeRoomStatus(room.getOtoChatRoomSn(), ChatRoomStatus.ACTIVE, ChatRoomStatus.READ_ONLY, mbrSn, closeRsn);
     }
 
     /**

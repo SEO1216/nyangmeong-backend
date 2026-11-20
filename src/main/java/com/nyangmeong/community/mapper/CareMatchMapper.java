@@ -141,6 +141,24 @@ public interface CareMatchMapper {
             @Param("aftrSttsCd") String aftrSttsCd, @Param("prcsMbrSn") Long prcsMbrSn);
 
     /**
+     * 거래 취소 요청 단건 (없으면 null)
+     */
+    CareCancelDemand selectCancelDemandById(Long mtchCnclDmndSn);
+
+    /**
+     * 기한이 된 거래 취소 요청 번호 : 요청중, 매칭이 sttsCds 중 하나, 등록 후 fromDays 일 이상 (toDays 가 있으면 toDays 일 미만)
+     */
+    List<Long> selectCancelDemandDueTargets(@Param("requestingCd") String requestingCd,
+            @Param("sttsCds") List<String> sttsCds, @Param("fromDays") long fromDays, @Param("toDays") Long toDays);
+
+    /**
+     * 이 거래 취소 요청이 지금도 기한 조건에 맞는지 (잠근 뒤 다시 확인)
+     */
+    boolean existsCancelDemandDue(@Param("mtchCnclDmndSn") Long mtchCnclDmndSn,
+            @Param("requestingCd") String requestingCd, @Param("sttsCds") List<String> sttsCds,
+            @Param("fromDays") long fromDays, @Param("toDays") Long toDays);
+
+    /**
      * 모집글의 매칭 목록 (최신순)
      */
     List<AdminCareMatchResponse.Match> selectAdminMatches(@Param("petPrtcRcrtSn") Long petPrtcRcrtSn);

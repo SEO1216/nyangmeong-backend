@@ -137,6 +137,16 @@ public interface MemberMapper {
             @Param("photoReset") boolean photoReset, @Param("actorId") String actorId);
 
     /**
+     * 서비스 튜토리얼 봤음 여부 조회, 회원이 없으면 null
+     */
+    String selectTutrlViewYn(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 서비스 튜토리얼 봤음 저장 (이미 봤어도 같은 값으로 갱신)
+     */
+    int updateTutrlView(@Param("mbrSn") Long mbrSn, @Param("actorId") String actorId);
+
+    /**
      * 최종 로그인 일시 갱신
      */
     int updateLastLogin(@Param("mbrSn") Long mbrSn, @Param("actorId") String actorId);

@@ -34,7 +34,7 @@ import com.nyangmeong.global.notification.NotificationEvent;
 
 /**
  * [검사 - 거래 취소 요청 무응답 자동 동의와 하루 전 알림 (배치)]
- * - 7일 무응답이면 매칭 완료·확인 대기만 직접 동의와 같은 결과로 취소, 잠근 뒤 그사이 처리된 건은 건너뜀
+ * - 7일 무응답이면 매칭 완료만 직접 동의와 같은 결과로 취소(확인 대기·수령 대기 제외), 잠근 뒤 그사이 처리된 건은 건너뜀
  * - 하루 전에는 요청을 받은 쪽에만 알림
  */
 class CareMatchDealCancelAutoApproveTest {
@@ -54,7 +54,7 @@ class CareMatchDealCancelAutoApproveTest {
     private static final String MATCHED_CD = "PCAC0002";
     private static final String DEMANDING = "PCAC0021";
     private static final String APPROVED = "PCAC0022";
-    private static final List<String> AUTO_STATUSES = List.of(MATCHED, AWAITING_CONFIRM);
+    private static final List<String> AUTO_STATUSES = List.of(MATCHED);
 
     private final CareMatchMapper careMatchMapper = mock(CareMatchMapper.class);
     private final CareRecruitmentMapper careRecruitmentMapper = mock(CareRecruitmentMapper.class);
@@ -132,7 +132,7 @@ class CareMatchDealCancelAutoApproveTest {
     }
 
     @Test
-    void 자동_동의_대상은_매칭_완료와_확인_대기에서_7일_지난_요청중_요청이다() {
+    void 자동_동의_대상은_매칭_완료에서_7일_지난_요청중_요청이다() {
         when(careMatchMapper.selectCancelDemandDueTargets(DEMANDING, AUTO_STATUSES, 7L, null))
                 .thenReturn(List.of(DEMAND));
 
@@ -141,8 +141,8 @@ class CareMatchDealCancelAutoApproveTest {
     }
 
     @Test
-    void 확인_대기에서_자동_동의하면_직접_동의와_같이_취소되고_양쪽에_알린다() {
-        stubMatch(AWAITING_CONFIRM);
+    void 매칭_완료에서_자동_동의하면_직접_동의와_같이_취소되고_양쪽에_알린다() {
+        stubMatch(MATCHED);
         stubRequestingAndDue(true);
         when(chatRoomMapper.selectOtherRoomSnsByStatus(PST, ROOM, "CHTC0002")).thenReturn(List.of(12L));
         when(chatRoomMapper.updateRoomStatus(12L, "CHTC0002", "CHTC0001")).thenReturn(1);
@@ -150,7 +150,7 @@ class CareMatchDealCancelAutoApproveTest {
         assertThat(service.autoApproveDealCancel(DEMAND)).isTrue();
 
         verify(careMatchMapper).updateCancelDemandStatus(DEMAND, DEMANDING, APPROVED, null);
-        verify(careMatchMapper).updateStatus(MATCH, AWAITING_CONFIRM, CANCELED);
+        verify(careMatchMapper).updateStatus(MATCH, MATCHED, CANCELED);
         ArgumentCaptor<CareMatchStatusHistory> history = ArgumentCaptor.forClass(CareMatchStatusHistory.class);
         verify(careMatchMapper).insertStatusHistory(history.capture());
         assertThat(history.getValue().getMbrSn()).isNull();
@@ -175,12 +175,13 @@ class CareMatchDealCancelAutoApproveTest {
     }
 
     @Test
-    void 매칭_완료에서도_자동_동의한다() {
-        stubMatch(MATCHED);
-        stubRequestingAndDue(true);
+    void 잠근_뒤_다시_보니_확인_대기면_건너뛴다() {
+        stubMatch(AWAITING_CONFIRM);
+        stubRequestingAndDue(false);
 
-        assertThat(service.autoApproveDealCancel(DEMAND)).isTrue();
-        verify(careMatchMapper).updateStatus(MATCH, MATCHED, CANCELED);
+        assertThat(service.autoApproveDealCancel(DEMAND)).isFalse();
+        verify(careMatchMapper, never()).updateStatus(anyLong(), anyString(), anyString());
+        verify(eventPublisher, never()).publish(any(NotificationEvent.class));
     }
 
     @Test

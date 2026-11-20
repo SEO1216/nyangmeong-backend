@@ -27,7 +27,7 @@
 | POST | /care-matches | 매칭 요청(채팅방 기준, 보호자만. 요청 시점의 모집글 조건을 복사해 조건 버전을 만든다. 요청 취소된 매칭은 같은 행으로 다시 요청해 조건 버전이 늘어난다) | CMU-005-06 | KSJ | CareMatchCreateRequest | CareMatchResponse |
 | POST | /care-matches/{petPrtcMtchSn}/accept | 매칭 수락(제공자만, 게시글당 1명 확정, 모집글이 매칭완료로 바뀌고 같은 글의 다른 방은 모집 종료 안내를 받고 읽기 전용(CHTC0002)이 됨) | CMU-005-07 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel | 수락 전 매칭 요청 취소(보호자만, 사유 필수) | CMU-005-06 | KSJ | CareMatchCancelRequest | - |
-| POST | /care-matches/{petPrtcMtchSn}/cancel-request | 거래 취소 요청(매칭 완료·확인 대기·수령 대기에서 두 당사자 누구나, 사유 필수, 요청중인 건이 있으면 409 `CARE_MATCH_INVALID_STATE`. 요청중인 동안 완료 요청·완료 확인·수령 확인은 409. 201) | CMU-005-06 | KSJ | CareDealCancelRequest | CareCancelDemandItem |
+| POST | /care-matches/{petPrtcMtchSn}/cancel-request | 거래 취소 요청(매칭 완료·확인 대기·수령 대기에서 두 당사자 누구나, 사유 필수, 요청중인 건이 있으면 409 `CARE_MATCH_INVALID_STATE`. 이번 거래에서 내 요청이 거절된 적이 있으면 409 `CARE_DEAL_CANCEL_REJECTED`(상대는 요청할 수 있음). 요청중인 동안 완료 요청·완료 확인·수령 확인은 409. 201) | CMU-005-06 | KSJ | CareDealCancelRequest | CareCancelDemandItem |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/approve | 거래 취소 동의(요청한 사람의 상대만, 아니면 403 `CARE_MATCH_ROLE_DENIED`). 매칭이 요청 취소(PCAC0017), 모집글이 모집중, 이 방은 읽기 전용(CHTC0002), 같은 글의 읽기 전용 방은 다시 열린다 | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/reject | 거래 취소 거절(요청한 사람의 상대만). 거래는 그대로 이어진다 | CMU-005-06 | KSJ | - | - |
 | POST | /care-matches/{petPrtcMtchSn}/cancel-request/withdraw | 거래 취소 요청 철회(요청한 사람만) | CMU-005-06 | KSJ | - | - |

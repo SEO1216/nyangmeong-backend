@@ -141,6 +141,13 @@ public interface CareMatchMapper {
             @Param("aftrSttsCd") String aftrSttsCd, @Param("prcsMbrSn") Long prcsMbrSn);
 
     /**
+     * 이번 거래(가장 최근 매칭 완료 전환 이후)에서 이 회원의 거래 취소 요청이 거절된 적이 있는지
+     * - 같은 매칭 행이 요청 취소 뒤 다시 요청돼 재사용되므로 지난 거래의 거절은 세지 않는다
+     */
+    boolean existsRejectedCancelDemand(@Param("petPrtcMtchSn") Long petPrtcMtchSn, @Param("dmndMbrSn") Long dmndMbrSn,
+            @Param("rejectedCd") String rejectedCd, @Param("matchedCd") String matchedCd);
+
+    /**
      * 거래 취소 요청 단건 (없으면 null)
      */
     CareCancelDemand selectCancelDemandById(Long mtchCnclDmndSn);

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * [검사 - 거래 취소 요청 무응답 기한 SQL]
- * - 자동 동의·하루 전 알림 대상이 요청중·매칭 상태·등록 경과일로 걸리는지, 무응답 종료가 요청중인 취소 요청이 있는 매칭을 빼는지
+ * - 자동 동의·하루 전 알림 대상이 요청중·매칭 상태·등록 경과일로 걸리는지, 무응답 종료가 취소 요청과 상관없이 걸리는지, 거절 이력 조건
  */
 class CareCancelDemandDueSqlTest {
 
@@ -75,14 +75,21 @@ class CareCancelDemandDueSqlTest {
     }
 
     @Test
-    void 무응답_종료는_요청중인_거래_취소_요청이_있는_매칭을_뺀다() {
+    void 무응답_종료는_요청중인_거래_취소_요청이_있어도_대상이다() {
         for (String statement : new String[] { "selectNoResponseTargets", "existsNoResponseExpired" }) {
-            BoundSql bound = bound(statement, new HashMap<>());
-
-            assertThat(bound.getSql().replaceAll("\\s+", " ")).contains(
-                    "NOT EXISTS ( SELECT 1 FROM MTCH_CNCL_DMND CD WHERE CD.PET_PRTC_MTCH_SN = T.PET_PRTC_MTCH_SN AND CD.DMND_STTS_CD = ? )");
-            assertThat(bound.getAdditionalParameter("requestingDemandCd")).isEqualTo("PCAC0021");
+            assertThat(sql(statement, new HashMap<>())).doesNotContain("MTCH_CNCL_DMND");
         }
+    }
+
+    @Test
+    void 거절_이력은_같은_매칭의_본인_거절_요청을_이번_매칭_완료_이후로만_센다() {
+        assertThat(sql("existsRejectedCancelDemand", new HashMap<>()))
+                .contains("D.PET_PRTC_MTCH_SN = ?")
+                .contains("D.DMND_MBR_SN = ?")
+                .contains("D.DMND_STTS_CD = ?")
+                .contains("D.REG_DT >= COALESCE(( SELECT MAX(H.REG_DT) FROM PET_PRTC_MTCH_STTS_HSTRY H")
+                .contains("H.AFTR_STTS_CD = ? ), D.REG_DT)")
+                .doesNotContain("FOR UPDATE");
     }
 
     @Test

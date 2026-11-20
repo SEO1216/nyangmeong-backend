@@ -142,15 +142,9 @@
                            WHERE H.PET_PRTC_MTCH_SN = T.PET_PRTC_MTCH_SN
                              AND H.AFTR_STTS_CD = T.MTCH_DLNG_STTS_CD ), T.REG_DT)
                <![CDATA[<=]]> NOW() - INTERVAL #{days} DAY
-           AND NOT EXISTS ( SELECT 1
-                              FROM MTCH_CNCL_DMND CD
-                             WHERE CD.PET_PRTC_MTCH_SN = T.PET_PRTC_MTCH_SN
-                               AND CD.DMND_STTS_CD = #{requestingDemandCd} )
     </sql>
 
-    <!-- 요청중인 거래 취소 요청이 있는 매칭은 취소 요청 기한(자동 동의)이 먼저라 무응답 종료에서 뺀다 -->
     <select id="selectNoResponseTargets" resultType="long">
-        <bind name="requestingDemandCd" value="@com.nyangmeong.community.domain.CareCancelDemandStatus@REQUESTING.getCode()" />
         SELECT T.PET_PRTC_MTCH_SN
           FROM PET_PRTC_MTCH T
          WHERE <include refid="noResponseExpiredCond" />
@@ -158,7 +152,6 @@
     </select>
 
     <select id="existsNoResponseExpired" resultType="boolean">
-        <bind name="requestingDemandCd" value="@com.nyangmeong.community.domain.CareCancelDemandStatus@REQUESTING.getCode()" />
         SELECT EXISTS ( SELECT 1
                           FROM PET_PRTC_MTCH T
                          WHERE T.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
@@ -300,6 +293,19 @@
          WHERE MTCH_CNCL_DMND_SN = #{mtchCnclDmndSn}
            AND DMND_STTS_CD = #{bfrSttsCd}
     </update>
+
+    <!-- 이번 거래 = 가장 최근에 매칭 완료로 바뀐 이력 이후 (이력이 없으면 전체) -->
+    <select id="existsRejectedCancelDemand" resultType="boolean">
+        SELECT EXISTS ( SELECT 1
+                          FROM MTCH_CNCL_DMND D
+                         WHERE D.PET_PRTC_MTCH_SN = #{petPrtcMtchSn}
+                           AND D.DMND_MBR_SN = #{dmndMbrSn}
+                           AND D.DMND_STTS_CD = #{rejectedCd}
+                           AND D.REG_DT <![CDATA[>=]]> COALESCE(( SELECT MAX(H.REG_DT)
+                                                                   FROM PET_PRTC_MTCH_STTS_HSTRY H
+                                                                  WHERE H.PET_PRTC_MTCH_SN = D.PET_PRTC_MTCH_SN
+                                                                    AND H.AFTR_STTS_CD = #{matchedCd} ), D.REG_DT) )
+    </select>
 
     <select id="selectCancelDemandById" parameterType="long" resultMap="careCancelDemandResultMap">
         SELECT D.MTCH_CNCL_DMND_SN

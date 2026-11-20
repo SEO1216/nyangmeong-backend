@@ -292,12 +292,17 @@ public class CareMatchService {
 
     /**
      * 거래 취소 요청 (매칭 완료~수령 대기, 두 당사자 누구나, 요청중인 건이 없을 때)
+     * - 이번 거래에서 내 요청이 거절된 적이 있으면 다시 요청할 수 없다 (상대는 요청 가능, 사람 결정 2026-11-20)
      */
     @Transactional
     public CareCancelDemandItem requestDealCancel(Long mbrSn, Long petPrtcMtchSn, CareDealCancelRequest req) {
         Locked locked = lock(mbrSn, petPrtcMtchSn);
         checkConfirmed(locked.match());
         checkNoCancelDemand(petPrtcMtchSn);
+        if (careMatchMapper.existsRejectedCancelDemand(petPrtcMtchSn, mbrSn, CareCancelDemandStatus.REJECTED.getCode(),
+                CareMatchStatus.MATCHED.getCode())) {
+            throw new CustomException(ErrorCode.CARE_DEAL_CANCEL_REJECTED);
+        }
 
         CareCancelDemand demand = new CareCancelDemand();
         demand.setPetPrtcMtchSn(petPrtcMtchSn);
@@ -329,7 +334,7 @@ public class CareMatchService {
     }
 
     /**
-     * 자동 동의 대상 거래 취소 요청 번호 (요청중, 매칭 완료·확인 대기, 등록 후 7일 이상)
+     * 자동 동의 대상 거래 취소 요청 번호 (요청중, 매칭 완료, 등록 후 7일 이상)
      */
     @Transactional(readOnly = true)
     public List<Long> findDealCancelAutoApproveTargets() {
@@ -339,7 +344,7 @@ public class CareMatchService {
 
     /**
      * 거래 취소 요청 무응답 자동 동의 (배치, 처리자 없음) : 직접 동의와 같은 결과
-     * - 수령 대기는 대상이 아님 (돌봄이 끝나 비용 분쟁이 될 수 있어 돌보미가 직접 동의해야 취소)
+     * - 매칭 완료만 대상 (확인 대기·수령 대기는 돌봄이 끝나 비용 분쟁이 될 수 있어 직접 동의해야 취소)
      * - 잠근 뒤 요청 상태·매칭 상태·경과일을 다시 확인해 그사이 처리된 건은 건너뜀
      *
      * @return 처리했으면 true
@@ -418,9 +423,12 @@ public class CareMatchService {
         return true;
     }
 
-    /** 자동 동의할 수 있는 매칭 상태 (매칭 완료·확인 대기) */
+    /**
+     * 자동 동의할 수 있는 매칭 상태 (매칭 완료만)
+     * - 확인 대기·수령 대기는 돌봄이 끝난 뒤라 비용 분쟁이 될 수 있어 받은 쪽이 직접 동의해야 취소 (사람 결정 2026-11-20)
+     */
     private static List<String> autoApproveStatusCodes() {
-        return List.of(CareMatchStatus.MATCHED.getCode(), CareMatchStatus.AWAITING_CONFIRM.getCode());
+        return List.of(CareMatchStatus.MATCHED.getCode());
     }
 
     /** 확정 거래 취소 : 매칭 요청 취소, 모집글 모집중, 같은 글의 닫힌 방 다시 열기, 이 방은 읽기 전용 */

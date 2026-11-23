@@ -22,6 +22,7 @@ import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.pet.domain.PointDealType;
 import com.nyangmeong.pet.domain.PointLedger;
 import com.nyangmeong.pet.dto.AdminPointLedgerSummary;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointResponse;
 import com.nyangmeong.pet.mapper.CareMissionMapper;
@@ -87,6 +88,16 @@ public class PointService {
         YearMonth month = yearMonth == null ? YearMonth.now(ZONE) : yearMonth;
         LocalDateTime fromDt = month.atDay(1).atStartOfDay();
         return pointMapper.selectLedgerList(mbrSn, fromDt, fromDt.plusMonths(1));
+    }
+
+    /**
+     * 포인트 내역이 있는 연월 (FN-MYP-020-02)
+     * - 미래 달 제외
+     */
+    @Transactional(readOnly = true)
+    public List<PointLedgerMonthSummary> searchLedgerMonths(Long mbrSn) {
+        LocalDateTime toDt = YearMonth.now(ZONE).plusMonths(1).atDay(1).atStartOfDay();
+        return pointMapper.selectLedgerMonths(mbrSn, toDt).stream().map(PointLedgerMonthSummary::new).toList();
     }
 
     /**

@@ -31,6 +31,7 @@ import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.pet.dto.AdminPointLedgerSummary;
 import com.nyangmeong.pet.domain.PointDealType;
 import com.nyangmeong.pet.domain.PointLedger;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointMonthSummary;
 import com.nyangmeong.pet.dto.PointResponse;
@@ -117,6 +118,22 @@ class PointServiceTest {
 
         assertThat(service.searchLedgers(MBR, YearMonth.of(2026, 9))).extracting(PointLedgerSummary::getPntGnlgrSn)
                 .containsExactly(5L);
+    }
+
+    @Test
+    void 내역이_있는_연월은_다음_달_첫날_전까지로_조회하고_순서를_그대로_돌려준다() {
+        LocalDateTime toDt = YearMonth.now(PointService.ZONE).plusMonths(1).atDay(1).atStartOfDay();
+        when(pointMapper.selectLedgerMonths(MBR, toDt)).thenReturn(List.of("2026-11", "2026-09"));
+
+        assertThat(service.searchLedgerMonths(MBR)).extracting(PointLedgerMonthSummary::yearMonth)
+                .containsExactly("2026-11", "2026-09");
+    }
+
+    @Test
+    void 내역이_없으면_연월_목록은_비어_있다() {
+        when(pointMapper.selectLedgerMonths(eq(MBR), any(LocalDateTime.class))).thenReturn(List.of());
+
+        assertThat(service.searchLedgerMonths(MBR)).isEmpty();
     }
 
     @Test

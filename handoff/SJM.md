@@ -1,20 +1,12 @@
 # SJM 핸드오프
 
 ## 지금 하는 것
-SCR-MYP-004 공동양육자 목록 · 연동 해제 인앱 알림 — 끝남 (승인 2026-11-20 11:29, 시작 2026-11-20 00:00). 검증 1회차 판정 `통과`, 사람 확인 완료(Postman으로 강제·자진 해제, 알림 문구·경로·재해제 404 미발송 확인)
-정책: 공동양육 연동을 해제하면 상대에게 인앱 알림을 보낸다. `NotificationEvent(상대 mbrSn, NotificationType.CO_PARENTING, 문구, null, PET_LIST_PATH)`, 이메일 없음. 반려동물 삭제 때와 같이 문구는 `notiTtl`, `notiCn`은 null
-- FN-MYP-004-01 강제 해제(주양육자가 해제): `pet/service/PetService.java` `unlinkCaregiver` 맨 끝(`insertLinkHistory` 뒤)에서 해제된 공동양육자(`target.getMbrSn()`)에게 "{주양육자 닉네임}님이 {반려동물 이름}의 공동양육 연동을 해제했어요". 닉네임 `memberService.getMember(mbrSn).mbrNcnm()`(주양육자=요청자), 이름 `loadPet(petSn).getPetNm()`
-- FN-MYP-006-02 자진 해제(공동양육자 본인이 해제): 같은 위치에서 주양육자에게 "{공동양육자 닉네임}님이 {반려동물 이름}의 공동양육을 그만뒀어요". 주양육자 mbrSn은 `petMapper.selectPrimaryCaregiverMbrSn(petSn, BrupRole.PRIMARY.getCode())`(이미 있는 메서드, 없거나 삭제면 PET_NOT_FOUND라 `getPrimaryCaregiverMbrSn` 재사용). 닉네임은 요청자 것
-- 미발송: 0건 갱신(`CAREGIVER_NOT_FOUND`)·권한 오류(`PET_ACCESS_DENIED`·`PET_PRIMARY_ONLY`)는 예외로 끝나므로 발행 코드에 닿지 않는다. 알림 조회(`getMember`·`loadPet`)는 갱신 성공 뒤에만 한다
-- 커밋 뒤 발송: `@Transactional` 메서드 안에서 기존 `EventPublisher.publish()`(리스너가 커밋 뒤에 받음, 롤백이면 안 나감). `ApplicationEventPublisher` 직접 사용 없음
-- 테스트 `pet/service/PetServiceTest.java`: ① 강제 해제 → `events.publish` 1회, 받는 사람 7L(해제된 사람), 유형 CO_PARENTING, 문구·경로 `/mypage/pets` ② 자진 해제 → 받는 사람 주양육자, 문구 ③ 0건 갱신·다른 공동양육자 해제 시도(`PET_PRIMARY_ONLY`)·주양육자 행 해제 시도(`CAREGIVER_NOT_FOUND`)·접근 거부(`PET_ACCESS_DENIED`)에서 `events` publish never. 완료 조건 `명령: ./gradlew build -q`
-- API 변경 없음: `DELETE /pets/{petSn}/caregivers/{brupRelSn}` 경로·요청·응답 그대로(`docs/api/pet.md` 고칠 것 없음). 새 알림 유형·DB 코드·SQL 없음
-- 공용 DB 시험 데이터: SQL 안 쓴다. 확인은 사람이 화면에서 초대 → 수락 → 해제(강제·자진 각각)로 만들고 알림함(COM-004)에서 본다
-- 프론트 연결: 없음(알림함은 기존 CO_PARENTING 표시·이동 경로 그대로)
-- 결정 메모: 닉네임 조회는 `memberService.getMember`(복호화까지 하는 무거운 메서드)지만 `CaregiverInvitationService`가 이미 같은 방식으로 쓴다. 해제는 드문 동작이라 그대로 쓴다
-새 의존성: 없음
+SCR-MYP-020 포인트 관리/케어미션 · 포인트 내역 월 목록 — 끝남 (승인 2026-11-23 11:51, 시작 2026-11-23 11:48). 검증 1회차 판정 `통과`, 사람 확인 완료
+- FN-MYP-020-02: `GET /api/point-ledgers/months`가 로그인 회원의 내역이 있는 연월만 `[{ "yearMonth": "yyyy-MM" }]`로 최신순·미래 달 제외로 돌려준다. `PointLedgerController.searchLedgerMonths` → `PointService.searchLedgerMonths` → `PointMapper.selectLedgerMonths`. 월 조회와 같은 회원·날짜(`REG_DT`)·`COM_CD` 조인 기준. `@AiTool`은 달지 않음. `docs/api/pet.md`에 행과 `PointLedgerMonthSummary` 절 반영
+- 공용 DB 쓰기 없음, 새 의존성 없음
 
 ## 다음에 할 것
+- 프론트 연결(SCR-MYP-020, FN-MYP-020-02): 포인트 내역 월 선택 창 `src/features/point/history/PointHistory.jsx`가 `GET /api/point-ledgers/months`로 달 목록을 채우게(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
 - 프론트 연결(SCR-MYP-003, FN-MYP-003-05): 등록·수정 모달 인식칩 입력의 12·15자리 안내·검증, 수정 때 바꾸지 않은 값은 보내지 않기(프론트 저장소에서 `/start`, 프론트 마일스톤에 대기 절을 넣어 뒀다)
 - LJS에게 알리기(케어미션 개편): `MasterSeeder` 미션 목록(이 저장소에 없음)의 이름 4개·식사량 달성 기준
 - 관리자 케어미션 수정(FN-ADM-071-02): `cmpnPnt`는 출제 배점에 안 쓰이게 된다. 수정 화면·API에서 뺄지 정한다

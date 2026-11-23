@@ -197,6 +197,18 @@
                 , G.PNT_GNLGR_SN DESC
     </select>
 
+    <select id="selectLedgerMonths" resultType="string">
+        /* 내 포인트 내역이 있는 연월(최신순, 기준 시각 이전만) */
+        SELECT DATE_FORMAT(G.REG_DT, '%Y-%m') AS YM
+          FROM PNT_GNLGR G
+          JOIN COM_CD C
+            ON C.COM_CD = G.PNT_DLNG_TYPE_CD
+         WHERE G.MBR_SN = #{mbrSn}
+           AND G.REG_DT &lt; #{toDt}
+         GROUP BY DATE_FORMAT(G.REG_DT, '%Y-%m')
+         ORDER BY YM DESC
+    </select>
+
     <resultMap id="pointMonthSummaryResultMap" type="com.nyangmeong.pet.dto.PointMonthSummary">
         <result column="EARN_PNT" property="earnPnt" />
         <result column="EARN_CNT" property="earnCnt" />

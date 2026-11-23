@@ -712,6 +712,14 @@
 - 추가: 추가-1 DB 기준 파일 v0.15로 올림(v0.14 두 파일은 `db/archive/v0.14/`, 사람 결정 2026-11-20)
 - 연결 남음: 새 기능(ID 없음) 조회·저장 (프론트 연결 `features/dashboard/api.js` 튜토리얼 가짜 API를 `GET·PUT /api/members/me/tutorial`로, 프론트 저장소에서 /start)
 
+## SCR-AIM-012 AI 일정 생성 확인 · 같은 이름 반려동물 구별(종·품종) — 끝
+- 기능: 명세 기능 ID 추가 없음(ai-6a 요청 2026-11-23), 걸치는 기능 FN-AIM-012-04
+- 기다리는 것: 없음
+- 완료 조건: `GET /internal/ai/register-context` 각 원소에 `petSeNm`(PETG01 코드 이름)·`vrtyNm`(품종 이름, 없으면 직접 입력 품종, 둘 다 없으면 null)이 실리고 기존 칸은 그대로다
+- 완료 조건 결과: 검증 `통과`(2026-11-23, 2회차, 1회차는 기획 밖 `logback-spring.xml` 변경으로 실패), 사람 확인 2026-11-23(Postman: 회원 1 같은 이름 "연탄" 고양이/코리안 숏헤어·강아지/말티즈, 회원 2 직접 입력 품종 "믹스", 쿠키 없이 401). 정한 것: 종 이름은 `CommonCodeService.search("PETG01")` 맵(공통코드에 없는 코드는 null), 반려동물이 없으면 공통코드 조회 안 함, `pet.domain` 코드 enum은 쓰지 않음(다른 도메인은 service로만)
+- 추가: 없음
+- 연결 남음: FN-AIM-012-04 (ai 저장소 `docs/api/internal.md` register-context 행·확인 카드 칩에 종·품종 표시, ai-6a. PR 번호 알림 LJS)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)

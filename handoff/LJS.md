@@ -2,11 +2,13 @@
 
 ## 지금 하는 것
 
-SCR-ADM-030 신고 처리 · SQL 경계 로컬 DB 확인(테스트 부족 3건) — 끝 (2026-11-20). 캐릭터 작업 시간 초과·미시작 조회, 자동 블라인드·자동 삭제 판별(`autoTargetCondition`), 탈퇴 회원 보관 기간(`selectWithdrawnList`)을 로컬 MySQL 임시 스키마에서 경계 행으로 확인, 모두 기대대로. 다시 돌릴 SQL과 결과 `docs/sql-check/20261120-sql-boundary.md`. Java 변경 없음. 검증 `통과`(1회차, 1차 기획은 검증 1회차 실패로 루프를 버리고 다시 기획), 사람 확인 2026-11-20(실행은 AI가 하고 사람이 결과 확인), 시작 2026-11-20 16:57
+SCR-AIM-012 AI 일정 생성 확인 · 같은 이름 반려동물 구별(종·품종) — 끝 (2026-11-23). `GET /internal/ai/register-context` 원소에 `petSeNm`(PETG01 코드 이름)·`vrtyNm`(품종, 없으면 직접 입력 품종, 둘 다 없으면 null) 추가, 계약 `docs/api/ai.md`. ai-6a 요청. 검증 `통과`(2회차, 1회차는 작업 전부터 있던 `logback-spring.xml` 변경 때문에 실패), 사람 확인 2026-11-23, 시작 2026-11-23 14:05
 
 ## 다음에 할 것
 
-- 사람(SCR-MAN-001 튜토리얼): ERDCloud `MBR`에 `TUTRL_VIEW_YN`은 넣었고(2026-11-20, 도메인 `여부C1`·기본 'N'·NOT NULL) 맨 끝에 붙어 있어 화면에서 `D7_BFHD_NOTI_YN` 뒤로 옮긴다. ERD 버전 v0.15 여부 정하기. YAY에게 `member`에 컬럼 하나·API 두 개 추가를 알린다. PR 본문에 "DB 변경 있음 v0.14 (26), 기준 파일 v0.15로 바뀜". 공용 DB 시드 회원 12(씩씩한산책러)는 확인용으로 'N'으로 바꿔 둠(2026-11-20), 되돌리려면 `UPDATE MBR SET TUTRL_VIEW_YN='Y' WHERE MBR_SN=12;`
+- SCR-AIM-012 연결 남음: FN-AIM-012-04 (PR을 올리면 ai-6a에 PR 번호를 알린다. ai 저장소 `docs/api/internal.md` register-context 행·칩 표시는 ai-6a)
+- 작업 트리(사람): 작업 전부터 있던 `src/main/resources/logback-spring.xml` 변경(`jdbc.resultsettable` 로거 삭제, root에 `ROLLING_FILE`)은 `git stash`에 보관(2026-11-23 "LJS: 기획 밖 logback-spring.xml 변경 보관…"). 쓰려면 `git stash pop` 후 따로 커밋
+- 사람(SCR-MAN-001 튜토리얼): ERDCloud `MBR`에 `TUTRL_VIEW_YN`은 넣었고(2026-11-20, 도메인 `여부C1`·기본 'N'·NOT NULL) 맨 끝에 붙어 있어 화면에서 `D7_BFHD_NOTI_YN` 뒤로 옮긴다. ERD 버전 v0.15 여부 정하기. YAY에게 `member`에 컬럼 하나·API 두 개 추가를 알린다. 공용 DB 시드 회원 12(씩씩한산책러)는 확인용으로 'N'으로 바꿔 둠(2026-11-20), 되돌리려면 `UPDATE MBR SET TUTRL_VIEW_YN='Y' WHERE MBR_SN=12;`
 - SCR-ADM-070 연결 남음: FN-ADM-070-04 (프론트 연결 관리자 아이템 순서 저장 실패 문구를 `data[0].field`로 가르기, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 순서 저장 400 칸 이름 표시 — 대기" 넣음)
 - 사람(SCR-ADM-070 굽기를 그림 참고로만): (공용 DB 기준 SQL v0.14 (19)는 실행돼 있음, 검증용 아이템 55는 2026-11-19 지움·첨부파일 4922 `USE_YN=N`) ERDCloud `ITEM.BAKE_IMG_REF_YN`이 맨 끝에 붙어 있어 화면에서 `NTSL_YN` 뒤로 옮긴다. 기존 아이템은 서버 관리자 화면에서 픽셀 그림을 새로 올리며 굽기를 켠다(그 전에는 새 캐릭터에 굽지 않음, 서버의 옛 아이템 그림 경로 문제로 1번 main에서 49·51·53 bake-image 실패 보고 있음)
 - SCR-ADM-070 연결 남음: FN-ADM-070-03 (프론트 연결 관리자 아이템 수정 모달에서 굽기 대상 아이템의 그림을 바꿔 저장하면 전체 굽기 다시 시작, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 그림 교체 뒤 전체 굽기 다시 시작 — 대기" 넣음). 생성기(ai·러스트) 선택 정리: `POST /ai/items/bake-hints` 삭제, `POST /ai/items/trial-preview`는 `bakeHint`만 받아 그림 참고 없이 구우므로 쓰려면 그림 참고로 바꾼다(프론트는 시험 굽기를 쓰지 않음)

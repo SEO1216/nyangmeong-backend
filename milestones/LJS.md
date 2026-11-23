@@ -720,6 +720,16 @@
 - 추가: 없음
 - 연결 남음: FN-AIM-012-04 (ai 저장소 `docs/api/internal.md` register-context 행·확인 카드 칩에 종·품종 표시, ai-6a. PR 번호 알림 LJS)
 
+## SCR-AIM-013 대화창 · 검사결과지 PDF 검사 수치 저장 확인 카드 도구 — 끝
+- 기능: 명세 기능 ID 추가 없음(ai-6a 요청 2026-11-23, 사람 결정 2026-11-23 대화창 PDF 첨부 허용), 걸치는 기능 FN-HLT-007-02~05(API는 JAJ, `@AiTool` 추가는 #175 일정·케어 항목과 같은 방식)
+- 할 것: `InspectionValueController.create`(`POST /api/pets/{petSn}/inspection-values`)에 `@AiTool(name = "draft_inspection_values", domain = "health", kind = AiToolKind.CARD)`. `GET /internal/ai/tools` 본문 칸 규칙: `ckupRcdSn`(long, 필수), `values`(array, 필수, minItems 1) 항목 `inspArtclCd`(code HLTG12, 최대 8)·`inspArtclDrctInptNm`(최대 40)·`rsltNvl`(decimal, 필수, 0 이상, 정수 7자리·소수 2)·`unitNm`(필수, 최대 20)·`refLlmtNvl`·`refUplmtNvl`(decimal, 0 이상, 소수 2)·`memoCn`(최대 200). "코드·직접입력명 중 하나 필수"는 rules로 표현되면 넣는다. 400 `INVALID_INPUT_VALUE` data에 `values[0].rsltNvl` 꼴 칸 이름(서비스 검증 포함)
+- 바꾸지 않는 것: 저장 동작(이미 있는 항목 제외·삭제된 항목 복구), 요청 DTO 모양
+- 확인한 것: `list_checkups`(`GET /api/pets/{petSn}/checkups`) `CheckupSummary`에 `ckupYmd`(null 가능)·`hsptlNm`이 있다(`docs/api/health.md`)
+- 기다리는 것: 없음
+- 완료 조건: 도구 목록에 `draft_inspection_values`가 위 칸 규칙으로 실린다. 잘못된 행을 보내면 400 data에 `values[i].<칸>`이 실린다
+- 완료 조건 결과: 검증 `통과`(2026-11-23, 1회차), 사람 확인 2026-11-23(테스트 3종 12건 재실행 통과). 정한 것: 행 안 "코드·직접입력명 중 하나 필수"는 rules로 싣지 못해(카탈로그 rules는 본문 맨 위 칸만) 서비스 400 `values[i].inspArtclCd`로 알림, 행 DTO `@DecimalMin("0")` → `@Min(0)`(도구 목록에 `min: 0`, 400 문구만 바뀜), 하한 > 상한이면 두 칸, 수정(PATCH) 경로는 그대로. 기존 테스트 `HealthAiToolCatalogTest` CARD 7→8 기대값 변경(사람 승인). 계약 `docs/api/ai.md`·`docs/api/health.md`
+- 연결 남음: 걸치는 기능 FN-HLT-007-02~05 (ai 저장소 `data/tools.snapshot.json` 갱신·`draft_inspection_values` 카드 연결, ai-6a, ai 세션. 병합되면 ai 세션에 알림)
+
 ## 제외
 - FN-COM-002-01·03·04·05·06·07·08·10·12·13·14·16·17·18·19·20·21·22·23: 화면만 있다(서버 동작 없음)
 - FN-COM-002-11: 채팅 안 읽은 수 API는 KSJ(채팅, 마일스톤 담당 표 COM-009)

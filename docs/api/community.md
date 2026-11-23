@@ -15,7 +15,7 @@
 | GET | /chat-rooms/{otoChatRoomSn} | 채팅방 상단 게시글 카드·매칭 진행 상태·내 역할 조회(참여자만) | CMU-005-01·11, COM-009 | KSJ | - | ChatRoomResponse |
 | GET | /chat-rooms/{otoChatRoomSn}/messages | 대화 메시지 조회(커서 방식, 최신순). `?beforeChatMsgSn=&size=30` — 처음은 `beforeChatMsgSn` 없이, 위로 스크롤하면 받은 것 중 가장 오래된 `chatMsgSn`을 넘긴다. `size` 최대 50 | CMU-005-04, COM-009 | KSJ | - | ChatMessageSliceResponse |
 | GET | /community-ai-commentaries | 오늘의 이야기 조회(`?cmtryCrtrYmd=`) | CMU-001-05 | KSJ | - | CommunityAiCommentaryResponse |
-| GET | /lost-reports | 실종 제보 목록(상태·지역·동물 구분·최종 목격 기간·키워드, 12건), `mineYn=true`면 내 글만(만료 글 포함) | CMU-002-01~04 | KSJ | - | Page<LostReportSummary> |
+| GET | /lost-reports | 실종 제보 목록(상태·지역·동물 구분·최종 목격 기간·키워드(제목·지역명·품종·특징), 12건), `mineYn=true`면 내 글만(만료 글 포함) | CMU-002-01~04 | KSJ | - | Page<LostReportSummary> |
 | GET | /lost-reports/{lostTpofSn} | 실종 제보 상세(목격 장소 좌표, 찾았어요 후 비공개 처리) | CMU-002-05·06 | KSJ | - | LostReportResponse |
 | GET | /news | 펫뉴스 목록(쿼리 `newsClsfCd`·`keyword`·`page`·`size`, 최신순 10건, 상세 하단 최신 5건은 `size=5`) | CMU-003-01~04 | KSJ | - | Page<NewsSummary> |
 | GET | /news/{newsSn} | 펫뉴스 상세 | CMU-003-04 | KSJ | - | NewsResponse |

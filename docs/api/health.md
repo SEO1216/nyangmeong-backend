@@ -462,7 +462,7 @@ CreatinineIndicator: `latestNvl`, `unitNm`, `refLlmtNvl`, `refUplmtNvl`(최신 �
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | ckupRcdSn | Long | Y | 이 반려동물의 검진기록 | INSP_NVL.CKUP_RCD_SN, HLT-007-03 |
-| values | List<InspectionValueItemRequest> | Y | 1행 이상. 같은 검진기록에 이미 있는 항목은 저장에서 제외, 삭제된 같은 항목은 복구(issues 1) | HLT-007-02·03, HLT-005-02 |
+| values | List<InspectionValueItemRequest> | Y | 1행 이상. 같은 검진기록에 이미 있는 항목은 저장에서 제외, 삭제된 같은 항목은 복구(issues 1). 잘못된 행은 400 `INVALID_INPUT_VALUE` data의 `field`가 `values[i].<칸>`(요청 검증·서비스 검사 모두. 서비스: 코드 없음·12종 아님·직접입력명과 다른 코드 `inspArtclCd`, 참고범위 한쪽만이면 빈 쪽, 하한 > 상한이면 두 칸, 단위 공백 `unitNm`). AI 도구 `draft_inspection_values` | HLT-007-02·03, HLT-005-02 |
 
 ### InspectionValueItemRequest
 쓰는 API: POST /pets/{petSn}/inspection-values (InspectionValueCreateRequest.values의 요소. 중첩 record)

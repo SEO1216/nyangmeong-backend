@@ -2,11 +2,11 @@
 
 ## 지금 하는 것
 
-SCR-AIM-012 AI 일정 생성 확인 · 같은 이름 반려동물 구별(종·품종) — 끝 (2026-11-23). `GET /internal/ai/register-context` 원소에 `petSeNm`(PETG01 코드 이름)·`vrtyNm`(품종, 없으면 직접 입력 품종, 둘 다 없으면 null) 추가, 계약 `docs/api/ai.md`. ai-6a 요청. 검증 `통과`(2회차, 1회차는 작업 전부터 있던 `logback-spring.xml` 변경 때문에 실패), 사람 확인 2026-11-23, 시작 2026-11-23 14:05
+SCR-AIM-013 대화창 · 검사결과지 PDF 검사 수치 저장 확인 카드 도구 — 끝 (2026-11-23). `POST /api/pets/{petSn}/inspection-values`에 `@AiTool draft_inspection_values`(CARD), 행 `inspArtclCd` `@AiCode("HLTG12")`, 등록 400에 `values[i].<칸>`. 계약 `docs/api/ai.md`·`health.md`. ai-6a 요청. 검증 `통과`(1회차), 사람 확인 2026-11-23, 시작 2026-11-23 16:14
 
 ## 다음에 할 것
 
-- SCR-AIM-012 연결 남음: FN-AIM-012-04 (PR을 올리면 ai-6a에 PR 번호를 알린다. ai 저장소 `docs/api/internal.md` register-context 행·칩 표시는 ai-6a)
+- SCR-AIM-013 검사 수치 카드 연결 남음: 걸치는 기능 FN-HLT-007-02~05 (ai 저장소 `data/tools.snapshot.json` 갱신·`draft_inspection_values` 카드 연결, ai-6a, ai 세션). 행 안 "코드·직접입력명 중 하나 필수"는 도구 목록 rules에 없으니 Python 설명에 적거나 400 `values[i].inspArtclCd`로 다시 묻는다
 - 작업 트리(사람): 작업 전부터 있던 `src/main/resources/logback-spring.xml` 변경(`jdbc.resultsettable` 로거 삭제, root에 `ROLLING_FILE`)은 `git stash`에 보관(2026-11-23 "LJS: 기획 밖 logback-spring.xml 변경 보관…"). 쓰려면 `git stash pop` 후 따로 커밋
 - 사람(SCR-MAN-001 튜토리얼): ERDCloud `MBR`에 `TUTRL_VIEW_YN`은 넣었고(2026-11-20, 도메인 `여부C1`·기본 'N'·NOT NULL) 맨 끝에 붙어 있어 화면에서 `D7_BFHD_NOTI_YN` 뒤로 옮긴다. ERD 버전 v0.15 여부 정하기. YAY에게 `member`에 컬럼 하나·API 두 개 추가를 알린다. 공용 DB 시드 회원 12(씩씩한산책러)는 확인용으로 'N'으로 바꿔 둠(2026-11-20), 되돌리려면 `UPDATE MBR SET TUTRL_VIEW_YN='Y' WHERE MBR_SN=12;`
 - SCR-ADM-070 연결 남음: FN-ADM-070-04 (프론트 연결 관리자 아이템 순서 저장 실패 문구를 `data[0].field`로 가르기, 프론트 저장소에서 /start. 프론트 마일스톤 절 "SCR-ADM-070 아이템 · 순서 저장 400 칸 이름 표시 — 대기" 넣음)

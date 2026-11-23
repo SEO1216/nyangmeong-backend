@@ -31,6 +31,7 @@ import com.nyangmeong.global.security.handler.RestAuthenticationEntryPoint;
 import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointResponse;
 import com.nyangmeong.pet.service.PointService;
@@ -112,5 +113,20 @@ class PointControllerTest {
                 .andExpect(status().isOk());
 
         verify(pointService).searchLedgers(1L, null);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 내역이_있는_연월은_로그인_회원으로_조회해_yearMonth_목록을_돌려준다() throws Exception {
+        when(pointService.searchLedgerMonths(1L)).thenReturn(
+                List.of(new PointLedgerMonthSummary("2026-11"), new PointLedgerMonthSummary("2026-09")));
+
+        mockMvc.perform(get("/api/point-ledgers/months"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].yearMonth").value("2026-11"))
+                .andExpect(jsonPath("$.data[1].yearMonth").value("2026-09"));
+
+        verify(pointService, never()).searchLedgers(anyLong(), any());
     }
 }

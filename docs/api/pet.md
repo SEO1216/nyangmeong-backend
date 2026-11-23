@@ -32,6 +32,7 @@
 | GET | /pixel-characters/{pixelCharSn} | 꾸미기 상세. 결과 이미지·보유/착용 아이템·오류 문의 접수 여부 | MYP-010-10·13·14·23 | LJS | - | PixelCharacterResponse |
 | GET | /pixel-characters/{pixelCharSn}/shop-items | 상점 아이템 목록(판매 중, 사용 안 하는 부위(신발 MYPC0006) 제외, 이 캐릭터 기준 보유중 표시, 보유 포인트). `?itemRegnCd=` | MYP-011-02·03 | LJS | - | ShopItemListResponse |
 | GET | /point-ledgers | 선택한 월의 포인트 적립·사용 내역(최신순). 쿼리 `yearMonth` | MYP-020-02 | SJM | - | List<PointLedgerSummary> |
+| GET | /point-ledgers/months | 포인트 적립·사용 내역이 한 건 이상 있는 연월 목록(월 선택 창). 최신순, 미래 달 제외 | MYP-020-02 | SJM | - | List<PointLedgerMonthSummary> |
 | POST | /caregiver-invitations | 이메일로 공동양육 초대 발송. 대상 반려동물 여러 마리를 한 초대로 묶음. 가입 회원은 인앱 알림, 미가입은 메일. 고른 반려동물을 모두 검사해 충돌을 모아 409 오류 data에 CaregiverInvitationConflictResponse. 이미 가족이 하나라도 있으면 `CAREGIVER_ALREADY_LINKED`, 대기 초대만 있으면 `CAREGIVER_INVITATION_DUPLICATED`. 충돌이 있으면 초대를 만들지 않음. 만료일시는 지금부터 운영 설정 초대 유효 일수(`INVTN_VLD_DAY_CNT`, 기본 7)일 뒤이고 이미 보낸 초대는 바뀌지 않는다. 반려동물 수 때문에 초대 보내기를 막지 않는다 | MYP-005-01·02 | SJM | CaregiverInvitationCreateRequest | CaregiverInvitationResponse |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/accept | 초대 수락. 고른 반려동물만 연동하고 나머지는 반려동물별 거절. 지금 연동 중인 수(주양육+공동양육) + 고른 수가 운영 설정 반려동물 최대 수(`PET_MAX_CNT`, 기본 10)를 넘으면 400 `PET_LIMIT_EXCEEDED`(문구에 그 최대 수, data `{remainingPetCount}`)이고 아무것도 연동하지 않는다 | MYP-005-05 | SJM | CaregiverInvitationAcceptRequest | - |
 | POST | /caregiver-invitations/{jntBrupInvtnSn}/cancel | 보낸 초대 취소. 내가 보낸 만료 전 대기중 초대만 취소(상태 PETC0035, 이력 대기중→취소). 남이 보낸 초대 403 `CAREGIVER_INVITATION_NOT_SENDER`, 수락·거절한 초대와 동시 응답으로 못 바꾼 초대 409 `CAREGIVER_INVITATION_ALREADY_PROCESSED`, 이미 취소한 초대 409 `CAREGIVER_INVITATION_CANCELED`, 만료된 초대 400 `CAREGIVER_INVITATION_EXPIRED`. 받는 사람 알림은 새로 보내지 않는다. 취소 뒤 받는 쪽 수락·거절은 409 `CAREGIVER_INVITATION_CANCELED` | MYP-005-03 | SJM | - | - |
@@ -650,6 +651,13 @@ Python AI 서버가 사용자 쿠키를 그대로 넘겨 부른다. 경로에 `/
 | dlngPnt | Integer | Y | 거래 포인트. 적립은 양수, 사용은 음수 | PNT_GNLGR.DLNG_PNT, MYP-020-02 |
 | memoCn | String | N | 내용 보조 문구. 미션은 "{반려동물명} · {미션명}", 검진은 반려동물명, 아이템 구매는 구매 문구 | PNT_GNLGR.MEMO_CN, MYP-020-02 |
 | regDt | LocalDateTime | Y | 거래 일시(행의 MM-DD) | PNT_GNLGR.REG_DT, MYP-020-02 |
+
+### PointLedgerMonthSummary
+쓰는 API: GET /point-ledgers/months
+최신순. `GET /point-ledgers`와 같은 회원·날짜 기준이라 목록의 달로 월 내역을 부르면 한 건 이상 나온다.
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| yearMonth | String | Y | `yyyy-MM` | PNT_GNLGR.REG_DT, MYP-020-02 |
 
 ### PointResponse
 쓰는 API: GET /members/me/points

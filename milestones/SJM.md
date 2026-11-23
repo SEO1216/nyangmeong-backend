@@ -48,6 +48,12 @@
 - 완료 조건: ./gradlew build -q 통과, 위 규칙의 단위 테스트, docs/api/pet.md 반영
 - 연결 남음: FN-MYP-020-05 (프론트 연결 SCR-MYP-020 포인트 안내 `features/point/guide/PointGuide.jsx` 6행 "미션마다 1~20P가 쌓여요"를 등급 배점 문구로, 프론트 저장소에서 /start)
 
+## SCR-MYP-020 포인트 관리/케어미션 · 포인트 내역 월 목록 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-MYP-020-02 (적립·사용 내역 월 선택 창)
+- 기다리는 것: 없음
+- 완료 조건: `GET /api/point-ledgers/months`가 로그인 회원 본인의 포인트 내역이 있는 연월만 `List<PointLedgerMonthSummary(yearMonth)>`로 최신순 돌려준다(가계부 `GET /api/expenses/months`와 같은 모양). 연월 경계는 `GET /api/point-ledgers`와 같다. ./gradlew build -q 통과, docs/api/pet.md 반영
+
 ## SCR-MYP-031 가계부 등록/수정 — 끝
 
 - 기능: FN-MYP-031-02 직접 입력 폼, FN-MYP-031-03 인식 결과 확인·수정, FN-MYP-031-05 영수증 업로드(인식 실패 후 직접 입력 저장의 영수증 연결), FN-MYP-031-06 중복 지출 확인, FN-MYP-030-08 한도 알림(화면은 SCR-MYP-030)
@@ -247,3 +253,4 @@
 ## 대조
 
 - 마이페이지: 명세 116 = 마일스톤 70 + 제외 46
+- 연결 남음: FN-MYP-020-02 (프론트 연결 SCR-MYP-020 포인트 내역 월 선택 창 `src/features/point/history/PointHistory.jsx`, 프론트 저장소에서 /start)

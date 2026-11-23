@@ -73,6 +73,11 @@ public interface PointMapper {
             @Param("toDt") LocalDateTime toDt);
 
     /**
+     * 포인트 내역이 있는 연월 조회(yyyy-MM, 최신순, toDt 이전만)
+     */
+    List<String> selectLedgerMonths(@Param("mbrSn") Long mbrSn, @Param("toDt") LocalDateTime toDt);
+
+    /**
      * 기간 적립·사용 합계 조회
      */
     PointMonthSummary selectMonthSummary(@Param("mbrSn") Long mbrSn, @Param("fromDt") LocalDateTime fromDt,

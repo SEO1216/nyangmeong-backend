@@ -107,6 +107,8 @@
 | --- | --- | --- | --- | --- |
 | petSn | Long | Y | | PET.PET_SN, AIM-012-04 |
 | petNm | String | Y | 문장 속 이름과 대조 | PET.PET_NM, AIM-012-04 |
+| petSeNm | String | N | 종 이름(공통코드 PETG01 이름, 예: 강아지·고양이). 같은 이름 반려동물 구별용. 코드가 공통코드에 없으면 null | PET.PET_SE_CD → COM_CD.COM_CD_NM, AIM-012-04 |
+| vrtyNm | String | N | 품종 이름. 없으면 직접 입력 품종, 둘 다 없으면 null. 같은 이름 반려동물 구별용 | VRTY.VRTY_NM / PET.VRTY_DRCT_INPT_NM, AIM-012-04 |
 | careArtclNms | List<String> | Y | 그 반려동물의 케어 항목 이름(삭제 제외, 등록순). 없으면 빈 배열. 케어 항목 목록 service(JAJ) 연결 전까지 빈 배열 | CARE_ARTCL.CARE_ARTCL_NM, AIM-012-08 |
 
 ### AiToolCatalogResponse

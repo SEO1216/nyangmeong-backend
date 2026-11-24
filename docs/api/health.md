@@ -34,7 +34,7 @@
 | POST | /pets/{petSn}/etc-inspections | 기타검사 입력(검사명·결과 500자·메모 200자) | HLT-005-11~14 | JAJ | EtcInspectionCreateRequest | EtcInspectionResponse |
 | POST | /pets/{petSn}/inspection-values | 검사 수치 여러 행 저장(혈액검사 고정, 이미 등록된 항목 제외, 삭제된 같은 항목은 복구) | HLT-007-02~05 | JAJ | InspectionValueCreateRequest | List<InspectionValueResponse> |
 | POST | /pets/{petSn}/observation-cycles | 관찰 회차 추가(multipart 사진, 종료 항목 불가) | HLT-002-20~25·32 | JAJ | ObservationCycleCreateRequest | ObservationCycleResponse |
-| POST | /pets/{petSn}/observation-items | 관찰 항목 등록(항목 + 1회차, multipart 사진) | HLT-002-20~25·32 | JAJ | ObservationItemCreateRequest | ObservationItemResponse |
+| POST | /pets/{petSn}/observation-items | 관찰 항목 등록(항목 + 1회차, multipart 사진). AI 카드 도구 `draft_observation_item`(`docs/api/ai.md`) | HLT-002-20~25·32 | JAJ | ObservationItemCreateRequest | ObservationItemResponse |
 | POST | /pets/{petSn}/observation-items/{obsrvArtclSn}/end | 관찰 종료(상태 전이, 기록 유지) | HLT-002-16 | JAJ | - | - |
 | POST | /pets/{petSn}/prescriptions | 처방약 추가(주기 체크 ON이면 투약 케어 항목 생성) | HLT-005-03 | JAJ | PrescriptionCreateRequest | PrescriptionResponse |
 | POST | /pets/{petSn}/prescriptions/bulk-save | 처방약 일괄 저장(검진기록 1개, prscSn 있으면 전체 덮어쓰기 수정·없으면 추가, 하나라도 실패하면 전부 저장 안 함, 삭제는 DELETE /{prscSn}, 투약 케어 항목은 추가·수정과 같은 규칙, 200) | HLT-005-03 | JAJ | PrescriptionBulkSaveRequest | List<PrescriptionResponse> |

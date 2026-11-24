@@ -46,7 +46,7 @@ import com.nyangmeong.health.service.RepeatPreventionService;
 
 /**
  * [검사 - 건강 도메인 AI 도구 목록]
- * - 실제 건강 컨트롤러의 @AiTool이 빠짐없이 실리는지 (READ 12 + CARD 8)
+ * - 실제 건강 컨트롤러의 @AiTool이 빠짐없이 실리는지 (READ 12 + CARD 9)
  * - 반려동물 1마리 일정 목록은 도구가 아님 : 회원 단위 list_my_care_schedules 가 대신 (MyCareScheduleAiToolCatalogTest)
  */
 @WebMvcTest(controllers = {AiToolCatalogController.class, CareScheduleController.class, CareItemController.class,
@@ -103,13 +103,13 @@ class HealthAiToolCatalogTest {
     }
 
     @Test
-    void 건강_READ_12개와_CARD_8개가_빠짐없이_실린다() throws Exception {
+    void 건강_READ_12개와_CARD_9개가_빠짐없이_실린다() throws Exception {
         givenCodes();
         mockMvc.perform(get(PATH))
-                .andExpect(jsonPath("$.data.tools.length()").value(20))
+                .andExpect(jsonPath("$.data.tools.length()").value(21))
                 .andExpect(jsonPath("$.data.tools[*].name", containsInAnyOrder("draft_care_completion", "draft_care_item",
                         "draft_care_item_update", "draft_daily_health_record", "draft_inspection_values",
-                        "draft_observation_cycle",
+                        "draft_observation_cycle", "draft_observation_item",
                         "draft_schedule", "draft_schedule_update",
                         "get_checkup", "get_health_indicators", "list_care_completions", "list_care_items",
                         "list_checkups", "list_daily_health_records",
@@ -181,5 +181,31 @@ class HealthAiToolCatalogTest {
                 .andExpect(jsonPath(v + ".refUplmtNvl.min").value(0))
                 .andExpect(jsonPath(v + ".refUplmtNvl.required").doesNotExist())
                 .andExpect(jsonPath(v + ".memoCn.maxLength").value(200));
+    }
+    @Test
+    void 관찰_항목_등록_도구는_multipart이고_부위_코드와_사진이_필수다() throws Exception {
+        givenCodes();
+        String t = tool("draft_observation_item");
+        mockMvc.perform(get(PATH))
+                .andExpect(jsonPath(t + ".kind").value("CARD"))
+                .andExpect(jsonPath(t + ".call.method").value("POST"))
+                .andExpect(jsonPath(t + ".call.path").value("/api/pets/{petSn}/observation-items"))
+                .andExpect(jsonPath(t + ".call.contentType").value("multipart/form-data"))
+                .andExpect(jsonPath(t + ".params.petSn.in").value("path"))
+                .andExpect(jsonPath(t + ".params.obsrvArtclNm.required").value(true))
+                .andExpect(jsonPath(t + ".params.obsrvArtclNm.maxLength").value(40))
+                .andExpect(jsonPath(t + ".params.obsrvRegnCd.type").value("code"))
+                .andExpect(jsonPath(t + ".params.obsrvRegnCd.group").value("HLTG16"))
+                .andExpect(jsonPath(t + ".params.obsrvRegnCd.required").value(true))
+                .andExpect(jsonPath(t + ".params.obsrvRegnCd.maxLength").value(8))
+                .andExpect(jsonPath(t + ".params.obsrvRegnCd.codes[0].cd").value("C0001"))
+                .andExpect(jsonPath(t + ".params.obsrvRegnDtlNm.maxLength").value(40))
+                .andExpect(jsonPath(t + ".params.file.type").value("file"))
+                .andExpect(jsonPath(t + ".params.file.required").value(true))
+                .andExpect(jsonPath(t + ".params.obsrvDt.type").value("datetime"))
+                .andExpect(jsonPath(t + ".params.obsrvDt.required").value(true))
+                .andExpect(jsonPath(t + ".params.obsrvSz.type").value("decimal"))
+                .andExpect(jsonPath(t + ".params.obsrvSz.scale").value(2))
+                .andExpect(jsonPath(t + ".params.memoCn.maxLength").value(200));
     }
 }

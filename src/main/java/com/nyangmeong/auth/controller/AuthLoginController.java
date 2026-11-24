@@ -1,9 +1,11 @@
 package com.nyangmeong.auth.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,7 +15,11 @@ import com.nyangmeong.auth.dto.LoginAttemptLimitQuery;
 import com.nyangmeong.auth.dto.LoginAttemptLimitResponse;
 import com.nyangmeong.auth.dto.LoginRequest;
 import com.nyangmeong.auth.dto.LoginResult;
+import com.nyangmeong.auth.dto.SnsLoginRequest;
+import com.nyangmeong.auth.dto.SnsLoginResponse;
+import com.nyangmeong.auth.dto.SnsLoginResult;
 import com.nyangmeong.auth.service.LoginService;
+import com.nyangmeong.auth.service.SnsLoginService;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.session.LoginSessionManager;
 
@@ -24,8 +30,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * [이메일 로그인 컨트롤러]
- * - GET /api/auth/login-attempt-limits, POST /api/auth/captchas, POST /api/auth/login
+ * [이메일·SNS 로그인 컨트롤러]
+ * - GET /api/auth/login-attempt-limits, POST /api/auth/captchas, POST /api/auth/login, POST /api/auth/sns-login
  * - 로그인 실패는 4xx 이고 data 에 실패 횟수·보안코드 요구 상태가 실린다
  */
 @RestController
@@ -34,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 public class AuthLoginController {
 
     private final LoginService loginService;
+    private final SnsLoginService snsLoginService;
     private final LoginSessionManager loginSessionManager;
 
     @Operation(summary = "아이디 기준 로그인 실패 횟수·보안코드 요구 상태")
@@ -59,6 +66,17 @@ public class AuthLoginController {
                     .<ApiResponse<?>>body(ApiResponse.errorWithData(result.error(), request.getRequestURI(), result.limits()));
         }
         loginSessionManager.issue(result.mbrSn(), response);
+        return ResponseEntity.ok(ApiResponse.success(result.response()));
+    }
+
+    @Operation(summary = "SNS 로그인(네이버·카카오·구글 인가 코드)")
+    @PostMapping("/sns-login")
+    public ResponseEntity<ApiResponse<SnsLoginResponse>> snsLogin(@Valid @RequestBody SnsLoginRequest req,
+            @RequestHeader(value = HttpHeaders.ORIGIN, required = false) String origin, HttpServletResponse response) {
+        SnsLoginResult result = snsLoginService.login(req, origin);
+        if (result.loginMbrSn() != null) {
+            loginSessionManager.issue(result.loginMbrSn(), response);
+        }
         return ResponseEntity.ok(ApiResponse.success(result.response()));
     }
 }

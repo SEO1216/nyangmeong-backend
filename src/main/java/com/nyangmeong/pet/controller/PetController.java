@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,9 +14,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nyangmeong.global.aitool.AiTool;
+import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
+import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
@@ -28,7 +33,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * [반려동물 컨트롤러]
  * - 내 반려동물 목록 (SCR-MYP-001 카드, SCR-MYP-002 슬라이드)
- * - 등록·수정·상세 (SCR-MYP-003), 대표 지정 (FN-MYP-010-05)
+ * - 등록·수정·상세 (SCR-MYP-003), 대표 지정 (FN-MYP-010-05), 삭제 (SCR-MYP-002)
+ * - 양육자 목록·연동 해제 (SCR-MYP-004·006)
  */
 @RestController
 @RequiredArgsConstructor
@@ -38,12 +44,20 @@ public class PetController {
     private final PetService petService;
 
     @Operation(summary = "내 반려동물 목록")
+    @AiTool(name = "list_pets", domain = "pet", kind = AiToolKind.READ)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PetSummary>>> searchMyPets(@AuthenticationPrincipal LoginMember me) {
         return ResponseEntity.ok(ApiResponse.success(petService.searchMyPets(me.id())));
     }
 
+    @Operation(summary = "내 반려동물 한도 (운영 설정 최대 수와 남은 자리)")
+    @GetMapping("/limit")
+    public ResponseEntity<ApiResponse<PetLimitResponse>> getPetLimit(@AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(petService.getPetLimit(me.id())));
+    }
+
     @Operation(summary = "반려동물 상세")
+    @AiTool(name = "get_pet", domain = "pet", kind = AiToolKind.READ)
     @GetMapping("/{petSn}")
     public ResponseEntity<ApiResponse<PetResponse>> getPet(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn) {
@@ -59,10 +73,19 @@ public class PetController {
     }
 
     @Operation(summary = "반려동물 수정")
+    @AiTool(name = "draft_pet_update", domain = "pet", kind = AiToolKind.CARD)
     @PatchMapping("/{petSn}")
     public ResponseEntity<ApiResponse<PetResponse>> updatePet(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn, @Valid @RequestBody PetUpdateRequest req) {
         return ResponseEntity.ok(ApiResponse.success(petService.updatePet(me.id(), petSn, req)));
+    }
+
+    @Operation(summary = "반려동물 삭제")
+    @DeleteMapping("/{petSn}")
+    public ResponseEntity<ApiResponse<Void>> deletePet(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn) {
+        petService.deletePet(me.id(), petSn);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     @Operation(summary = "대표 반려동물 지정")
@@ -70,6 +93,22 @@ public class PetController {
     public ResponseEntity<ApiResponse<Void>> designateRepresentative(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn) {
         petService.designateRepresentative(me.id(), petSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "양육자 목록")
+    @AiTool(name = "list_caregivers", domain = "pet", kind = AiToolKind.READ)
+    @GetMapping("/{petSn}/caregivers")
+    public ResponseEntity<ApiResponse<List<CaregiverSummary>>> searchCaregivers(
+            @AuthenticationPrincipal LoginMember me, @PathVariable Long petSn) {
+        return ResponseEntity.ok(ApiResponse.success(petService.searchCaregivers(me.id(), petSn)));
+    }
+
+    @Operation(summary = "공동양육 연동 해제")
+    @DeleteMapping("/{petSn}/caregivers/{brupRelSn}")
+    public ResponseEntity<ApiResponse<Void>> unlinkCaregiver(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @PathVariable Long brupRelSn) {
+        petService.unlinkCaregiver(me.id(), petSn, brupRelSn);
         return ResponseEntity.ok(ApiResponse.success());
     }
 }

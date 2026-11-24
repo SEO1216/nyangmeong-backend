@@ -1,18 +1,22 @@
 package com.nyangmeong.pet.mapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.nyangmeong.pet.domain.BrupLinkSttsHstry;
 import com.nyangmeong.pet.domain.BrupRel;
 import com.nyangmeong.pet.domain.Pet;
+import com.nyangmeong.pet.dto.AdminPetDistributionSummary;
+import com.nyangmeong.pet.dto.AdminPetSummary;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetSummary;
 
 /**
  * [반려동물 Mapper]
- * - PET·BRUP_REL 조회·저장 (반려동물 관리)
+ * - PET·BRUP_REL 조회·저장·삭제 (반려동물 관리), BRUP_LINK_STTS_HSTRY 저장 (연동 해제·초대 수락)
  */
 @Mapper
 public interface PetMapper {
@@ -21,6 +25,11 @@ public interface PetMapper {
      * 회원의 양육 반려동물 목록 조회
      */
     List<PetSummary> selectList(@Param("mbrSn") Long mbrSn, @Param("coParentRoleCd") String coParentRoleCd);
+
+    /**
+     * 회원의 양육 반려동물 목록 조회 (삭제 포함)
+     */
+    List<AdminPetSummary> selectAdminList(@Param("mbrSn") Long mbrSn, @Param("coParentRoleCd") String coParentRoleCd);
 
     /**
      * 반려동물 단건 조회
@@ -45,12 +54,53 @@ public interface PetMapper {
     /**
      * 반려동물의 양육자 목록 조회
      */
-    List<CaregiverSummary> selectCaregivers(@Param("petSn") Long petSn);
+    List<CaregiverSummary> selectCaregivers(@Param("petSn") Long petSn, @Param("primaryRoleCd") String primaryRoleCd,
+            @Param("linkTypeCd") String linkTypeCd);
 
     /**
-     * 회원의 주양육 반려동물 수
+     * 사용 중인 양육관계 단건 조회
+     */
+    BrupRel selectBrupRelBySn(@Param("brupRelSn") Long brupRelSn);
+
+    /**
+     * 반려동물의 연동 양육자 회원 번호 조회
+     */
+    List<Long> selectCaregiverMbrSns(@Param("petSn") Long petSn);
+
+    /**
+     * 해제된 행까지 포함한 회원의 양육관계 조회
+     */
+    BrupRel selectBrupRelIncludingUnlinked(@Param("mbrSn") Long mbrSn, @Param("petSn") Long petSn);
+
+    /**
+     * 반려동물의 연동 중 공동양육 관계 조회
+     */
+    List<BrupRel> selectLinkedCoParentRels(@Param("petSn") Long petSn, @Param("coParentRoleCd") String coParentRoleCd);
+
+    /**
+     * 반려동물의 연동 중 공동양육자 수
+     */
+    int countLinkedCaregivers(@Param("petSn") Long petSn, @Param("coParentRoleCd") String coParentRoleCd);
+
+    /**
+     * 회원의 주양육 반려동물 수 (첫 등록 대표 지정 판단용)
      */
     int countPrimaryPets(@Param("mbrSn") Long mbrSn, @Param("primaryRoleCd") String primaryRoleCd);
+
+    /**
+     * 회원이 함께하는 반려동물 수 (주양육 + 공동양육, 삭제된 반려동물·해제된 연동 제외)
+     */
+    int countLinkedPets(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 반려동물 한도 검사 전 회원 행 잠금 : 같은 회원의 동시 등록·수락을 줄 세운다
+     */
+    Long lockMemberForPetLimit(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 반려동물의 주양육자 회원 번호 (삭제된 반려동물이면 null)
+     */
+    Long selectPrimaryCaregiverMbrSn(@Param("petSn") Long petSn, @Param("primaryRoleCd") String primaryRoleCd);
 
     /**
      * 반려동물 등록
@@ -68,6 +118,17 @@ public interface PetMapper {
     int updatePet(@Param("pet") Pet pet, @Param("actorId") String actorId);
 
     /**
+     * 반려동물 체중 수정 (PET_BDWG만)
+     */
+    int updatePetWeight(@Param("petSn") Long petSn, @Param("weight") BigDecimal weight,
+            @Param("actorId") String actorId);
+
+    /**
+     * 반려동물 삭제
+     */
+    int updatePetDelete(@Param("petSn") Long petSn, @Param("actorId") String actorId);
+
+    /**
      * 회원의 대표 해제
      */
     int updateRepresentativeOff(@Param("mbrSn") Long mbrSn, @Param("actorId") String actorId);
@@ -77,4 +138,26 @@ public interface PetMapper {
      */
     int updateRepresentativeOn(@Param("mbrSn") Long mbrSn, @Param("petSn") Long petSn,
             @Param("actorId") String actorId);
+
+    /**
+     * 양육관계 연동 해제
+     */
+    int updateBrupRelUnlink(@Param("brupRelSn") Long brupRelSn, @Param("actorId") String actorId);
+
+    /**
+     * 해제된 양육관계 재연동
+     */
+    int updateBrupRelRelink(@Param("brupRelSn") Long brupRelSn, @Param("coParentRoleCd") String coParentRoleCd,
+            @Param("actorId") String actorId);
+
+    /**
+     * 양육 연동 상태 이력 등록
+     */
+    int insertLinkHistory(BrupLinkSttsHstry history);
+
+    /**
+     * 관리자 대시보드 종·품종 분포 조회 (많은 순 상위 limit)
+     */
+    List<AdminPetDistributionSummary> selectDistribution(@Param("drctInptVrtyNm") String drctInptVrtyNm,
+            @Param("limit") int limit);
 }

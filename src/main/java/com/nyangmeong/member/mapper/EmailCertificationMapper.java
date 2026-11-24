@@ -26,6 +26,12 @@ public interface EmailCertificationMapper {
             @Param("emlCertPrpsCd") String emlCertPrpsCd, @Param("since") LocalDateTime since);
 
     /**
+     * 가장 최근 발송 인증이 틀린 횟수 제한으로 무효가 됐는지 (1 이면 그렇다, 0 이면 아니거나 발송 이력 없음)
+     */
+    int countLatestFailLocked(@Param("certTrgtEmlHmac") String certTrgtEmlHmac,
+            @Param("emlCertPrpsCd") String emlCertPrpsCd, @Param("failLimit") int failLimit);
+
+    /**
      * 인증 등록 (emlCertSn 채움)
      */
     int insert(EmailCertification cert);
@@ -55,4 +61,16 @@ public interface EmailCertificationMapper {
      * 인증 사용 완료 기록 (완료된 인증을 처음 한 번만, 영향 행이 0이면 이미 사용)
      */
     int updateUsed(@Param("emlCertSn") Long emlCertSn, @Param("now") LocalDateTime now);
+
+    /**
+     * 비밀번호 재설정 토큰 해시와 권한 만료 시각 저장 (둘 다 null 이면 비움)
+     */
+    int updatePasswordResetToken(@Param("emlCertSn") Long emlCertSn, @Param("pswdInitTknHash") String pswdInitTknHash,
+            @Param("initAuthrtExpryDt") LocalDateTime initAuthrtExpryDt);
+
+    /**
+     * 비밀번호 재설정 권한 사용 처리 (토큰 일치·미사용·미무효화·미만료일 때만 1행, 아니면 0)
+     */
+    int updatePasswordResetUsed(@Param("emlCertSn") Long emlCertSn, @Param("emlCertPrpsCd") String emlCertPrpsCd,
+            @Param("pswdInitTknHash") String pswdInitTknHash, @Param("now") LocalDateTime now);
 }

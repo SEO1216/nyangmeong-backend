@@ -1,28 +1,51 @@
 package com.nyangmeong.pet.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.nyangmeong.global.auth.BrupRole;
 import com.nyangmeong.global.auth.PetAuthorizer;
 import com.nyangmeong.global.code.CommonCodeService;
 import com.nyangmeong.global.code.CommonCodeSummary;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.notification.EventPublisher;
+import com.nyangmeong.global.notification.NotificationEvent;
+import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.member.service.MemberService;
+import com.nyangmeong.pet.domain.BrupLinkSttsHstry;
 import com.nyangmeong.pet.domain.BrupRel;
+import com.nyangmeong.pet.domain.LinkChangeType;
 import com.nyangmeong.pet.domain.Pet;
 import com.nyangmeong.pet.domain.PetCodeGroup;
+import com.nyangmeong.pet.domain.PetCreatedEvent;
+import com.nyangmeong.pet.domain.PetDeletedEvent;
 import com.nyangmeong.pet.domain.PetColor;
+import com.nyangmeong.pet.dto.AdminPetDistributionSummary;
+import com.nyangmeong.pet.dto.AdminPetSummary;
 import com.nyangmeong.pet.dto.CaregiverSummary;
 import com.nyangmeong.pet.dto.PetCreateRequest;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.dto.PetUpdateRequest;
+import com.nyangmeong.pet.mapper.CareMissionMapper;
+import com.nyangmeong.pet.mapper.CaregiverInvitationMapper;
 import com.nyangmeong.pet.mapper.PetMapper;
+import com.nyangmeong.pet.mapper.PixelCharacterMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,18 +53,45 @@ import lombok.RequiredArgsConstructor;
  * [반려동물 서비스]
  * - 내 반려동물 목록 (SCR-MYP-001·002), 다른 도메인도 이 목록을 씀
  * - 등록·수정·상세·대표 지정 (SCR-MYP-003, FN-MYP-010-05)
+ * - 양육자 목록·연동 해제 (SCR-MYP-004·006), 연동 양육자 회원 번호는 다른 도메인도 씀
+ * - 삭제 (SCR-MYP-002) : 가계부만 남기고 같은 트랜잭션에서 soft delete, 위층 기록은 PetDeletedEvent 를 받은 쪽이 지운다 (docs/api/issues.md 마이페이지 3번)
  * - 정렬 = 내 양육관계 등록순 (docs/api/issues.md 마이페이지 1번 결정 전까지)
  */
 @Service
 @RequiredArgsConstructor
 public class PetService {
 
-    /** 계정당 주양육 반려동물 상한 */
-    private static final int MAX_PET_COUNT = 10;
+    /** 관리자 대시보드 종·품종 분포 행 수 */
+    private static final int DISTRIBUTION_LIMIT = 20;
+    /** 품종을 직접 입력한 반려동물의 분포 품종 이름 */
+    private static final String DRCT_INPT_VRTY_NM = "직접 입력";
+
+    /** 케어미션 기준일 시간대 */
+    private static final ZoneId MISSION_ZONE = ZoneId.of("Asia/Seoul");
+
+    /** 삭제 해제 알림 이동 경로 */
+    private static final String PET_LIST_PATH = "/mypage/pets";
 
     private final PetMapper petMapper;
     private final PetAuthorizer petAuthorizer;
     private final CommonCodeService commonCodeService;
+    private final PixelCharacterMapper pixelCharacterMapper;
+    private final EventPublisher eventPublisher;
+    private final CareMissionMapper careMissionMapper;
+    private final CaregiverInvitationMapper invitationMapper;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final MemberService memberService;
+    private final SystemSettingService systemSettingService;
+
+    /**
+     * 관리자 회원 상세 반려동물 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPetSummary> searchForAdmin(Long mbrSn, PageQuery pq) {
+        memberService.checkExists(mbrSn);
+        PageHelper.startPage(pq.pageOrDefault(), pq.sizeOrDefault());
+        return PageResponse.of(new PageInfo<>(petMapper.selectAdminList(mbrSn, BrupRole.CO_PARENT.getCode())));
+    }
 
     /**
      * 내 반려동물 목록 조회
@@ -61,14 +111,35 @@ public class PetService {
     }
 
     /**
+     * 내 반려동물 한도 조회 (운영 설정 최대 수, 공동양육 포함 합계, 남은 자리)
+     */
+    @Transactional(readOnly = true)
+    public PetLimitResponse getPetLimit(Long mbrSn) {
+        int max = maxPetCount();
+        int linked = petMapper.countLinkedPets(mbrSn);
+        return new PetLimitResponse(max, linked, PetLimit.remaining(max, linked));
+    }
+
+    /**
+     * 운영 설정의 계정당 반려동물 최대 수
+     */
+    private int maxPetCount() {
+        return systemSettingService.get().getPetMaxCnt().intValue();
+    }
+
+    /**
      * 반려동물 등록
      */
     @Transactional
     public PetResponse createPet(Long mbrSn, PetCreateRequest req) {
-        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
-        if (primaryCount >= MAX_PET_COUNT) {
-            throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
+        /** 같은 회원의 동시 등록·수락이 한도를 넘지 않게 회원 행을 잠근 뒤 센다 */
+        petMapper.lockMemberForPetLimit(mbrSn);
+        int maxPetCount = maxPetCount();
+        if (petMapper.countLinkedPets(mbrSn) >= maxPetCount) {
+            throw PetLimit.exceeded(maxPetCount);
         }
+
+        int primaryCount = petMapper.countPrimaryPets(mbrSn, BrupRole.PRIMARY.getCode());
 
         Pet pet = new Pet();
         pet.setPetNm(req.petNm());
@@ -81,8 +152,17 @@ public class PetService {
         pet.setNutrYn(Boolean.TRUE.equals(req.nutrYn()) ? "Y" : "N");
         pet.setPetBdwg(req.petBdwg());
         pet.setGoalBdwg(req.goalBdwg());
-        pet.setMinBdwg(req.minBdwg());
-        pet.setMaxBdwg(req.maxBdwg());
+        /** 정상 범위 : 'N' 이면 서버가 petBdwg 로 계산(보낸 값 무시), 'Y'(기본) 이면 보낸 값 그대로 (FN-MYP-003-04) */
+        pet.setBdwgRngDrctInptYn(req.bdwgRngDrctInptYn() == null ? "Y" : req.bdwgRngDrctInptYn());
+        if ("N".equals(pet.getBdwgRngDrctInptYn())) {
+            applyAutoBdwgRange(pet);
+        } else {
+            if (req.minBdwg() == null || req.maxBdwg() == null) {
+                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "minBdwg", "maxBdwg");
+            }
+            pet.setMinBdwg(req.minBdwg());
+            pet.setMaxBdwg(req.maxBdwg());
+        }
         pet.setColrCd(req.colrCd());
         pet.setColrDrctInptNm(emptyToNull(req.colrDrctInptNm()));
         pet.setChrcCn(emptyToNull(req.chrcCn()));
@@ -103,6 +183,8 @@ public class PetService {
         rel.setRprsPetYn(primaryCount == 0 ? "Y" : "N");
         rel.setMdfrId(actorId);
         petMapper.insertBrupRel(rel);
+        /** 커밋된 뒤 오늘 케어미션 출제 : 실패해도 등록은 성공 (PetCreatedEventListener) */
+        applicationEventPublisher.publishEvent(new PetCreatedEvent(pet.getPetSn(), LocalDate.now(MISSION_ZONE)));
 
         return toResponse(mbrSn, loadPet(pet.getPetSn()));
     }
@@ -113,6 +195,10 @@ public class PetService {
     @Transactional
     public PetResponse updatePet(Long mbrSn, Long petSn, PetUpdateRequest req) {
         petAuthorizer.checkCaregiver(mbrSn, petSn);
+        boolean goalBdwgReset = Boolean.TRUE.equals(req.goalBdwgReset());
+        if (goalBdwgReset && req.goalBdwg() != null) {
+            throw new CustomException(ErrorCode.BAD_REQUEST);
+        }
         Pet pet = loadPet(petSn);
 
         if (req.petNm() != null) {
@@ -122,7 +208,7 @@ public class PetService {
             pet.setPetSeCd(req.petSeCd());
         }
         if (req.vrtySn() != null && hasText(req.vrtyDrctInptNm())) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "vrtySn", "vrtyDrctInptNm");
         }
         if (req.vrtySn() != null) {
             pet.setVrtySn(req.vrtySn());
@@ -152,11 +238,30 @@ public class PetService {
         if (req.goalBdwg() != null) {
             pet.setGoalBdwg(req.goalBdwg());
         }
-        if (req.minBdwg() != null) {
-            pet.setMinBdwg(req.minBdwg());
+        if (goalBdwgReset) {
+            pet.setGoalBdwg(null);
         }
-        if (req.maxBdwg() != null) {
-            pet.setMaxBdwg(req.maxBdwg());
+        /**
+         * 정상 범위 (FN-MYP-003-04)
+         * - 플래그를 안 보냈는데 범위를 보내면 직접 입력('Y')으로 바꾸고 보낸 값을 저장
+         * - 'N' 이면 현재(같이 보낸 petBdwg 가 있으면 그 값) 체중으로 다시 계산, 보낸 범위는 무시
+         * - 플래그 없이 petBdwg 만 보내면 현재 'N' 일 때만 다시 계산, 'Y' 는 범위 유지
+         */
+        boolean rangeSent = req.minBdwg() != null || req.maxBdwg() != null;
+        String nextYn = req.bdwgRngDrctInptYn() != null ? req.bdwgRngDrctInptYn()
+                : (rangeSent ? "Y" : pet.getBdwgRngDrctInptYn());
+        pet.setBdwgRngDrctInptYn(nextYn);
+        if ("N".equals(nextYn)) {
+            if (req.bdwgRngDrctInptYn() != null || req.petBdwg() != null) {
+                applyAutoBdwgRange(pet);
+            }
+        } else {
+            if (req.minBdwg() != null) {
+                pet.setMinBdwg(req.minBdwg());
+            }
+            if (req.maxBdwg() != null) {
+                pet.setMaxBdwg(req.maxBdwg());
+            }
         }
         if (req.colrCd() != null) {
             pet.setColrCd(req.colrCd());
@@ -192,6 +297,146 @@ public class PetService {
     }
 
     /**
+     * 반려동물 삭제
+     * - 주양육자만 (FN-MYP-002-05), 지출만 유지하고 나머지는 한 트랜잭션에서 DEL_YN = 'Y' (FN-MYP-002-07)
+     * - pet 안 : 캐릭터·보유 아이템·캐릭터 생성 작업·캐릭터 사진·일별 미션·초대 대상
+     * - 위층(건강기록·AI 대화) : PetDeletedEvent 를 같은 트랜잭션에서 받아 지운다. 받는 쪽이 실패하면 삭제 전체가 롤백된다
+     * - 공동양육 연동 자동 해제·알림 (FN-MYP-002-08), 대표였으면 남은 주양육 동물 첫 마리로 승계
+     */
+    @Transactional
+    public void deletePet(Long mbrSn, Long petSn) {
+        petAuthorizer.checkPrimary(mbrSn, petSn);
+        Pet pet = loadPet(petSn);
+        BrupRel own = petMapper.selectBrupRel(mbrSn, petSn);
+        String actorId = String.valueOf(mbrSn);
+
+        if (petMapper.updatePetDelete(petSn, actorId) == 0) {
+            throw new CustomException(ErrorCode.PET_NOT_FOUND);
+        }
+        pixelCharacterMapper.updateHeldItemDeleteByPetSn(petSn);
+        pixelCharacterMapper.updatePhotoDeleteByPetSn(petSn);
+        pixelCharacterMapper.updateItemSheetDeleteByPetSn(petSn);
+        pixelCharacterMapper.updateDeleteByPetSn(petSn, actorId);
+        pixelCharacterMapper.updateJobDeleteByPetSn(petSn);
+        careMissionMapper.updateDayMissionDeleteByPetSn(petSn);
+        invitationMapper.updateTargetPetDeleteByPetSn(petSn);
+
+        for (BrupRel coParent : petMapper.selectLinkedCoParentRels(petSn, BrupRole.CO_PARENT.getCode())) {
+            if (petMapper.updateBrupRelUnlink(coParent.getBrupRelSn(), actorId) == 0) {
+                continue;
+            }
+            BrupLinkSttsHstry history = new BrupLinkSttsHstry();
+            history.setBrupRelSn(coParent.getBrupRelSn());
+            history.setMbrSn(coParent.getMbrSn());
+            history.setLinkChgTypeCd(LinkChangeType.PET_DELETED.getCode());
+            petMapper.insertLinkHistory(history);
+            eventPublisher.publish(new NotificationEvent(coParent.getMbrSn(), NotificationType.CO_PARENTING,
+                    pet.getPetNm() + "의 기록이 정리되어 공동양육 연동이 해제되었어요", null, PET_LIST_PATH));
+        }
+
+        if (own != null && "Y".equals(own.getRprsPetYn())) {
+            petMapper.updateRepresentativeOff(mbrSn, actorId);
+            searchMyPets(mbrSn).stream()
+                    .filter(summary -> BrupRole.PRIMARY.is(summary.getBrupRoleCd()))
+                    .findFirst()
+                    .ifPresent(next -> petMapper.updateRepresentativeOn(mbrSn, next.getPetSn(), actorId));
+        }
+
+        /** 알림·메일 이벤트가 아니라 EventPublisher 대신 직접 발행 (docs/convention/service.md, 이 메서드의 트랜잭션 안) */
+        applicationEventPublisher.publishEvent(new PetDeletedEvent(petSn));
+    }
+
+    /**
+     * 양육자 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<CaregiverSummary> searchCaregivers(Long mbrSn, Long petSn) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        BrupRel rel = petMapper.selectBrupRel(mbrSn, petSn);
+        return visibleCaregivers(mbrSn, petSn, rel.getBrupRoleCd());
+    }
+
+    /**
+     * 공동양육 연동 해제
+     * - 주양육자 = 강제 해제 (FN-MYP-004-01), 공동양육자 = 본인만 자진 해제 (FN-MYP-006-02)
+     */
+    @Transactional
+    public void unlinkCaregiver(Long mbrSn, Long petSn, Long brupRelSn) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        BrupRel target = petMapper.selectBrupRelBySn(brupRelSn);
+        /** 주양육자 행은 해제 대상 아님 */
+        if (target == null || !petSn.equals(target.getPetSn()) || !BrupRole.CO_PARENT.is(target.getBrupRoleCd())) {
+            throw new CustomException(ErrorCode.CAREGIVER_NOT_FOUND);
+        }
+
+        LinkChangeType type;
+        if (BrupRole.PRIMARY.is(petMapper.selectBrupRel(mbrSn, petSn).getBrupRoleCd())) {
+            type = LinkChangeType.FORCED_UNLINKED;
+        } else if (mbrSn.equals(target.getMbrSn())) {
+            type = LinkChangeType.SELF_UNLINKED;
+        } else {
+            throw new CustomException(ErrorCode.PET_PRIMARY_ONLY);
+        }
+
+        if (petMapper.updateBrupRelUnlink(brupRelSn, String.valueOf(mbrSn)) == 0) {
+            throw new CustomException(ErrorCode.CAREGIVER_NOT_FOUND);
+        }
+        BrupLinkSttsHstry history = new BrupLinkSttsHstry();
+        history.setBrupRelSn(brupRelSn);
+        history.setMbrSn(target.getMbrSn());
+        history.setLinkChgTypeCd(type.getCode());
+        petMapper.insertLinkHistory(history);
+
+        /** 해제가 성공한 뒤에만 알린다. 커밋 뒤에 나가므로 롤백되면 안 나간다 */
+        String actorNcnm = memberService.getMember(mbrSn).mbrNcnm();
+        String petNm = loadPet(petSn).getPetNm();
+        if (type == LinkChangeType.FORCED_UNLINKED) {
+            eventPublisher.publish(new NotificationEvent(target.getMbrSn(), NotificationType.CO_PARENTING,
+                    actorNcnm + "님이 " + petNm + "의 공동양육 연동을 해제했어요", null, PET_LIST_PATH));
+        } else {
+            eventPublisher.publish(new NotificationEvent(getPrimaryCaregiverMbrSn(petSn),
+                    NotificationType.CO_PARENTING, actorNcnm + "님이 " + petNm + "의 공동양육을 그만뒀어요", null,
+                    PET_LIST_PATH));
+        }
+    }
+
+    /**
+     * 연동 양육자 회원 번호 조회
+     * - 주양육자 + 연동 중 공동양육자, 삭제된 반려동물은 빈 목록
+     */
+    @Transactional(readOnly = true)
+    public List<Long> searchCaregiverMbrSns(Long petSn) {
+        return petMapper.selectCaregiverMbrSns(petSn);
+    }
+
+    /**
+     * 주양육자 회원 번호 조회 (반려동물 파일 저장 폴더)
+     * - 권한 검사는 하지 않는다. 호출하는 쪽이 먼저 검사할 것
+     * - 삭제됐거나 없는 반려동물이면 404
+     */
+    @Transactional(readOnly = true)
+    public Long getPrimaryCaregiverMbrSn(Long petSn) {
+        Long mbrSn = petMapper.selectPrimaryCaregiverMbrSn(petSn, BrupRole.PRIMARY.getCode());
+        if (mbrSn == null) {
+            throw new CustomException(ErrorCode.PET_NOT_FOUND);
+        }
+        return mbrSn;
+    }
+
+    /**
+     * 프로필 체중 동기화
+     * - PET_BDWG만 바꾼다 (정상·목표 체중 범위는 그대로)
+     * - 권한 검사는 하지 않는다. 호출하는 쪽(건강기록)이 먼저 검사하고, 그 트랜잭션 안에서 부를 것
+     * - 삭제됐거나 없는 반려동물이면 404 (호출하는 쪽 트랜잭션도 롤백)
+     */
+    @Transactional
+    public void syncWeight(Long petSn, BigDecimal weight, Long actorMbrSn) {
+        if (petMapper.updatePetWeight(petSn, weight, String.valueOf(actorMbrSn)) == 0) {
+            throw new CustomException(ErrorCode.PET_NOT_FOUND);
+        }
+    }
+
+    /**
      * 삭제되지 않은 반려동물 조회
      */
     private Pet loadPet(Long petSn) {
@@ -207,24 +452,39 @@ public class PetService {
      */
     private PetResponse toResponse(Long mbrSn, Pet pet) {
         BrupRel rel = petMapper.selectBrupRel(mbrSn, pet.getPetSn());
-        List<CaregiverSummary> caregivers = petMapper.selectCaregivers(pet.getPetSn());
-        if (!BrupRole.PRIMARY.is(rel.getBrupRoleCd())) {
-            caregivers = caregivers.stream().filter(c -> mbrSn.equals(c.getMbrSn())).toList();
-        }
+        List<CaregiverSummary> caregivers = visibleCaregivers(mbrSn, pet.getPetSn(), rel.getBrupRoleCd());
         String vrtyNm = pet.getVrtySn() != null ? petMapper.selectVrtyNm(pet.getVrtySn()) : null;
         return PetResponse.from(pet, vrtyNm, rel, caregivers);
+    }
+
+    /**
+     * 역할별로 보이는 양육자 목록
+     * - 공동양육자에게는 주양육자와 본인만, 서로 모르는 사이일 수 있음 (FN-MYP-004-04)
+     */
+    private List<CaregiverSummary> visibleCaregivers(Long mbrSn, Long petSn, String myRoleCd) {
+        List<CaregiverSummary> caregivers = petMapper.selectCaregivers(petSn, BrupRole.PRIMARY.getCode(),
+                LinkChangeType.INVITATION_ACCEPTED.getCode());
+        if (BrupRole.PRIMARY.is(myRoleCd)) {
+            return caregivers;
+        }
+        return caregivers.stream()
+                .filter(c -> BrupRole.PRIMARY.is(c.getBrupRoleCd()) || mbrSn.equals(c.getMbrSn()))
+                .toList();
     }
 
     /**
      * 저장 직전 값 검사
      */
     private void checkPet(Pet pet) {
-        checkCode(PetCodeGroup.PET_SE, pet.getPetSeCd());
-        checkCode(PetCodeGroup.GENDER, pet.getPetGndrCd());
-        checkCode(PetCodeGroup.COLOR, pet.getColrCd());
+        checkCode(PetCodeGroup.PET_SE, pet.getPetSeCd(), "petSeCd");
+        checkCode(PetCodeGroup.GENDER, pet.getPetGndrCd(), "petGndrCd");
+        checkCode(PetCodeGroup.COLOR, pet.getColrCd(), "colrCd");
+        if (!PetColor.fits(pet.getPetSeCd(), pet.getColrCd())) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "colrCd");
+        }
 
         if ((pet.getVrtySn() == null) == (pet.getVrtyDrctInptNm() == null)) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "vrtySn", "vrtyDrctInptNm");
         }
         if (pet.getVrtySn() != null && !petMapper.existsVrty(pet.getVrtySn(), pet.getPetSeCd())) {
             throw new CustomException(ErrorCode.BREED_NOT_FOUND);
@@ -232,26 +492,35 @@ public class PetService {
 
         if (PetColor.DIRECT_INPUT.is(pet.getColrCd())) {
             if (pet.getColrDrctInptNm() == null) {
-                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "colrDrctInptNm");
             }
         } else {
             pet.setColrDrctInptNm(null);
         }
 
         if (pet.getMinBdwg().compareTo(pet.getMaxBdwg()) >= 0) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "minBdwg", "maxBdwg");
         }
+    }
+
+    /**
+     * 정상 범위를 현재 체중으로 계산해 채운다 (PetBdwgRange)
+     */
+    private void applyAutoBdwgRange(Pet pet) {
+        PetBdwgRange range = PetBdwgRange.of(pet.getPetBdwg());
+        pet.setMinBdwg(range.min());
+        pet.setMaxBdwg(range.max());
     }
 
     /**
      * 공통코드 그룹 소속 검사
      */
-    private void checkCode(PetCodeGroup group, String code) {
+    private void checkCode(PetCodeGroup group, String code, String field) {
         boolean exists = commonCodeService.search(group.getCode()).stream()
                 .map(CommonCodeSummary::getComCd)
                 .anyMatch(c -> c.equals(code));
         if (!exists) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, field);
         }
     }
 
@@ -281,5 +550,13 @@ public class PetService {
      */
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * 관리자 대시보드 종·품종 분포 조회 (기간 무관, 많은 순 상위 20)
+     */
+    @Transactional(readOnly = true)
+    public List<AdminPetDistributionSummary> getDistribution() {
+        return petMapper.selectDistribution(DRCT_INPT_VRTY_NM, DISTRIBUTION_LIMIT);
     }
 }

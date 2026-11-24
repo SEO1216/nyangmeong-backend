@@ -16,6 +16,8 @@ public enum ErrorCode {
     /** 공통(global). 입력값 검증 오류는 INVALID_INPUT_VALUE 하나, 틀린 항목은 응답 data의 필드 목록 */
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "잘못된 요청입니다."),
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
+    /** 금칙어가 든 입력. 걸린 칸은 응답 data의 필드 목록 (global/validation/ProfanityFilter) */
+    PROFANITY_DETECTED(HttpStatus.BAD_REQUEST, "부적절한 표현이 포함되어 있어요."),
     FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "파일 크기는 10MB 이하여야 합니다."),
     FILE_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "허용하지 않는 파일 형식입니다."),
     FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."),
@@ -34,6 +36,10 @@ public enum ErrorCode {
     ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 처리된 요청입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
     EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 서비스 호출에 실패했습니다. 잠시 후 다시 시도해 주세요."),
+    /** 인증번호 메일 발송 실패 : 화면이 메일 재시도를 안내하도록 EXTERNAL_API_ERROR 와 따로 둠 */
+    MAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요."),
+    BATCH_ALREADY_RUNNING(HttpStatus.CONFLICT, "이미 실행 중인 배치입니다."),
+    BATCH_NOT_AVAILABLE(HttpStatus.CONFLICT, "이 서버에서 실행할 수 없는 배치입니다."),
 
     /** member */
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "일치하는 회원정보를 찾을 수 없습니다."),
@@ -46,8 +52,27 @@ public enum ErrorCode {
     MEMBER_INACTIVE(HttpStatus.FORBIDDEN, "이용할 수 없는 계정입니다. 고객센터에 문의해 주세요."),
     /** 비밀번호가 맞은 탈퇴 회원 : 프론트가 재가입·복구를 안내 (MEMBER_INACTIVE 는 랜딩 이동이라 따로 둠) */
     MEMBER_WITHDRAWN(HttpStatus.FORBIDDEN, "탈퇴한 계정입니다. 재가입 또는 계정 복구를 진행해 주세요."),
+    MEMBER_NOT_SUSPENDABLE(HttpStatus.CONFLICT, "정지할 수 없는 회원이에요."),
+    MEMBER_NOT_APPOINTABLE(HttpStatus.CONFLICT, "관리자로 지정할 수 없는 회원이에요."),
+    ADMIN_NOT_RELEASABLE(HttpStatus.CONFLICT, "본인과 마지막 남은 관리자는 해제할 수 없어요."),
     SNS_ONLY_MEMBER(HttpStatus.BAD_REQUEST, "SNS로 가입한 계정입니다. SNS 로그인을 이용해 주세요."),
+    /** SNS 인가 코드가 틀리거나 제공자 호출이 실패함 */
+    SNS_AUTH_FAILED(HttpStatus.BAD_REQUEST, "SNS 로그인에 실패했습니다. 다시 시도해 주세요."),
+    /** 제공자가 이메일을 주지 않음 : MBR.ACNT_EML 이 필수라 가입할 수 없다 */
+    SNS_EMAIL_NOT_PROVIDED(HttpStatus.BAD_REQUEST, "SNS 계정에서 이메일을 받지 못했습니다. 이메일 제공에 동의해 주세요."),
+    /** 가입 확인 토큰이 만료·변조됐거나 가입 경로와 맞지 않음 : 로그인 방법 선택에서 SNS로 다시 시작 */
+    SNS_SIGNUP_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "SNS 가입 확인 시간이 지났습니다. SNS 로그인을 다시 진행해 주세요."),
+    SNS_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "이미 가입된 SNS 계정입니다. SNS 로그인을 이용해 주세요."),
+    /** 연동하려는 SNS 계정이 다른 회원에게 연결돼 있음 */
+    SNS_ACCOUNT_LINKED_TO_OTHER(HttpStatus.CONFLICT, "다른 회원에게 연동된 SNS 계정입니다."),
+    /** 같은 제공자의 다른 계정이 이미 연동돼 있음 : 제공자 하나에 계정 하나만 연결한다 */
+    SNS_PROVIDER_ALREADY_LINKED(HttpStatus.CONFLICT, "이미 연동된 SNS 제공자입니다."),
+    /** 연동 중 인가 코드가 틀리거나 제공자 호출이 실패함 : 로그인용 SNS_AUTH_FAILED 와 문구만 다르다 */
+    SNS_LINK_FAILED(HttpStatus.BAD_REQUEST, "SNS 계정 연동에 실패했습니다. 다시 시도해 주세요."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
+    /** 로그인한 회원이 입력한 현재 비밀번호가 틀림 : 새 비밀번호·확인값 불일치(PASSWORD_MISMATCH)와 화면의 오류 위치가 달라 따로 둠 */
+    CURRENT_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다."),
+    PASSWORD_SAME_AS_CURRENT(HttpStatus.BAD_REQUEST, "현재 비밀번호와 다른 비밀번호를 입력해 주세요."),
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 이메일입니다. 기존에 가입한 방법으로 로그인해 주세요."),
     /** 탈퇴 후 보관 중인 이메일 : 새 회원을 만들지 않고 복구 흐름으로 안내 */
     MEMBER_RECOVERY_AVAILABLE(HttpStatus.CONFLICT, "탈퇴 후 보관 중인 계정입니다. 기존 정보 복구를 진행해 주세요."),
@@ -58,28 +83,39 @@ public enum ErrorCode {
     EMAIL_CERT_MISMATCH(HttpStatus.BAD_REQUEST, "인증번호가 일치하지 않습니다."),
     EMAIL_CERT_EXPIRED(HttpStatus.BAD_REQUEST, "인증시간이 만료되었습니다. 다시 보내기를 눌러 주세요."),
     EMAIL_CERT_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증을 완료해 주세요."),
-    EMAIL_CERT_FAIL_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증번호를 여러 번 잘못 입력했습니다. 인증번호를 다시 받아 주세요."),
+    EMAIL_CERT_FAIL_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증번호가 일치하지 않습니다. 인증번호를 다시 받아 주세요."),
+    EMAIL_DOMAIN_NOT_RECEIVABLE(HttpStatus.BAD_REQUEST, "메일을 받을 수 없는 이메일 주소입니다. 주소를 다시 확인해 주세요."),
     EMAIL_CERT_ALREADY_USED(HttpStatus.BAD_REQUEST, "이미 사용한 인증번호입니다."),
     EMAIL_CERT_RESEND_NOT_YET(HttpStatus.BAD_REQUEST, "인증번호를 다시 보낼 수 없습니다. 잠시 후 시도해 주세요."),
     PASSWORD_RESET_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "비밀번호 재설정 권한이 만료되었거나 이미 사용되었습니다."),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "필수 약관에 동의해야 합니다."),
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "약관을 찾을 수 없습니다."),
+    DUPLICATE_TRMS_VER(HttpStatus.CONFLICT, "같은 종류에 이미 있는 약관 버전입니다."),
     WITHDRAW_PHRASE_MISMATCH(HttpStatus.BAD_REQUEST, "탈퇴 확인 문구가 일치하지 않습니다."),
     MEMBER_RECOVERY_EXPIRED(HttpStatus.BAD_REQUEST, "복구 가능 기간이 지난 계정입니다."),
-    DASHBOARD_WIDGET_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "메인에 표시할 위젯은 최대 5개입니다."),
+    MEMBER_RECOVERY_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "복구 확인 시간이 지났습니다. 이메일 인증을 다시 진행해 주세요."),
 
     /** pet */
     PET_NOT_FOUND(HttpStatus.NOT_FOUND, "반려동물 정보를 찾을 수 없습니다."),
     PET_ACCESS_DENIED(HttpStatus.FORBIDDEN, "양육 중인 반려동물만 볼 수 있습니다."),
     PET_PRIMARY_ONLY(HttpStatus.FORBIDDEN, "주양육자만 할 수 있습니다."),
-    PET_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "반려동물은 계정당 10마리까지 등록할 수 있습니다."),
+    PET_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "반려동물은 공동양육을 포함해 계정당 %d마리까지 함께할 수 있습니다."),
     PET_WEIGHT_LOCKED(HttpStatus.BAD_REQUEST, "건강 일지에 체중 기록이 있어 체중을 직접 수정할 수 없습니다."),
     BREED_NOT_FOUND(HttpStatus.NOT_FOUND, "품종을 찾을 수 없습니다."),
-    CAREGIVER_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "공동양육자는 반려동물당 5명까지입니다."),
+    CARE_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "케어미션을 찾을 수 없습니다."),
+    DUPLICATE_VRTY_NM(HttpStatus.CONFLICT, "같은 종에 이미 있는 품종 이름입니다."),
+    CAREGIVER_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "공동양육자는 반려동물당 %d명까지입니다."),
     CAREGIVER_NOT_FOUND(HttpStatus.NOT_FOUND, "공동양육 정보를 찾을 수 없습니다."),
     CAREGIVER_INVITATION_NOT_FOUND(HttpStatus.NOT_FOUND, "초대를 찾을 수 없습니다."),
     CAREGIVER_INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "만료된 초대입니다."),
     CAREGIVER_INVITATION_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 수락하거나 거절한 초대입니다."),
+    CAREGIVER_INVITATION_SELF(HttpStatus.BAD_REQUEST, "내 이메일로는 초대할 수 없어요."),
+    CAREGIVER_ALREADY_LINKED(HttpStatus.CONFLICT, "이미 가족으로 연동된 반려동물이에요."),
+    CAREGIVER_INVITATION_DUPLICATED(HttpStatus.CONFLICT, "이미 초대를 보냈어요."),
+    CAREGIVER_INVITATION_EMAIL_MISMATCH(HttpStatus.FORBIDDEN, "초대받은 이메일 계정으로 로그인해 주세요."),
+    CAREGIVER_INVITATION_CANCELED(HttpStatus.CONFLICT, "취소된 초대입니다."),
+    CAREGIVER_INVITATION_NOT_SENDER(HttpStatus.FORBIDDEN, "내가 보낸 초대만 취소하거나 삭제할 수 있어요."),
+    CAREGIVER_INVITATION_NOT_CANCELED(HttpStatus.CONFLICT, "취소한 초대만 삭제할 수 있어요."),
     PIXEL_CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다."),
     PIXEL_CHARACTER_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 캐릭터가 있는 반려동물입니다."),
     PIXEL_CHARACTER_CREATING(HttpStatus.CONFLICT, "캐릭터를 생성하는 중입니다. 잠시 후 다시 시도해 주세요."),
@@ -89,21 +125,23 @@ public enum ErrorCode {
     ITEM_ALREADY_HELD(HttpStatus.CONFLICT, "이미 보유한 아이템입니다."),
     ITEM_NOT_HELD(HttpStatus.BAD_REQUEST, "보유하지 않은 아이템은 착용할 수 없습니다."),
     ITEM_SLOT_DUPLICATED(HttpStatus.BAD_REQUEST, "같은 부위에는 아이템을 하나만 착용할 수 있습니다."),
+    ITEM_NAME_DUPLICATED(HttpStatus.CONFLICT, "같은 이름의 아이템이 있습니다."),
+    ITEM_REGION_LOCKED(HttpStatus.CONFLICT, "보유한 회원이 있는 아이템은 부위를 바꿀 수 없습니다."),
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "이미 처리한 구매 요청입니다. 상점을 닫았다가 다시 열어 주세요."),
     POINT_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "포인트가 부족합니다."),
+    EQUIPPED_ITEMS_CHANGED(HttpStatus.CONFLICT, "착용 아이템이 바뀌어 대표 이미지를 저장하지 않았습니다."),
 
     /** health */
     CARE_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "케어 항목을 찾을 수 없습니다."),
     CARE_ITEM_DEFAULT_LIMITED(HttpStatus.BAD_REQUEST, "기본 케어 항목은 주기만 수정할 수 있습니다."),
     CARE_ITEM_DEFAULT_NOT_DELETABLE(HttpStatus.BAD_REQUEST, "기본 케어 항목은 삭제할 수 없습니다."),
-    CARE_ITEM_MAIN_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "메인에 표시할 케어 항목은 최대 6개입니다."),
+    CARE_ITEM_LINKED_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "처방약·반복 예방 항목은 검진상세에서 바꿔 주세요."),
     CARE_COMPLETION_NOT_FOUND(HttpStatus.NOT_FOUND, "완료 기록을 찾을 수 없습니다."),
     CARE_COMPLETION_FUTURE_DATE(HttpStatus.BAD_REQUEST, "완료일은 오늘 이후로 입력할 수 없습니다."),
     MEDICATION_ALREADY_CHECKED(HttpStatus.CONFLICT, "오늘 투약은 이미 체크했습니다."),
     CARE_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."),
     CHECKUP_NOT_FOUND(HttpStatus.NOT_FOUND, "검진기록을 찾을 수 없습니다."),
     CHECKUP_ATTACHMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "첨부 파일을 찾을 수 없습니다."),
-    CHECKUP_ATTACHMENT_NOT_ANALYZABLE(HttpStatus.BAD_REQUEST, "검사결과지 PDF만 분석할 수 있습니다."),
-    CHECKUP_ANALYSIS_IN_PROGRESS(HttpStatus.CONFLICT, "이미 분석을 요청한 파일입니다."),
     DAILY_HEALTH_RECORD_NOT_FOUND(HttpStatus.NOT_FOUND, "건강 일지 기록을 찾을 수 없습니다."),
     ETC_INSPECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "기타검사를 찾을 수 없습니다."),
     INSPECTION_VALUE_NOT_FOUND(HttpStatus.NOT_FOUND, "검사 수치를 찾을 수 없습니다."),
@@ -121,10 +159,14 @@ public enum ErrorCode {
 
     /** notification */
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
+    NOTIFICATION_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "알림 템플릿을 찾을 수 없습니다."),
+    NOTIFICATION_TEMPLATE_DUPLICATED(HttpStatus.CONFLICT, "같은 알림 유형과 채널의 템플릿이 이미 있습니다."),
+    NOTIFICATION_TEMPLATE_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "템플릿을 쓸 수 없는 알림 유형입니다. 기본 문구로 보냅니다."),
 
     /** expense */
     EXPENSE_NOT_FOUND(HttpStatus.NOT_FOUND, "지출 내역을 찾을 수 없습니다."),
     EXPENSE_PET_REQUIRED(HttpStatus.BAD_REQUEST, "병원 카테고리는 반려동물을 선택해야 합니다."),
+    EXPENSE_BULK_DELETE_CHANGED(HttpStatus.CONFLICT, "그 사이 지출 내역이 바뀌었어요. 목록을 다시 불러온 뒤 삭제해 주세요."),
     EXPENSE_LIMIT_NOT_FOUND(HttpStatus.NOT_FOUND, "월 지출 한도가 설정되지 않았습니다."),
     /** 영수증 인식(docs/api/receipt.md). 도메인 확정 뒤 그 구획으로 이동 */
     RECEIPT_NOT_FOUND(HttpStatus.NOT_FOUND, "영수증을 찾을 수 없습니다."),
@@ -142,14 +184,29 @@ public enum ErrorCode {
     COMMENT_DEPTH_EXCEEDED(HttpStatus.BAD_REQUEST, "대댓글에는 답글을 달 수 없습니다."),
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신고한 글입니다."),
     REPORT_COMMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 신고한 댓글입니다."),
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "신고를 찾을 수 없습니다."),
     LOST_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "실종 제보를 찾을 수 없습니다."),
-    LOST_REPORT_ALREADY_FOUND(HttpStatus.CONFLICT, "이미 찾았어요 처리된 제보입니다."),
+    LOST_REPORT_ALREADY_FOUND(HttpStatus.BAD_REQUEST, "이미 찾았어요 처리된 제보입니다."),
     LOST_REPORT_EXPIRED(HttpStatus.BAD_REQUEST, "게시 기간이 끝난 제보는 갱신할 수 없습니다."),
+    LOST_REPORT_REGION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "전북 지역의 장소를 선택해 주세요."),
+    LOST_REPORT_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "게시 중인 실종 제보만 수정할 수 있습니다."),
+    LOST_REPORT_NOT_RENEWABLE(HttpStatus.BAD_REQUEST, "게시 종료 7일 전부터 종료 전까지 한 번만 연장할 수 있습니다."),
+    LOST_REPORT_CLOSED(HttpStatus.BAD_REQUEST, "찾았어요 처리된 제보에는 댓글을 달 수 없습니다."),
     NEWS_NOT_FOUND(HttpStatus.NOT_FOUND, "뉴스를 찾을 수 없습니다."),
+    NEWS_KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "분류 키워드를 찾을 수 없습니다."),
+    DUPLICATE_NEWS_KEYWORD(HttpStatus.CONFLICT, "이 카테고리에 이미 있는 키워드입니다."),
+    TODAY_PHRASE_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 한마디 문구를 찾을 수 없습니다."),
+    AI_COMMENTARY_NOT_FOUND(HttpStatus.NOT_FOUND, "AI 코멘트를 찾을 수 없습니다."),
+    NEWS_FEED_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "뉴스를 가져오지 못했습니다."),
     CARE_RECRUITMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "펫돌봄 모집글을 찾을 수 없습니다."),
     CARE_RECRUITMENT_CLOSED(HttpStatus.CONFLICT, "마감된 모집글입니다."),
+    CARE_RECRUITMENT_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "모집중인 글만 수정할 수 있습니다."),
+    CARE_MIN_WAGE_NOT_MET(HttpStatus.BAD_REQUEST, "최저임금을 준수해 주세요."),
+    CARE_REGION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "전북 지역의 장소를 선택해 주세요."),
     CARE_WAGE_BELOW_MINIMUM(HttpStatus.BAD_REQUEST, "돌봄 비용은 최저시급 이상이어야 합니다."),
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
+    CHAT_ROOM_OWN_POST(HttpStatus.BAD_REQUEST, "자신의 글에는 채팅을 시작할 수 없습니다."),
+    CHAT_ROOM_NOT_RECRUITING(HttpStatus.BAD_REQUEST, "모집이 끝난 글에는 새 채팅을 시작할 수 없습니다."),
     CHAT_PARTICIPANT_ONLY(HttpStatus.FORBIDDEN, "채팅방 참여자만 볼 수 있습니다."),
     CHAT_SELF_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "자신의 글에는 채팅을 시작할 수 없습니다."),
     CARE_MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "매칭 정보를 찾을 수 없습니다."),
@@ -157,12 +214,29 @@ public enum ErrorCode {
     CARE_MATCH_PROVIDER_ONLY(HttpStatus.FORBIDDEN, "돌봄 제공자만 할 수 있습니다."),
     CARE_MATCH_ALREADY_ACCEPTED(HttpStatus.CONFLICT, "이미 매칭이 확정된 모집글입니다."),
     CARE_MATCH_INVALID_STATUS(HttpStatus.CONFLICT, "현재 매칭 상태에서는 할 수 없는 요청입니다."),
+    CHAT_ROOM_ACCESS_DENIED(HttpStatus.FORBIDDEN, "채팅방 참여자만 이용할 수 있습니다."),
+    CHAT_ROOM_CLOSED(HttpStatus.CONFLICT, "상대방과 더 이상 대화할 수 없어요."),
+    CHAT_ADDRESS_NOT_ALLOWED(HttpStatus.CONFLICT, "매칭이 완료된 뒤 주소를 공유할 수 있어요."),
+    CARE_MATCH_ROLE_DENIED(HttpStatus.FORBIDDEN, "현재 역할에서는 할 수 없는 요청입니다."),
+    CARE_MATCH_ALREADY_MATCHED(HttpStatus.CONFLICT, "이미 다른 분과 매칭된 모집글입니다."),
+    CARE_MATCH_INVALID_STATE(HttpStatus.CONFLICT, "현재 매칭 단계에서는 할 수 없는 요청입니다."),
+    CHAT_LEAVE_IN_DEAL(HttpStatus.CONFLICT, "거래가 진행 중이라 나갈 수 없어요. 거래 취소를 먼저 요청해 주세요."),
+    CARE_DEAL_CANCEL_REJECTED(HttpStatus.CONFLICT, "상대가 거절한 거래 취소는 이 거래에서 다시 요청할 수 없어요."),
+
+    /** ai */
+    HEALTH_REPORT_REFRESH_LIMIT(HttpStatus.CONFLICT, "오늘은 이미 새로고침했어요. 내일 다시 시도해 주세요."),
+    HEALTH_REPORT_AUTO_LIMIT(HttpStatus.CONFLICT, "오늘은 리포트를 더 만들 수 없어요."),
+    AI_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, "매핑을 찾을 수 없어요."),
 
     /** support */
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),
+    FAQ_NOT_FOUND(HttpStatus.NOT_FOUND, "FAQ를 찾을 수 없습니다."),
     INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "문의를 찾을 수 없습니다."),
     INQUIRY_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "접수 상태의 문의만 수정할 수 있습니다."),
-    INQUIRY_ATTACHMENT_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "첨부 파일은 최대 10개까지 올릴 수 있습니다.");
+    INQUIRY_NOT_DELETABLE(HttpStatus.BAD_REQUEST, "접수 상태의 문의만 삭제할 수 있습니다."),
+    INQUIRY_ATTACHMENT_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "첨부 파일은 최대 10개까지 올릴 수 있습니다."),
+    INQUIRY_NOT_ANSWERED(HttpStatus.BAD_REQUEST, "답변을 등록한 문의만 답변을 수정할 수 있습니다."),
+    INQUIRY_DELETED(HttpStatus.CONFLICT, "회원이 삭제한 문의예요.");
 
     private final HttpStatus status;
     private final String message;

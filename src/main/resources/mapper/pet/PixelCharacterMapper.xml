@@ -18,6 +18,11 @@
         <result column="MBR_SN"           property="mbrSn" />
         <result column="PET_SN"           property="petSn" />
         <result column="BSC_CHAR_SBST_YN" property="bscCharSbstYn" />
+        <result column="BODY_SHEET_FILE_SN" property="bodySheetFileSn" />
+        <result column="WEAR_IMG_FILE_SN" property="wearImgFileSn" />
+        <result column="SHEET_SCALE"      property="sheetScale" />
+        <result column="SHEET_ORIGIN_X"   property="sheetOriginX" />
+        <result column="SHEET_ORIGIN_Y"   property="sheetOriginY" />
         <result column="DEL_YN"           property="delYn" />
         <result column="REG_DT"           property="regDt" />
         <result column="MDFCN_DT"         property="mdfcnDt" />
@@ -59,6 +64,17 @@
         <result column="EQUIP_YN"     property="equipYn" />
     </resultMap>
 
+    <resultMap id="itemSheetResultMap" type="com.nyangmeong.pet.domain.CharacterItemSheet">
+        <id     column="CHAR_ITEM_SHEET_SN" property="charItemSheetSn" />
+        <result column="PIXEL_CHAR_SN"      property="pixelCharSn" />
+        <result column="ITEM_SN"            property="itemSn" />
+        <result column="ATCH_FILE_SN"       property="atchFileSn" />
+        <result column="BAKE_FAIL_YN"       property="bakeFailYn" />
+        <result column="DEL_YN"             property="delYn" />
+        <result column="REG_DT"             property="regDt" />
+        <result column="MDFCN_DT"           property="mdfcnDt" />
+    </resultMap>
+
     <resultMap id="petProfileSummaryResultMap" type="com.nyangmeong.pet.dto.PetProfileSummary">
         <id     column="PET_SN"    property="petSn" />
         <result column="PET_NM"    property="petNm" />
@@ -73,6 +89,11 @@
              , MBR_SN
              , PET_SN
              , BSC_CHAR_SBST_YN
+             , BODY_SHEET_FILE_SN
+             , WEAR_IMG_FILE_SN
+             , SHEET_SCALE
+             , SHEET_ORIGIN_X
+             , SHEET_ORIGIN_Y
              , DEL_YN
              , REG_DT
              , MDFCN_DT
@@ -127,7 +148,8 @@
           LEFT JOIN CHAR_CRT_JOB J
             ON J.CHAR_CRT_JOB_SN = (SELECT MAX(LJ.CHAR_CRT_JOB_SN)
                                       FROM CHAR_CRT_JOB LJ
-                                     WHERE LJ.PET_SN = P.PET_SN)
+                                     WHERE LJ.PET_SN = P.PET_SN
+                                       AND LJ.DEL_YN = 'N')
          WHERE R.MBR_SN = #{mbrSn}
            AND R.USE_YN = 'Y'
          ORDER BY P.REG_DT
@@ -179,15 +201,92 @@
            AND DEL_YN = 'N'
     </update>
 
+    <update id="updateBodySheet">
+        /* 맨몸 시트·배치값 저장 */
+        UPDATE PIXEL_CHAR
+           SET BODY_SHEET_FILE_SN = #{bodySheetFileSn}
+             , SHEET_SCALE = #{sheetScale}
+             , SHEET_ORIGIN_X = #{sheetOriginX}
+             , SHEET_ORIGIN_Y = #{sheetOriginY}
+             , MDFR_ID = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PIXEL_CHAR_SN = #{pixelCharSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updateWearImage">
+        /* 착용 모습 대표 이미지 저장·삭제 : NULL이면 삭제 */
+        UPDATE PIXEL_CHAR
+           SET WEAR_IMG_FILE_SN = #{wearImgFileSn}
+             , MDFR_ID = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PIXEL_CHAR_SN = #{pixelCharSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updateDeleteByPetSn">
+        /* 반려동물의 픽셀 캐릭터 삭제 */
+        UPDATE PIXEL_CHAR
+           SET DEL_YN = 'Y'
+             , MDFR_ID = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updateHeldItemDeleteByPetSn" parameterType="long">
+        /* 반려동물 캐릭터의 보유 아이템 삭제 */
+        UPDATE HLD_ITEM H
+          JOIN PIXEL_CHAR C
+            ON C.PIXEL_CHAR_SN = H.PIXEL_CHAR_SN
+           SET H.DEL_YN = 'Y'
+             , H.EQUIP_YN = 'N'
+             , H.MDFCN_DT = NOW()
+         WHERE C.PET_SN = #{petSn}
+           AND H.DEL_YN = 'N'
+    </update>
+
+    <update id="updateJobDeleteByPetSn" parameterType="long">
+        /* 반려동물의 캐릭터 생성 작업 삭제 : 진행 중이던 작업은 이후 조회되지 않아 결과를 저장하지 않는다 */
+        UPDATE CHAR_CRT_JOB
+           SET DEL_YN = 'Y'
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updatePhotoDeleteByPetSn" parameterType="long">
+        /* 반려동물 캐릭터의 사진 삭제 */
+        UPDATE CHAR_PHOTO H
+          JOIN PIXEL_CHAR C
+            ON C.PIXEL_CHAR_SN = H.PIXEL_CHAR_SN
+           SET H.DEL_YN = 'Y'
+             , H.MDFCN_DT = NOW()
+         WHERE C.PET_SN = #{petSn}
+           AND H.DEL_YN = 'N'
+    </update>
+
+    <update id="updateItemSheetDeleteByPetSn" parameterType="long">
+        /* 반려동물 캐릭터의 착용 시트 삭제 */
+        UPDATE CHAR_ITEM_SHEET S
+          JOIN PIXEL_CHAR C
+            ON C.PIXEL_CHAR_SN = S.PIXEL_CHAR_SN
+           SET S.DEL_YN = 'Y'
+             , S.MDFCN_DT = NOW()
+         WHERE C.PET_SN = #{petSn}
+           AND S.DEL_YN = 'N'
+    </update>
+
     <select id="selectJob" parameterType="long" resultMap="jobResultMap">
         /* 캐릭터 생성 작업 단건 조회 */
         SELECT <include refid="jobColumns" />
           FROM CHAR_CRT_JOB
          WHERE CHAR_CRT_JOB_SN = #{charCrtJobSn}
+           AND DEL_YN = 'N'
     </select>
 
     <select id="selectJobByIdmptDmndId" parameterType="string" resultMap="jobResultMap">
-        /* 멱등 요청 ID로 캐릭터 생성 작업 조회 */
+        /* 멱등 요청 ID로 캐릭터 생성 작업 조회 : 같은 키를 다시 쓰지 않도록 삭제된 작업도 본다 */
         SELECT <include refid="jobColumns" />
           FROM CHAR_CRT_JOB
          WHERE IDMPT_DMND_ID = #{idmptDmndId}
@@ -198,6 +297,7 @@
         SELECT <include refid="jobColumns" />
           FROM CHAR_CRT_JOB
          WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
          ORDER BY CHAR_CRT_JOB_SN DESC
          LIMIT 1
     </select>
@@ -244,6 +344,24 @@
                 #{bfrSttsCd}
             </foreach>
     </update>
+
+    <select id="selectTimedOutJobs" resultType="long">
+        /* 시작 뒤 제한 시간을 넘긴 캐릭터 생성 작업 조회 */
+        SELECT CHAR_CRT_JOB_SN
+          FROM CHAR_CRT_JOB
+         WHERE CRT_JOB_STTS_CD = #{crtJobSttsCd}
+           AND PRCS_BGNG_DT &lt; NOW() - INTERVAL #{minutes} MINUTE
+           AND DEL_YN = 'N'
+    </select>
+
+    <select id="selectUnstartedJobs" resultType="long">
+        /* 등록 뒤 제한 시간 동안 시작하지 않은 캐릭터 생성 작업 조회 */
+        SELECT CHAR_CRT_JOB_SN
+          FROM CHAR_CRT_JOB
+         WHERE CRT_JOB_STTS_CD = #{crtJobSttsCd}
+           AND REG_DT &lt; NOW() - INTERVAL #{minutes} MINUTE
+           AND DEL_YN = 'N'
+    </select>
 
     <update id="updateJobInquiry">
         /* 캐릭터 생성 작업에 문의 연결 */
@@ -302,6 +420,7 @@
           FROM CHAR_PHOTO
          WHERE CHAR_CRT_JOB_SN = #{charCrtJobSn}
            AND PHOTO_ROLE_CD = #{photoRoleCd}
+           AND DEL_YN = 'N'
          ORDER BY SORT_SEQ
                 , CHAR_PHOTO_SN
          LIMIT 1
@@ -313,6 +432,15 @@
           FROM CHAR_PHOTO
          WHERE PIXEL_CHAR_SN = #{pixelCharSn}
            AND NOW_INDCT_YN = 'Y'
+           AND DEL_YN = 'N'
+    </select>
+
+    <select id="selectPhoto" parameterType="long" resultMap="photoResultMap">
+        /* 캐릭터 사진 단건 조회 */
+        SELECT <include refid="photoColumns" />
+          FROM CHAR_PHOTO
+         WHERE CHAR_PHOTO_SN = #{charPhotoSn}
+           AND DEL_YN = 'N'
     </select>
 
     <update id="updatePhotoHidden" parameterType="long">
@@ -325,7 +453,7 @@
     </update>
 
     <select id="selectHeldItems" parameterType="long" resultMap="heldItemSummaryResultMap">
-        /* 캐릭터 보유 아이템 목록 조회 */
+        /* 캐릭터 보유 아이템 목록 조회(사용 안 하는 부위 제외) */
         SELECT H.HLD_ITEM_SN
              , H.ITEM_SN
              , I.ITEM_NM
@@ -335,6 +463,9 @@
           FROM HLD_ITEM H
           JOIN ITEM I
             ON I.ITEM_SN = H.ITEM_SN
+          JOIN COM_CD RC
+            ON RC.COM_CD = I.ITEM_REGN_CD
+           AND RC.USE_YN = 'Y'
          WHERE H.PIXEL_CHAR_SN = #{pixelCharSn}
            AND H.DEL_YN = 'N'
          ORDER BY I.ITEM_REGN_CD
@@ -365,6 +496,110 @@
             </foreach>
     </update>
 
+    <insert id="upsertItemSheet">
+        /* 착용 시트 저장 */
+        INSERT INTO CHAR_ITEM_SHEET
+             ( PIXEL_CHAR_SN
+             , ITEM_SN
+             , ATCH_FILE_SN
+             , BAKE_FAIL_YN
+             , REG_DT
+             , MDFCN_DT )
+        VALUES
+             ( #{pixelCharSn}
+             , #{itemSn}
+             , #{atchFileSn}
+             , 'N'
+             , NOW()
+             , NOW() )
+        ON DUPLICATE KEY UPDATE
+               ATCH_FILE_SN = VALUES(ATCH_FILE_SN)
+             , BAKE_FAIL_YN = 'N'
+             , DEL_YN = 'N'
+             , MDFCN_DT = NOW()
+    </insert>
+
+    <insert id="upsertItemSheetFailure">
+        /* 굽기 실패 표시 : 현재 시트가 있으면 유지, 삭제된 행은 파일을 비움 (SET 순서대로 평가) */
+        INSERT INTO CHAR_ITEM_SHEET
+             ( PIXEL_CHAR_SN
+             , ITEM_SN
+             , BAKE_FAIL_YN
+             , REG_DT
+             , MDFCN_DT )
+        VALUES
+             ( #{pixelCharSn}
+             , #{itemSn}
+             , 'Y'
+             , NOW()
+             , NOW() )
+        ON DUPLICATE KEY UPDATE
+               BAKE_FAIL_YN = IF(DEL_YN = 'N' AND ATCH_FILE_SN IS NOT NULL, 'N', 'Y')
+             , ATCH_FILE_SN = IF(DEL_YN = 'N', ATCH_FILE_SN, NULL)
+             , DEL_YN = 'N'
+             , MDFCN_DT = NOW()
+    </insert>
+
+    <update id="updateItemSheetDelete" parameterType="long">
+        /* 캐릭터의 착용 시트 전부 삭제 */
+        UPDATE CHAR_ITEM_SHEET
+           SET DEL_YN = 'Y'
+             , MDFCN_DT = NOW()
+         WHERE PIXEL_CHAR_SN = #{pixelCharSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updateItemSheetDeleteByItemSn" parameterType="long">
+        /* 아이템의 착용 시트 전부 삭제 */
+        UPDATE CHAR_ITEM_SHEET
+           SET DEL_YN = 'Y'
+             , MDFCN_DT = NOW()
+         WHERE ITEM_SN = #{itemSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <select id="selectBakeTargets" parameterType="long" resultType="long">
+        /* 아이템을 아직 안 구운 캐릭터 조회 */
+        SELECT P.PIXEL_CHAR_SN
+          FROM PIXEL_CHAR P
+         WHERE P.DEL_YN = 'N'
+           AND P.BODY_SHEET_FILE_SN IS NOT NULL
+           AND NOT EXISTS ( SELECT 1
+                              FROM CHAR_ITEM_SHEET S
+                             WHERE S.PIXEL_CHAR_SN = P.PIXEL_CHAR_SN
+                               AND S.ITEM_SN = #{itemSn}
+                               AND S.DEL_YN = 'N' )
+         ORDER BY P.PIXEL_CHAR_SN
+    </select>
+
+    <select id="selectItemSheets" resultMap="itemSheetResultMap">
+        /* 아이템별 착용 시트 조회 */
+        SELECT CHAR_ITEM_SHEET_SN
+             , PIXEL_CHAR_SN
+             , ITEM_SN
+             , ATCH_FILE_SN
+             , BAKE_FAIL_YN
+             , DEL_YN
+             , REG_DT
+             , MDFCN_DT
+          FROM CHAR_ITEM_SHEET
+         WHERE PIXEL_CHAR_SN = #{pixelCharSn}
+           AND DEL_YN = 'N'
+           AND ITEM_SN IN
+            <foreach collection="itemSns" item="itemSn" open="(" separator="," close=")">
+                #{itemSn}
+            </foreach>
+    </select>
+
+    <select id="countItemSheetFile" resultType="int">
+        /* 캐릭터의 착용 시트 파일 여부 */
+        SELECT COUNT(*)
+          FROM CHAR_ITEM_SHEET
+         WHERE PIXEL_CHAR_SN = #{pixelCharSn}
+           AND ATCH_FILE_SN = #{atchFileSn}
+           AND DEL_YN = 'N'
+    </select>
+
     <select id="selectPetProfile" parameterType="long" resultMap="petProfileSummaryResultMap">
         /* 캐릭터 생성용 반려동물 프로필 조회 */
         SELECT P.PET_SN
@@ -380,5 +615,65 @@
             ON CC.COM_CD = P.COLR_CD
          WHERE P.PET_SN = #{petSn}
            AND P.DEL_YN = 'N'
+    </select>
+
+    <select id="selectAdminJobStatusCounts" resultType="com.nyangmeong.pet.dto.AdminCharacterJobStatusCount">
+        /* 관리자 캐릭터 생성 작업 상태별 건수(있는 상태만) */
+        SELECT J.CRT_JOB_STTS_CD AS crtJobSttsCd
+             , COUNT(*)          AS cnt
+          FROM CHAR_CRT_JOB J
+         WHERE J.DEL_YN = 'N'
+         GROUP BY J.CRT_JOB_STTS_CD
+    </select>
+
+    <select id="selectAdminJobStatusCountsInPeriod" resultType="com.nyangmeong.pet.dto.AdminCharacterJobStatusCount">
+        /* 관리자 캐릭터 생성 작업 기간 내 상태별 건수(있는 상태만, 상태 필터 무관) */
+        SELECT J.CRT_JOB_STTS_CD AS crtJobSttsCd
+             , COUNT(*)          AS cnt
+          FROM CHAR_CRT_JOB J
+         WHERE J.DEL_YN = 'N'
+        <if test="cond.fromYmd != null">
+           AND J.REG_DT &gt;= #{cond.fromYmd}
+        </if>
+        <if test="cond.toYmd != null">
+           AND J.REG_DT &lt; DATE_ADD(#{cond.toYmd}, INTERVAL 1 DAY)
+        </if>
+         GROUP BY J.CRT_JOB_STTS_CD
+    </select>
+
+    <resultMap id="adminJobRowMap" type="com.nyangmeong.pet.dto.AdminCharacterJobRow">
+        <id     column="CHAR_CRT_JOB_SN" property="charCrtJobSn" />
+        <result column="MBR_SN"          property="mbrSn" />
+        <result column="MBR_NCNM"        property="mbrNcnm" />
+        <result column="CRT_JOB_STTS_CD" property="crtJobSttsCd" />
+        <result column="FAIL_RSN"        property="failRsn" />
+        <result column="OTO_INQRY_SN"    property="otoInqrySn" />
+        <result column="REG_DT"          property="regDt" />
+    </resultMap>
+
+    <select id="selectAdminJobList" resultMap="adminJobRowMap">
+        /* 관리자 캐릭터 생성 작업 목록(기간·상태 필터, 최신순, 이미지 미조회) */
+        SELECT J.CHAR_CRT_JOB_SN
+             , J.MBR_SN
+             , M.MBR_NCNM
+             , J.CRT_JOB_STTS_CD
+             , J.FAIL_RSN
+             , J.OTO_INQRY_SN
+             , J.REG_DT
+          FROM CHAR_CRT_JOB J
+          JOIN MBR M
+            ON M.MBR_SN = J.MBR_SN
+         WHERE J.DEL_YN = 'N'
+        <if test="cond.fromYmd != null">
+           AND J.REG_DT &gt;= #{cond.fromYmd}
+        </if>
+        <if test="cond.toYmd != null">
+           AND J.REG_DT &lt; DATE_ADD(#{cond.toYmd}, INTERVAL 1 DAY)
+        </if>
+        <if test="cond.crtJobSttsCd != null">
+           AND J.CRT_JOB_STTS_CD = #{cond.crtJobSttsCd}
+        </if>
+         ORDER BY J.REG_DT DESC
+                , J.CHAR_CRT_JOB_SN DESC
     </select>
 </mapper>

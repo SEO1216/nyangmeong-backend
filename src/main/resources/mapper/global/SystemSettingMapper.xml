@@ -8,7 +8,6 @@
         <result column="JNT_BRUP_MAX_NOPE" property="jntBrupMaxNope" />
         <result column="PST_IMG_MAX_CNT" property="pstImgMaxCnt" />
         <result column="FILE_MAX_SZ" property="fileMaxSz" />
-        <result column="DSHBD_CARE_MAX_EXPSR_CNT" property="dshbdCareMaxExpsrCnt" />
         <result column="LGN_FAIL_LMT_NMTM" property="lgnFailLmtNmtm" />
         <result column="BLIND_DCLR_ACML_CNT" property="blindDclrAcmlCnt" />
         <result column="LOST_TPOF_EXPRY_CRTR_DAY_CNT" property="lostTpofExpryCrtrDayCnt" />
@@ -26,6 +25,7 @@
         <result column="MDFR_ID" property="mdfrId" />
         <result column="DSCV_AUTO_CMNT_CN" property="dscvAutoCmntCn" />
         <result column="MTCH_NO_RSPNS_END_CRTR_DAY_CNT" property="mtchNoRspnsEndCrtrDayCnt" />
+        <result column="DLNG_CMPTN_HIDE_CRTR_DAY_CNT" property="dlngCmptnHideCrtrDayCnt" />
     </resultMap>
 
     <select id="selectCurrent" resultMap="systemSettingResultMap">
@@ -35,7 +35,6 @@
              , JNT_BRUP_MAX_NOPE
              , PST_IMG_MAX_CNT
              , FILE_MAX_SZ
-             , DSHBD_CARE_MAX_EXPSR_CNT
              , LGN_FAIL_LMT_NMTM
              , BLIND_DCLR_ACML_CNT
              , LOST_TPOF_EXPRY_CRTR_DAY_CNT
@@ -53,8 +52,75 @@
              , MDFR_ID
              , DSCV_AUTO_CMNT_CN
              , MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+             , DLNG_CMPTN_HIDE_CRTR_DAY_CNT
           FROM SYS_STNG
          ORDER BY SYS_STNG_SN
          LIMIT 1
     </select>
+
+    <insert id="upsert">
+        /* 시스템 설정 저장 */
+        INSERT INTO SYS_STNG (SYS_STNG_SN
+                            , PET_MAX_CNT
+                            , JNT_BRUP_MAX_NOPE
+                            , PST_IMG_MAX_CNT
+                            , FILE_MAX_SZ
+                            , LGN_FAIL_LMT_NMTM
+                            , BLIND_DCLR_ACML_CNT
+                            , LOST_TPOF_EXPRY_CRTR_DAY_CNT
+                            , INVTN_VLD_DAY_CNT
+                            , NOTI_HIDE_CRTR_DAY_CNT
+                            , WHDWL_MBR_KPNG_DAY_CNT
+                            , LOWST_HRWG_APLCN_YR
+                            , LOWST_HRWG_AMT
+                            , AI_CNVRS_TURN_CNT
+                            , AI_TKN_UPLMT_CNT
+                            , AI_CMTRY_BSC_CN
+                            , DSCV_AUTO_CMNT_CN
+                            , MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+                            , DLNG_CMPTN_HIDE_CRTR_DAY_CNT
+                            , RGTR_ID
+                            , MDFR_ID)
+        VALUES (1
+              , #{setting.petMaxCnt}
+              , #{setting.jntBrupMaxNope}
+              , #{setting.pstImgMaxCnt}
+              , #{setting.fileMaxSz}
+              , #{setting.lgnFailLmtNmtm}
+              , #{setting.blindDclrAcmlCnt}
+              , #{setting.lostTpofExpryCrtrDayCnt}
+              , #{setting.invtnVldDayCnt}
+              , #{setting.notiHideCrtrDayCnt}
+              , #{setting.whdwlMbrKpngDayCnt}
+              , #{setting.lowstHrwgAplcnYr}
+              , #{setting.lowstHrwgAmt}
+              , #{setting.aiCnvrsTurnCnt}
+              , #{setting.aiTknUplmtCnt}
+              , #{setting.aiCmtryBscCn}
+              , #{setting.dscvAutoCmntCn}
+              , #{setting.mtchNoRspnsEndCrtrDayCnt}
+              , #{setting.dlngCmptnHideCrtrDayCnt}
+              , #{actorId}
+              , #{actorId}) AS NEW_ROW
+        ON DUPLICATE KEY UPDATE PET_MAX_CNT = NEW_ROW.PET_MAX_CNT
+                              , JNT_BRUP_MAX_NOPE = NEW_ROW.JNT_BRUP_MAX_NOPE
+                              , PST_IMG_MAX_CNT = NEW_ROW.PST_IMG_MAX_CNT
+                              , FILE_MAX_SZ = NEW_ROW.FILE_MAX_SZ
+                              , LGN_FAIL_LMT_NMTM = NEW_ROW.LGN_FAIL_LMT_NMTM
+                              , BLIND_DCLR_ACML_CNT = NEW_ROW.BLIND_DCLR_ACML_CNT
+                              , LOST_TPOF_EXPRY_CRTR_DAY_CNT = NEW_ROW.LOST_TPOF_EXPRY_CRTR_DAY_CNT
+                              , INVTN_VLD_DAY_CNT = NEW_ROW.INVTN_VLD_DAY_CNT
+                              , NOTI_HIDE_CRTR_DAY_CNT = NEW_ROW.NOTI_HIDE_CRTR_DAY_CNT
+                              , WHDWL_MBR_KPNG_DAY_CNT = NEW_ROW.WHDWL_MBR_KPNG_DAY_CNT
+                              , LOWST_HRWG_APLCN_YR = NEW_ROW.LOWST_HRWG_APLCN_YR
+                              , LOWST_HRWG_AMT = NEW_ROW.LOWST_HRWG_AMT
+                              , AI_CNVRS_TURN_CNT = NEW_ROW.AI_CNVRS_TURN_CNT
+                              , AI_TKN_UPLMT_CNT = NEW_ROW.AI_TKN_UPLMT_CNT
+                              , AI_CMTRY_BSC_CN = NEW_ROW.AI_CMTRY_BSC_CN
+                              , DSCV_AUTO_CMNT_CN = NEW_ROW.DSCV_AUTO_CMNT_CN
+                              , MTCH_NO_RSPNS_END_CRTR_DAY_CNT = NEW_ROW.MTCH_NO_RSPNS_END_CRTR_DAY_CNT
+                              , DLNG_CMPTN_HIDE_CRTR_DAY_CNT = NEW_ROW.DLNG_CMPTN_HIDE_CRTR_DAY_CNT
+                              , MDFR_ID = NEW_ROW.MDFR_ID
+                              , MDFCN_DT = NOW()
+    </insert>
 </mapper>

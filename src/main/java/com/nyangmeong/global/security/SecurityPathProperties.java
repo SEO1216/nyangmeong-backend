@@ -21,20 +21,25 @@ public class SecurityPathProperties {
     private List<String> permitAllPaths = List.of(
             "/api/auth/dev-tokens",
             "/api/auth/login",
+            "/api/auth/sns-login",
             "/api/auth/login-attempt-limits",
             "/api/auth/captchas",
             "/api/auth/refresh",
             "/api/auth/logout",
-            "/api/files/public/**",
             "/api/terms",
             "/api/terms/*",
             "/api/email-certifications",
             "/api/email-certifications/*/verify",
+            "/api/email-certifications/*/invalidate",
+            "/api/email-certifications/*/password-reset",
             "/api/members",
             "/api/members/nickname-availability",
             "/api/members/phone-availability",
+            "/api/members/recovery-info",
+            "/api/members/recovery",
             "/api/members/me/nickname",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/v3/api-docs/**");
+            "/v3/api-docs/**",
+            "/internal/ai/tools");
 }

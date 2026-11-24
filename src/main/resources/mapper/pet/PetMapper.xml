@@ -12,6 +12,10 @@
         <result column="PET_GNDR_CD"       property="petGndrCd" />
         <result column="PET_BRDT"          property="petBrdt" />
         <result column="PET_BDWG"          property="petBdwg" />
+        <result column="NUTR_YN"           property="nutrYn" />
+        <result column="MIN_BDWG"          property="minBdwg" />
+        <result column="MAX_BDWG"          property="maxBdwg" />
+        <result column="BDWG_RNG_DRCT_INPT_YN" property="bdwgRngDrctInptYn" />
         <result column="COLR_CD"           property="colrCd" />
         <result column="COLR_DRCT_INPT_NM" property="colrDrctInptNm" />
         <result column="CHIP_NO"           property="chipNo" />
@@ -24,6 +28,42 @@
         <result column="BSC_CHAR_SBST_YN"  property="bscCharSbstYn" />
     </resultMap>
 
+    <resultMap id="adminPetSummaryResultMap" type="com.nyangmeong.pet.dto.AdminPetSummary">
+        <id     column="PET_SN"            property="petSn" />
+        <result column="PET_NM"            property="petNm" />
+        <result column="PET_SE_CD"         property="petSeCd" />
+        <result column="VRTY_NM"           property="vrtyNm" />
+        <result column="VRTY_DRCT_INPT_NM" property="vrtyDrctInptNm" />
+        <result column="BRUP_ROLE_CD"      property="brupRoleCd" />
+        <result column="CAREGIVER_COUNT"   property="caregiverCount" />
+        <result column="DEL_YN"            property="delYn" />
+    </resultMap>
+
+    <!-- 삭제 여부를 보여 주는 관리자 탭이라 PET.DEL_YN 조건 없음 (MapperXmlRuleTest 예외 목록) -->
+    <select id="selectAdminList" resultMap="adminPetSummaryResultMap">
+        /* 관리자 회원 반려동물 목록 조회 */
+        SELECT P.PET_SN
+             , P.PET_NM
+             , P.PET_SE_CD
+             , V.VRTY_NM
+             , P.VRTY_DRCT_INPT_NM
+             , R.BRUP_ROLE_CD
+             , (SELECT COUNT(*)
+                  FROM BRUP_REL CR
+                 WHERE CR.PET_SN = P.PET_SN
+                   AND CR.USE_YN = 'Y'
+                   AND CR.BRUP_ROLE_CD = #{coParentRoleCd}) AS CAREGIVER_COUNT
+             , CASE WHEN P.DEL_YN = 'Y' THEN TRUE ELSE FALSE END AS DEL_YN
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+          LEFT JOIN VRTY V
+            ON V.VRTY_SN = P.VRTY_SN
+         WHERE R.MBR_SN = #{mbrSn}
+           AND R.USE_YN = 'Y'
+         ORDER BY R.BRUP_REL_SN
+    </select>
+
     <select id="selectList" resultMap="petSummaryResultMap">
         /* 반려동물 목록 조회 */
         SELECT P.PET_SN
@@ -35,6 +75,10 @@
              , P.PET_GNDR_CD
              , P.PET_BRDT
              , P.PET_BDWG
+             , CASE WHEN P.NUTR_YN = 'Y' THEN TRUE ELSE FALSE END AS NUTR_YN
+             , P.MIN_BDWG
+             , P.MAX_BDWG
+             , P.BDWG_RNG_DRCT_INPT_YN
              , P.COLR_CD
              , P.COLR_DRCT_INPT_NM
              , P.CHIP_NO
@@ -81,6 +125,7 @@
         <result column="GOAL_BDWG"         property="goalBdwg" />
         <result column="MIN_BDWG"          property="minBdwg" />
         <result column="MAX_BDWG"          property="maxBdwg" />
+        <result column="BDWG_RNG_DRCT_INPT_YN" property="bdwgRngDrctInptYn" />
         <result column="MIN_MEAL_QTY"      property="minMealQty" />
         <result column="MAX_MEAL_QTY"      property="maxMealQty" />
         <result column="MIN_WATR_QTY"      property="minWatrQty" />
@@ -110,6 +155,7 @@
         <result column="MBR_SN"       property="mbrSn" />
         <result column="MBR_NCNM"     property="mbrNcnm" />
         <result column="BRUP_ROLE_CD" property="brupRoleCd" />
+        <result column="LINK_YMD"     property="linkYmd" />
     </resultMap>
 
     <select id="selectPet" parameterType="long" resultMap="petResultMap">
@@ -131,6 +177,7 @@
              , GOAL_BDWG
              , MIN_BDWG
              , MAX_BDWG
+             , BDWG_RNG_DRCT_INPT_YN
              , MIN_MEAL_QTY
              , MAX_MEAL_QTY
              , MIN_WATR_QTY
@@ -181,24 +228,103 @@
            AND USE_YN = 'Y'
     </select>
 
-    <select id="selectCaregivers" parameterType="long" resultMap="caregiverSummaryResultMap">
-        /* 반려동물 양육자 목록 조회 */
+    <select id="selectCaregivers" resultMap="caregiverSummaryResultMap">
+        /* 반려동물 양육자 목록 조회 (주양육자 첫 줄, 공동양육자는 연동순) */
         SELECT R.BRUP_REL_SN
              , R.MBR_SN
              , M.MBR_NCNM
              , R.BRUP_ROLE_CD
+             , DATE(COALESCE(H.LINK_DT, R.REG_DT)) AS LINK_YMD
           FROM BRUP_REL R
           JOIN MBR M
             ON M.MBR_SN = R.MBR_SN
+          LEFT JOIN ( SELECT BRUP_REL_SN
+                           , MAX(REG_DT) AS LINK_DT
+                        FROM BRUP_LINK_STTS_HSTRY
+                       WHERE LINK_CHG_TYPE_CD = #{linkTypeCd}
+                       GROUP BY BRUP_REL_SN
+                    ) H
+            ON H.BRUP_REL_SN = R.BRUP_REL_SN
          WHERE R.PET_SN = #{petSn}
            AND R.USE_YN = 'Y'
-         ORDER BY R.BRUP_ROLE_CD
-                , R.REG_DT
+         ORDER BY CASE WHEN R.BRUP_ROLE_CD = #{primaryRoleCd} THEN 0 ELSE 1 END
+                , COALESCE(H.LINK_DT, R.REG_DT)
                 , R.BRUP_REL_SN
     </select>
 
+    <select id="selectBrupRelBySn" parameterType="long" resultMap="brupRelResultMap">
+        /* 사용 중인 양육 관계 단건 조회 */
+        SELECT BRUP_REL_SN
+             , PET_SN
+             , MBR_SN
+             , BRUP_ROLE_CD
+             , RPRS_PET_YN
+             , USE_YN
+             , REG_DT
+             , MDFCN_DT
+             , MDFR_ID
+          FROM BRUP_REL
+         WHERE BRUP_REL_SN = #{brupRelSn}
+           AND USE_YN = 'Y'
+    </select>
+
+    <select id="selectCaregiverMbrSns" parameterType="long" resultType="long">
+        /* 반려동물의 연동 양육자 회원 번호 조회 */
+        SELECT R.MBR_SN
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+         WHERE R.PET_SN = #{petSn}
+           AND R.USE_YN = 'Y'
+           AND P.DEL_YN = 'N'
+         ORDER BY R.BRUP_REL_SN
+    </select>
+
+    <select id="selectBrupRelIncludingUnlinked" resultMap="brupRelResultMap">
+        /* 해제된 행까지 포함한 양육 관계 조회 (UK_BRUP_REL_1 재연동용) */
+        SELECT BRUP_REL_SN
+             , PET_SN
+             , MBR_SN
+             , BRUP_ROLE_CD
+             , RPRS_PET_YN
+             , USE_YN
+             , REG_DT
+             , MDFCN_DT
+             , MDFR_ID
+          FROM BRUP_REL
+         WHERE MBR_SN = #{mbrSn}
+           AND PET_SN = #{petSn}
+    </select>
+
+    <select id="selectLinkedCoParentRels" resultMap="brupRelResultMap">
+        /* 반려동물의 연동 중 공동양육 관계 조회 */
+        SELECT BRUP_REL_SN
+             , PET_SN
+             , MBR_SN
+             , BRUP_ROLE_CD
+             , RPRS_PET_YN
+             , USE_YN
+             , REG_DT
+             , MDFCN_DT
+             , MDFR_ID
+          FROM BRUP_REL
+         WHERE PET_SN = #{petSn}
+           AND BRUP_ROLE_CD = #{coParentRoleCd}
+           AND USE_YN = 'Y'
+         ORDER BY BRUP_REL_SN
+    </select>
+
+    <select id="countLinkedCaregivers" resultType="int">
+        /* 연동 중 공동양육자 수 조회 */
+        SELECT COUNT(*)
+          FROM BRUP_REL
+         WHERE PET_SN = #{petSn}
+           AND BRUP_ROLE_CD = #{coParentRoleCd}
+           AND USE_YN = 'Y'
+    </select>
+
     <select id="countPrimaryPets" resultType="int">
-        /* 주양육 반려동물 수 조회 */
+        /* 주양육 반려동물 수 조회 : 첫 등록 대표 지정 판단용 */
         SELECT COUNT(*)
           FROM BRUP_REL R
           JOIN PET P
@@ -207,6 +333,38 @@
          WHERE R.MBR_SN = #{mbrSn}
            AND R.BRUP_ROLE_CD = #{primaryRoleCd}
            AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="countLinkedPets" resultType="int">
+        /* 함께하는 반려동물 수 조회 : 주양육 + 공동양육 */
+        SELECT COUNT(*)
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.MBR_SN = #{mbrSn}
+           AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="lockMemberForPetLimit" resultType="long">
+        /* 반려동물 한도 검사용 회원 행 잠금 */
+        SELECT MBR_SN
+          FROM MBR
+         WHERE MBR_SN = #{mbrSn}
+           FOR UPDATE
+    </select>
+
+    <select id="selectPrimaryCaregiverMbrSn" resultType="long">
+        /* 반려동물 주양육자 회원 번호 조회 */
+        SELECT R.MBR_SN
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.PET_SN = #{petSn}
+           AND R.BRUP_ROLE_CD = #{primaryRoleCd}
+           AND R.USE_YN = 'Y'
+         LIMIT 1
     </select>
 
     <insert id="insertPet" parameterType="com.nyangmeong.pet.domain.Pet"
@@ -229,6 +387,7 @@
              , GOAL_BDWG
              , MIN_BDWG
              , MAX_BDWG
+             , BDWG_RNG_DRCT_INPT_YN
              , NUTR_YN
              , RGTR_ID
              , MDFR_ID
@@ -250,6 +409,7 @@
              , #{goalBdwg}
              , #{minBdwg}
              , #{maxBdwg}
+             , #{bdwgRngDrctInptYn}
              , #{nutrYn}
              , #{rgtrId}
              , #{mdfrId}
@@ -294,10 +454,31 @@
              , GOAL_BDWG         = #{pet.goalBdwg}
              , MIN_BDWG          = #{pet.minBdwg}
              , MAX_BDWG          = #{pet.maxBdwg}
+             , BDWG_RNG_DRCT_INPT_YN = #{pet.bdwgRngDrctInptYn}
              , NUTR_YN           = #{pet.nutrYn}
              , MDFR_ID           = #{actorId}
              , MDFCN_DT          = NOW()
          WHERE PET_SN = #{pet.petSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updatePetWeight">
+        /* 반려동물 체중 수정 */
+        UPDATE PET
+           SET PET_BDWG = #{weight}
+             , MDFR_ID  = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
+    </update>
+
+    <update id="updatePetDelete">
+        /* 반려동물 삭제 */
+        UPDATE PET
+           SET DEL_YN   = 'Y'
+             , MDFR_ID  = #{actorId}
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
            AND DEL_YN = 'N'
     </update>
 
@@ -321,4 +502,73 @@
            AND PET_SN = #{petSn}
            AND USE_YN = 'Y'
     </update>
+
+    <update id="updateBrupRelUnlink">
+        /* 양육 관계 연동 해제 */
+        UPDATE BRUP_REL
+           SET USE_YN      = 'N'
+             , RPRS_PET_YN = 'N'
+             , MDFR_ID     = #{actorId}
+             , MDFCN_DT    = NOW()
+         WHERE BRUP_REL_SN = #{brupRelSn}
+           AND USE_YN      = 'Y'
+    </update>
+
+    <update id="updateBrupRelRelink">
+        /* 해제된 양육 관계 공동양육으로 재연동 */
+        UPDATE BRUP_REL
+           SET USE_YN       = 'Y'
+             , BRUP_ROLE_CD = #{coParentRoleCd}
+             , RPRS_PET_YN  = 'N'
+             , MDFR_ID      = #{actorId}
+             , MDFCN_DT     = NOW()
+         WHERE BRUP_REL_SN = #{brupRelSn}
+           AND USE_YN      = 'N'
+    </update>
+
+    <insert id="insertLinkHistory" parameterType="com.nyangmeong.pet.domain.BrupLinkSttsHstry"
+            useGeneratedKeys="true" keyProperty="brupLinkSttsHstrySn" keyColumn="BRUP_LINK_STTS_HSTRY_SN">
+        /* 양육 연동 상태 이력 등록 */
+        INSERT INTO BRUP_LINK_STTS_HSTRY
+             ( BRUP_REL_SN
+             , MBR_SN
+             , LINK_CHG_TYPE_CD
+             , CHG_RSN
+             )
+        VALUES
+             ( #{brupRelSn}
+             , #{mbrSn}
+             , #{linkChgTypeCd}
+             , #{chgRsn}
+             )
+    </insert>
+
+    <resultMap id="adminPetDistributionResultMap" type="com.nyangmeong.pet.dto.AdminPetDistributionSummary">
+        <result column="PET_SE_NM" property="petSeNm" />
+        <result column="VRTY_NM"   property="vrtyNm" />
+        <result column="CNT"       property="cnt" />
+    </resultMap>
+
+    <select id="selectDistribution" resultMap="adminPetDistributionResultMap">
+        /* 관리자 대시보드 종·품종 분포 : 기간 무관, 품종 없음(직접 입력)은 종마다 한 묶음 */
+        SELECT S.COM_CD_NM                            AS PET_SE_NM
+             , COALESCE(V.VRTY_NM, #{drctInptVrtyNm}) AS VRTY_NM
+             , COUNT(*)                               AS CNT
+          FROM PET P
+          JOIN COM_CD S
+            ON S.COM_CD = P.PET_SE_CD
+           AND S.COM_CD_PRNT_SN IS NOT NULL
+          LEFT JOIN VRTY V
+            ON V.VRTY_SN = P.VRTY_SN
+         WHERE P.DEL_YN = 'N'
+         GROUP BY P.PET_SE_CD
+                , S.COM_CD_NM
+                , P.VRTY_SN
+                , V.VRTY_NM
+         ORDER BY CNT DESC
+                , P.PET_SE_CD
+                , P.VRTY_SN
+         LIMIT #{limit}
+    </select>
+
 </mapper>

@@ -29,6 +29,8 @@ import com.nyangmeong.global.error.GlobalExceptionHandler;
 import com.nyangmeong.global.log.SensitiveDataMasker;
 import com.nyangmeong.global.notification.NotificationTab;
 import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.AuthMemberMapper;
 import com.nyangmeong.global.security.SecurityConfig;
 import com.nyangmeong.global.security.WithMockLoginMember;
@@ -39,6 +41,7 @@ import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSettingResponse;
 import com.nyangmeong.notification.dto.NotificationSettingUpdateRequest;
 import com.nyangmeong.notification.dto.NotificationSummary;
@@ -94,26 +97,45 @@ class NotificationControllerTest {
     @Test
     @WithMockLoginMember
     void 탭별_목록에_유형_탭_이동경로가_있다() throws Exception {
-        when(notificationService.search(1L, NotificationTab.COMMUNITY)).thenReturn(List.of(row()));
+        when(notificationService.search(eq(1L), eq(NotificationTab.COMMUNITY), any(PageQuery.class)))
+                .thenReturn(new PageResponse<>(List.of(row()), 1, 5, 6L, 2, true));
 
         mockMvc.perform(get("/api/notifications").param("tab", "COMMUNITY"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].inappNotiSn").value(10))
-                .andExpect(jsonPath("$.data[0].notiTypeCd").value("AIMC0009"))
-                .andExpect(jsonPath("$.data[0].tab").value("COMMUNITY"))
-                .andExpect(jsonPath("$.data[0].mvmnPath").value("/chat/rooms/3"))
-                .andExpect(jsonPath("$.data[0].regDt").value("2026-10-21T09:30:00"));
+                .andExpect(jsonPath("$.data.content[0].inappNotiSn").value(10))
+                .andExpect(jsonPath("$.data.content[0].notiTypeCd").value("AIMC0009"))
+                .andExpect(jsonPath("$.data.content[0].tab").value("COMMUNITY"))
+                .andExpect(jsonPath("$.data.content[0].mvmnPath").value("/chat/rooms/3"))
+                .andExpect(jsonPath("$.data.content[0].regDt").value("2026-10-21T09:30:00"))
+                .andExpect(jsonPath("$.data.totalElements").value(6))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void page와_size를_서비스에_넘긴다() throws Exception {
+        when(notificationService.search(eq(1L), isNull(), any(PageQuery.class)))
+                .thenReturn(new PageResponse<>(List.of(), 2, 5, 6L, 2, false));
+
+        mockMvc.perform(get("/api/notifications").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+        verify(notificationService).search(eq(1L), isNull(), eq(new PageQuery(2, 5, null)));
     }
 
     @Test
     @WithMockLoginMember
     void 탭을_생략하면_조건_없이_조회한다() throws Exception {
-        when(notificationService.search(eq(1L), isNull())).thenReturn(List.of());
+        when(notificationService.search(eq(1L), isNull(), any(PageQuery.class)))
+                .thenReturn(new PageResponse<>(List.of(), 1, 5, 0L, 0, false));
 
         mockMvc.perform(get("/api/notifications"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray());
-        verify(notificationService).search(eq(1L), isNull());
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalElements").value(0))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+        verify(notificationService).search(eq(1L), isNull(), any(PageQuery.class));
     }
 
     @Test
@@ -143,6 +165,33 @@ class NotificationControllerTest {
         mockMvc.perform(post("/api/notifications/99/read").header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOTIFICATION_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 모두_읽음은_200과_읽음_처리한_건수() throws Exception {
+        when(notificationService.markAllRead(1L)).thenReturn(new NotificationReadAllResponse(4));
+
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.count").value(4));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 모두_읽음은_0건이어도_200() throws Exception {
+        when(notificationService.markAllRead(1L)).thenReturn(new NotificationReadAllResponse(0));
+
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(0));
+    }
+
+    @Test
+    void 로그인하지_않고_모두_읽음은_401() throws Exception {
+        mockMvc.perform(post("/api/notifications/read-all").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
     }
 
     private NotificationSettingResponse setting() {

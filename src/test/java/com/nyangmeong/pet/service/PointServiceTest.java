@@ -24,9 +24,14 @@ import org.mockito.ArgumentCaptor;
 
 import com.nyangmeong.global.auth.BrupRole;
 import com.nyangmeong.global.error.CustomException;
+import com.nyangmeong.global.error.BaseException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.pet.dto.AdminPointLedgerSummary;
 import com.nyangmeong.pet.domain.PointDealType;
 import com.nyangmeong.pet.domain.PointLedger;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointMonthSummary;
 import com.nyangmeong.pet.dto.PointResponse;
@@ -53,6 +58,28 @@ class PointServiceTest {
         when(pointMapper.updateHldPnt(anyLong(), anyInt(), anyString())).thenReturn(1);
         when(pointMapper.selectPrimaryMbrSn(PET, BrupRole.PRIMARY.getCode())).thenReturn(MBR);
         when(careMissionMapper.selectPetNm(PET)).thenReturn("뭉치");
+    }
+
+    @Test
+    void 관리자_원장은_없는_회원이면_404() {
+        when(pointMapper.selectHldPnt(2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.searchLedgersForAdmin(2L, new PageQuery(null, null, null)))
+                .isInstanceOfSatisfying(BaseException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.MEMBER_NOT_FOUND));
+    }
+
+    @Test
+    void 관리자_원장은_그_회원의_최신순과_잔액을_돌려준다() {
+        AdminPointLedgerSummary row = new AdminPointLedgerSummary();
+        row.setDlngAftrBlncPnt(1_000);
+        when(pointMapper.selectAdminLedgerList(MBR)).thenReturn(List.of(row));
+
+        PageResponse<AdminPointLedgerSummary> page = service.searchLedgersForAdmin(MBR,
+                new PageQuery(null, null, null));
+
+        assertThat(page.content().get(0).getDlngAftrBlncPnt()).isEqualTo(1_000);
+        verify(pointMapper).selectAdminLedgerList(MBR);
     }
 
     @Test
@@ -94,6 +121,22 @@ class PointServiceTest {
     }
 
     @Test
+    void 내역이_있는_연월은_다음_달_첫날_전까지로_조회하고_순서를_그대로_돌려준다() {
+        LocalDateTime toDt = YearMonth.now(PointService.ZONE).plusMonths(1).atDay(1).atStartOfDay();
+        when(pointMapper.selectLedgerMonths(MBR, toDt)).thenReturn(List.of("2026-11", "2026-09"));
+
+        assertThat(service.searchLedgerMonths(MBR)).extracting(PointLedgerMonthSummary::yearMonth)
+                .containsExactly("2026-11", "2026-09");
+    }
+
+    @Test
+    void 내역이_없으면_연월_목록은_비어_있다() {
+        when(pointMapper.selectLedgerMonths(eq(MBR), any(LocalDateTime.class))).thenReturn(List.of());
+
+        assertThat(service.searchLedgerMonths(MBR)).isEmpty();
+    }
+
+    @Test
     void 잔액보다_많이_쓰면_POINT_NOT_ENOUGH이고_원장을_남기지_않는다() {
         when(pointMapper.updateHldPnt(MBR, -2_000, "1")).thenReturn(0);
 
@@ -121,13 +164,54 @@ class PointServiceTest {
 
     @Test
     void 같은_idmptDmndId로_두_번_쓰면_한_번만_차감한다() {
-        when(pointMapper.existsLedger("req-1")).thenReturn(false, true);
+        when(pointMapper.selectLedgerByIdmptDmndId("req-1")).thenReturn(null,
+                useLedger(MBR, PointDealType.ITEM_PURCHASE, -600, "밀짚모자"));
 
         service.use(MBR, 600, "req-1", "밀짚모자");
         service.use(MBR, 600, "req-1", "밀짚모자");
 
         verify(pointMapper, times(1)).updateHldPnt(MBR, -600, "1");
         verify(pointMapper, times(1)).insertLedger(any());
+    }
+
+    @Test
+    void 쓴_idmptDmndId로_금액이_다른_사용이면_409이고_차감하지_않는다() {
+        assertKeyReused(useLedger(MBR, PointDealType.ITEM_PURCHASE, -300, "밀짚모자"));
+    }
+
+    @Test
+    void 쓴_idmptDmndId로_메모가_다른_사용이면_409이고_차감하지_않는다() {
+        assertKeyReused(useLedger(MBR, PointDealType.ITEM_PURCHASE, -600, "선글라스"));
+    }
+
+    @Test
+    void 다른_회원이_쓴_idmptDmndId면_409이고_차감하지_않는다() {
+        assertKeyReused(useLedger(2L, PointDealType.ITEM_PURCHASE, -600, "밀짚모자"));
+    }
+
+    @Test
+    void 적립에_쓴_idmptDmndId로_사용하면_409이고_차감하지_않는다() {
+        assertKeyReused(useLedger(MBR, PointDealType.MISSION, -600, "밀짚모자"));
+    }
+
+    private void assertKeyReused(PointLedger prev) {
+        when(pointMapper.selectLedgerByIdmptDmndId("req-1")).thenReturn(prev);
+
+        assertThatThrownBy(() -> service.use(MBR, 600, "req-1", "밀짚모자"))
+                .isInstanceOfSatisfying(BaseException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.IDEMPOTENCY_KEY_REUSED));
+        verify(pointMapper, never()).updateHldPnt(anyLong(), anyInt(), anyString());
+        verify(pointMapper, never()).insertLedger(any());
+    }
+
+    private static PointLedger useLedger(Long mbrSn, PointDealType type, int dlngPnt, String memoCn) {
+        PointLedger ledger = new PointLedger();
+        ledger.setMbrSn(mbrSn);
+        ledger.setPntDlngTypeCd(type.getCode());
+        ledger.setDlngPnt(dlngPnt);
+        ledger.setMemoCn(memoCn);
+        ledger.setIdmptDmndId("req-1");
+        return ledger;
     }
 
     @Test

@@ -5,16 +5,22 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.nyangmeong.auth.service.AuthService;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.notification.NoticeNotificationEvent;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationTab;
 import com.nyangmeong.global.notification.NotificationType;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.security.domain.MemberStatus;
 import com.nyangmeong.notification.domain.InappNotification;
 import com.nyangmeong.notification.domain.NotificationLeadTime;
 import com.nyangmeong.notification.domain.NotificationReceiveSetting;
+import com.nyangmeong.notification.dto.NotificationReadAllResponse;
 import com.nyangmeong.notification.dto.NotificationSettingResponse;
 import com.nyangmeong.notification.dto.NotificationSettingUpdateRequest;
 import com.nyangmeong.notification.dto.NotificationSummary;
@@ -32,7 +38,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NotificationService {
 
-    private static final int RECENT_LIMIT = 5;
+    /** 드롭다운 한 번에 보여 주는 건수 (목록 끝에서 다음 쪽을 더 불러온다) */
+    private static final int DEFAULT_SIZE = 5;
 
     private final NotificationMapper notificationMapper;
     private final AuthService authService;
@@ -56,6 +63,16 @@ public class NotificationService {
     }
 
     /**
+     * 공지 알림 일괄 생성 (정상 회원 중 앱 알림 채널을 켠 회원, SQL 한 번)
+     * - 공지 유형은 회원별 설정이 없어 앱 알림 채널만 본다 (canReceive 와 같은 기준)
+     */
+    @Transactional
+    public int createNotice(NoticeNotificationEvent event) {
+        return notificationMapper.insertForNormalMembers(MemberStatus.NORMAL.getCode(),
+                NotificationType.NOTICE.getCode(), event.notiTtl(), event.notiCn(), event.mvmnPath());
+    }
+
+    /**
      * 미읽음 알림 개수 조회
      */
     @Transactional(readOnly = true)
@@ -64,14 +81,16 @@ public class NotificationService {
     }
 
     /**
-     * 탭별 최근 알림 목록 조회
+     * 탭별 알림 목록 페이지 조회
+     * - size 생략 시 5건, 최대 50건 (PageQuery)
      */
     @Transactional(readOnly = true)
-    public List<NotificationSummary> search(Long mbrSn, NotificationTab tab) {
+    public PageResponse<NotificationSummary> search(Long mbrSn, NotificationTab tab, PageQuery pq) {
         List<String> notiTypeCds = tab == null || tab == NotificationTab.ALL ? null : NotificationType.codesOf(tab);
-        List<NotificationSummary> rows = notificationMapper.selectRecentList(mbrSn, notiTypeCds, RECENT_LIMIT);
+        PageHelper.startPage(pq.pageOrDefault(), pq.sizeOr(DEFAULT_SIZE));
+        List<NotificationSummary> rows = notificationMapper.selectList(mbrSn, notiTypeCds);
         rows.forEach(row -> row.setTab(NotificationType.from(row.getNotiTypeCd()).getTab().name()));
-        return rows;
+        return PageResponse.of(new PageInfo<>(rows));
     }
 
     /**
@@ -83,6 +102,15 @@ public class NotificationService {
             throw new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND);
         }
         notificationMapper.updateRead(inappNotiSn, mbrSn);
+    }
+
+    /**
+     * 알림 모두 읽음 처리
+     * - 탭과 상관없이 숨김 기준 안의 본인 미읽음 알림 전부. 0건이어도 성공
+     */
+    @Transactional
+    public NotificationReadAllResponse markAllRead(Long mbrSn) {
+        return new NotificationReadAllResponse(notificationMapper.updateReadAll(mbrSn));
     }
 
     /**
@@ -146,8 +174,8 @@ public class NotificationService {
             case LOST_EXPIRY -> "Y".equals(setting.getLostExpryNotiRcptnYn());
             case EXPENSE -> "Y".equals(setting.getExpndLimNotiRcptnYn());
             case CHARACTER -> "Y".equals(setting.getCharCrtNotiRcptnYn());
-            /** 공동양육·1:1 문의 답변·공지는 설정 없음 */
-            case CO_PARENTING, INQUIRY_ANSWER, NOTICE -> true;
+            /** 공동양육·1:1 문의 답변·공지·신고 처리 결과는 설정 없음 */
+            case CO_PARENTING, INQUIRY_ANSWER, NOTICE, REPORT_RESULT -> true;
         };
     }
 }

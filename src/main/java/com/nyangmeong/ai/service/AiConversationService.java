@@ -1,5 +1,6 @@
 package com.nyangmeong.ai.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -8,11 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nyangmeong.ai.domain.AiConversationMessage;
 import com.nyangmeong.ai.domain.AiConversationRoom;
 import com.nyangmeong.ai.domain.AiMessageRole;
+import com.nyangmeong.ai.dto.AdminDailyAiChatSummary;
 import com.nyangmeong.ai.dto.ConversationCreateRequest;
 import com.nyangmeong.ai.dto.ConversationMessageCreateRequest;
 import com.nyangmeong.ai.dto.ConversationMessageResponse;
 import com.nyangmeong.ai.dto.ConversationResponse;
 import com.nyangmeong.ai.dto.ConversationSummary;
+import com.nyangmeong.ai.dto.ConversationTitleUpdateRequest;
 import com.nyangmeong.ai.mapper.AiConversationMapper;
 import com.nyangmeong.global.auth.PetAuthorizer;
 import com.nyangmeong.global.error.CustomException;
@@ -29,6 +32,9 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class AiConversationService {
+
+    /** 사용자 질문 최대 길이 (FN-AIM-001-04) */
+    static final int USER_MESSAGE_MAX_LENGTH = 1000;
 
     private final AiConversationMapper aiConversationMapper;
     private final PetAuthorizer petAuthorizer;
@@ -72,6 +78,18 @@ public class AiConversationService {
     }
 
     /**
+     * 대화 제목 수정 (첫 답변 요약 제목, 본인 대화만)
+     */
+    @Transactional
+    public ConversationSummary updateTitle(Long mbrSn, Long aiCnvrsRoomSn, ConversationTitleUpdateRequest req) {
+        if (aiConversationMapper.updateRoomTitle(mbrSn, aiCnvrsRoomSn,
+                fieldCryptoService.encrypt(req.cnvrsTtl())) == 0) {
+            throw new CustomException(ErrorCode.NOT_FOUND);
+        }
+        return toSummary(getOwnedRoomOrThrow(mbrSn, aiCnvrsRoomSn));
+    }
+
+    /**
      * 대화 메시지 추가
      */
     @Transactional
@@ -80,6 +98,10 @@ public class AiConversationService {
         AiMessageRole role = AiMessageRole.USER.is(req.roleCd()) ? AiMessageRole.USER
                 : AiMessageRole.AI.is(req.roleCd()) ? AiMessageRole.AI : null;
         if (role == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        /** 사용자 질문은 1,000자 (FN-AIM-001-04), AI 답변은 DTO 상한 10,000자 */
+        if (role == AiMessageRole.USER && req.cnvrsCn().length() > USER_MESSAGE_MAX_LENGTH) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
         /** 방 행 잠금으로 같은 대화의 동시 저장 순서 충돌 방지 */
@@ -163,5 +185,13 @@ public class AiConversationService {
         return new ConversationMessageResponse(message.getAiCnvrsMsgSn(), message.getRoleCd(),
                 fieldCryptoService.decrypt(message.getCnvrsCnEnc()), message.getMsgSeq(),
                 "Y".equals(message.getCmptnYn()), message.getRegDt());
+    }
+
+    /**
+     * 관리자 대시보드 일별 AI 대화 수 조회 (사용자 메시지, fromDt 이상 toDt 미만)
+     */
+    @Transactional(readOnly = true)
+    public List<AdminDailyAiChatSummary> getDailyUserMessageCounts(LocalDateTime fromDt, LocalDateTime toDt) {
+        return aiConversationMapper.selectDailyMessageCounts(AiMessageRole.USER.getCode(), fromDt, toDt);
     }
 }

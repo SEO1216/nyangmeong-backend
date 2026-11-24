@@ -3,9 +3,11 @@ package com.nyangmeong.pet.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +27,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import com.nyangmeong.global.error.CustomException;
+import com.nyangmeong.global.error.ErrorCode;
 import com.nyangmeong.global.error.GlobalExceptionHandler;
 import com.nyangmeong.global.log.SensitiveDataMasker;
 import com.nyangmeong.global.security.AuthMemberMapper;
@@ -36,12 +40,14 @@ import com.nyangmeong.global.security.handler.RestAuthenticationEntryPoint;
 import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
+import com.nyangmeong.pet.dto.CaregiverSummary;
+import com.nyangmeong.pet.dto.PetLimitResponse;
 import com.nyangmeong.pet.dto.PetResponse;
 import com.nyangmeong.pet.dto.PetSummary;
 import com.nyangmeong.pet.service.PetService;
 
 /**
- * [검사 - 반려동물 목록·상세·등록·수정·대표 지정 API]
+ * [검사 - 반려동물 목록·상세·등록·수정·대표 지정·양육자 목록·연동 해제 API]
  */
 @WebMvcTest(controllers = PetController.class)
 @Import({SecurityConfig.class, JwtTokenProvider.class, JwtProperties.class, TokenCookies.class,
@@ -63,6 +69,24 @@ class PetControllerTest {
         mockMvc.perform(get("/api/pets"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.httpCode").value(401));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 한도_조회는_최대_수와_합계와_남은_자리를_돌려준다() throws Exception {
+        when(petService.getPetLimit(1L)).thenReturn(new PetLimitResponse(10, 12, 0));
+
+        mockMvc.perform(get("/api/pets/limit"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.petMaxCnt").value(10))
+                .andExpect(jsonPath("$.data.linkedPetCount").value(12))
+                .andExpect(jsonPath("$.data.remainingPetCount").value(0));
+    }
+
+    @Test
+    void 한도_조회는_쿠키가_없으면_401() throws Exception {
+        mockMvc.perform(get("/api/pets/limit"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -103,10 +127,34 @@ class PetControllerTest {
 
     @Test
     @WithMockLoginMember
+    void 목록은_중성화_여부와_정상_체중_범위를_돌려준다() throws Exception {
+        PetSummary pet = new PetSummary();
+        pet.setPetSn(10L);
+        pet.setNutrYn(true);
+        pet.setMinBdwg(new BigDecimal("3.500"));
+        pet.setMaxBdwg(new BigDecimal("5.250"));
+        PetSummary other = new PetSummary();
+        other.setPetSn(11L);
+        other.setMinBdwg(new BigDecimal("2"));
+        other.setMaxBdwg(new BigDecimal("4"));
+        when(petService.searchMyPets(1L)).thenReturn(List.of(pet, other));
+
+        mockMvc.perform(get("/api/pets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].nutrYn").value(true))
+                .andExpect(jsonPath("$.data[0].minBdwg").value(3.5))
+                .andExpect(jsonPath("$.data[0].maxBdwg").value(5.25))
+                .andExpect(jsonPath("$.data[1].nutrYn").value(false))
+                .andExpect(jsonPath("$.data[1].minBdwg").value(2))
+                .andExpect(jsonPath("$.data[1].maxBdwg").value(4));
+    }
+
+    @Test
+    @WithMockLoginMember
     void 상세는_모달_값을_주고_체중_잠금_필드는_없다() throws Exception {
         PetResponse res = new PetResponse(10L, "뭉치", "PETC0001", 15L, "푸들", null, "PETC0003",
                 LocalDate.of(2023, 5, 1), new BigDecimal("4.250"), "PETC0006", null, null, null, null, null,
-                "PETC0018", true, true, null, new BigDecimal("3"), new BigDecimal("5"), List.of());
+                "PETC0018", true, true, null, new BigDecimal("3"), new BigDecimal("5"), "Y", List.of());
         when(petService.getPet(1L, 10L)).thenReturn(res);
 
         mockMvc.perform(get("/api/pets/10"))
@@ -139,12 +187,45 @@ class PetControllerTest {
 
     @Test
     @WithMockLoginMember
-    void 체중이_0이거나_소수_넷째_자리면_400() throws Exception {
+    void 체중이_0이거나_소수_셋째_자리거나_200을_넘으면_400() throws Exception {
         mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "0", "")))
                 .andExpect(status().isBadRequest());
-        mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.2501", "")))
+        mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.125", "")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "200.01", "")))
                 .andExpect(status().isBadRequest());
         verify(petService, never()).createPet(anyLong(), any());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 체중이_200이면_등록된다() throws Exception {
+        mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "200", "")))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 등록의_목표_최소_최대_체중도_소수_둘째_자리_200_이하만_받는다() throws Exception {
+        for (String field : new String[] { "goalBdwg", "minBdwg", "maxBdwg" }) {
+            for (String bad : new String[] { "4.125", "200.01" }) {
+                String body = createBody("뭉치", "4.25", "").replaceFirst("\\}\\s*$",",\"" + field + "\":" + bad + "}");
+                mockMvc.perform(json(post("/api/pets"), body)).andExpect(status().isBadRequest());
+            }
+        }
+        verify(petService, never()).createPet(anyLong(), any());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 수정의_체중_목표_최소_최대도_소수_둘째_자리_200_이하만_받는다() throws Exception {
+        for (String field : new String[] { "petBdwg", "goalBdwg", "minBdwg", "maxBdwg" }) {
+            for (String bad : new String[] { "4.125", "200.5" }) {
+                mockMvc.perform(json(patch("/api/pets/10"), "{\"" + field + "\":" + bad + "}"))
+                        .andExpect(status().isBadRequest());
+            }
+        }
+        verify(petService, never()).updatePet(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -154,6 +235,66 @@ class PetControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(json(patch("/api/pets/10"), "{\"chipNo\":\"41000A\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 칩_번호는_숫자_12자리_또는_15자리만_받는다() throws Exception {
+        when(petService.createPet(eq(1L), any())).thenReturn(null);
+        when(petService.updatePet(eq(1L), eq(10L), any())).thenReturn(null);
+
+        for (String chipNo : new String[] {"410000000012", "410000000000015"}) {
+            mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.25", chipNo)))
+                    .andExpect(status().isCreated());
+            mockMvc.perform(json(patch("/api/pets/10"), "{\"chipNo\":\"" + chipNo + "\"}"))
+                    .andExpect(status().isOk());
+        }
+        for (String chipNo : new String[] {"41000000001", "4100000000013", "41000000000014", "4100000000000016"}) {
+            mockMvc.perform(json(post("/api/pets"), createBody("뭉치", "4.25", chipNo)))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(json(patch("/api/pets/10"), "{\"chipNo\":\"" + chipNo + "\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 체중_범위_직접_입력_여부는_Y_N만_받는다() throws Exception {
+        mockMvc.perform(json(post("/api/pets"), """
+                {"petNm":"뭉치","petSeCd":"PETC0001","vrtySn":15,"petBrdt":"2023-05-01","petGndrCd":"PETC0003",
+                 "nutrYn":true,"petBdwg":4.25,"minBdwg":3,"maxBdwg":5,"bdwgRngDrctInptYn":"X","colrCd":"PETC0006"}
+                """)).andExpect(status().isBadRequest());
+        mockMvc.perform(json(patch("/api/pets/10"), "{\"bdwgRngDrctInptYn\":\"y\"}"))
+                .andExpect(status().isBadRequest());
+        verify(petService, never()).createPet(anyLong(), any());
+        verify(petService, never()).updatePet(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 자동_계산이면_범위_없이_등록하고_수정에서도_N을_받는다() throws Exception {
+        when(petService.createPet(eq(1L), any())).thenReturn(null);
+        when(petService.updatePet(eq(1L), eq(10L), any())).thenReturn(null);
+
+        mockMvc.perform(json(post("/api/pets"), """
+                {"petNm":"뭉치","petSeCd":"PETC0001","vrtySn":15,"petBrdt":"2023-05-01","petGndrCd":"PETC0003",
+                 "nutrYn":true,"petBdwg":4.25,"bdwgRngDrctInptYn":"N","colrCd":"PETC0006"}
+                """)).andExpect(status().isCreated());
+        mockMvc.perform(json(patch("/api/pets/10"), "{\"bdwgRngDrctInptYn\":\"N\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 상세는_체중_범위_직접_입력_여부를_돌려준다() throws Exception {
+        PetResponse res = new PetResponse(10L, "뭉치", "PETC0001", 15L, "푸들", null, "PETC0003",
+                LocalDate.of(2023, 5, 1), new BigDecimal("4.250"), "PETC0006", null, null, null, null, null,
+                "PETC0018", true, true, null, new BigDecimal("3.83"), new BigDecimal("4.68"), "N", List.of());
+        when(petService.getPet(1L, 10L)).thenReturn(res);
+
+        mockMvc.perform(get("/api/pets/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bdwgRngDrctInptYn").value("N"));
     }
 
     @Test
@@ -173,6 +314,79 @@ class PetControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.httpCode").value(200));
         verify(petService).designateRepresentative(1L, 10L);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 양육자_목록은_역할과_연동일을_돌려준다() throws Exception {
+        CaregiverSummary primary = new CaregiverSummary();
+        primary.setBrupRelSn(5L);
+        primary.setMbrSn(9L);
+        primary.setMbrNcnm("김주인");
+        primary.setBrupRoleCd("PETC0018");
+        primary.setLinkYmd(LocalDate.of(2026, 6, 1));
+        CaregiverSummary me = new CaregiverSummary();
+        me.setBrupRelSn(6L);
+        me.setMbrSn(1L);
+        me.setMbrNcnm("이서연");
+        me.setBrupRoleCd("PETC0019");
+        me.setLinkYmd(LocalDate.of(2026, 7, 2));
+        when(petService.searchCaregivers(1L, 10L)).thenReturn(List.of(primary, me));
+
+        mockMvc.perform(get("/api/pets/10/caregivers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].brupRoleCd").value("PETC0018"))
+                .andExpect(jsonPath("$.data[0].mbrNcnm").value("김주인"))
+                .andExpect(jsonPath("$.data[1].brupRelSn").value(6))
+                .andExpect(jsonPath("$.data[1].linkYmd").value("2026-07-02"));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 양육관계가_없는_반려동물의_양육자_목록은_403() throws Exception {
+        when(petService.searchCaregivers(1L, 10L)).thenThrow(new CustomException(ErrorCode.PET_ACCESS_DENIED));
+
+        mockMvc.perform(get("/api/pets/10/caregivers"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.httpCode").value(403));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 연동_해제는_200() throws Exception {
+        mockMvc.perform(delete("/api/pets/10/caregivers/6").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.httpCode").value(200));
+        verify(petService).unlinkCaregiver(1L, 10L, 6L);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 없는_연동의_해제는_404() throws Exception {
+        doThrow(new CustomException(ErrorCode.CAREGIVER_NOT_FOUND)).when(petService).unlinkCaregiver(1L, 10L, 6L);
+
+        mockMvc.perform(delete("/api/pets/10/caregivers/6").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.httpCode").value(404));
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 삭제는_200() throws Exception {
+        mockMvc.perform(delete("/api/pets/10").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.httpCode").value(200));
+        verify(petService).deletePet(1L, 10L);
+    }
+
+    @Test
+    @WithMockLoginMember
+    void 공동양육자의_삭제는_403() throws Exception {
+        doThrow(new CustomException(ErrorCode.PET_PRIMARY_ONLY)).when(petService).deletePet(1L, 10L);
+
+        mockMvc.perform(delete("/api/pets/10").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.httpCode").value(403));
     }
 
     private MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder builder, String body) {

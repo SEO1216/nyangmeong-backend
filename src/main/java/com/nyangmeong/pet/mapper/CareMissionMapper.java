@@ -25,7 +25,22 @@ public interface CareMissionMapper {
     List<CareMsn> selectMissions();
 
     /**
-     * 미션명으로 사용 중 케어미션 조회
+     * 관리자 케어미션 목록 (풀이 null이면 전체)
+     */
+    List<CareMsn> selectAdminMissions(@Param("msnPoolCd") String msnPoolCd);
+
+    /**
+     * 번호로 케어미션 조회 (없으면 null)
+     */
+    CareMsn selectMission(@Param("careMsnSn") Long careMsnSn);
+
+    /**
+     * 케어미션 수정 (null 칸은 그대로)
+     */
+    int updateMission(CareMsn careMsn);
+
+    /**
+     * 미션명으로 케어미션 조회 (사용 중지 포함)
      */
     CareMsn selectMissionByName(@Param("msnNm") String msnNm);
 
@@ -35,9 +50,19 @@ public interface CareMissionMapper {
     List<MissionTargetSummary> selectIssueTargets(@Param("primaryRoleCd") String primaryRoleCd);
 
     /**
+     * 반려동물 1마리의 미션 출제 대상 조회 (주양육 관계가 없으면 null)
+     */
+    MissionTargetSummary selectIssueTarget(@Param("petSn") Long petSn, @Param("primaryRoleCd") String primaryRoleCd);
+
+    /**
      * 그날 미션이 출제된 반려동물 조회
      */
     List<Long> selectIssuedPetSns(@Param("msnCrtrYmd") LocalDate msnCrtrYmd);
+
+    /**
+     * 반려동물의 그날 출제된 미션 수 조회
+     */
+    int countDayMissions(@Param("petSn") Long petSn, @Param("msnCrtrYmd") LocalDate msnCrtrYmd);
 
     /**
      * 일별미션 등록
@@ -71,6 +96,11 @@ public interface CareMissionMapper {
      * 정산 전 일별미션 조회
      */
     List<DayMsn> selectUnsettledDayMissions(@Param("msnCrtrYmd") LocalDate msnCrtrYmd);
+
+    /**
+     * 반려동물 삭제 시 일별미션 삭제 처리 (없으면 0)
+     */
+    int updateDayMissionDeleteByPetSn(Long petSn);
 
     /**
      * 일별미션 정산 확정

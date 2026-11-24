@@ -7,6 +7,9 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import com.nyangmeong.pet.domain.PointLedger;
+import com.nyangmeong.pet.dto.AdminPointLedgerRow;
+import com.nyangmeong.pet.dto.AdminPointLedgerSummary;
+import com.nyangmeong.pet.dto.AdminPointSearchCond;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointMonthSummary;
 
@@ -34,15 +37,45 @@ public interface PointMapper {
     boolean existsLedger(@Param("idmptDmndId") String idmptDmndId);
 
     /**
+     * 멱등 요청 ID 원장 조회 (없으면 null)
+     */
+    PointLedger selectLedgerByIdmptDmndId(@Param("idmptDmndId") String idmptDmndId);
+
+    /**
      * 포인트 원장 등록
      */
     int insertLedger(PointLedger ledger);
+
+    /**
+     * 회원 포인트 원장 전체 조회 (최신순)
+     */
+    List<AdminPointLedgerSummary> selectAdminLedgerList(@Param("mbrSn") Long mbrSn);
+
+    /**
+     * 관리자 포인트 원장 검색 (최신순, SCR-ADM-072)
+     */
+    List<AdminPointLedgerRow> selectAdminAllLedgerList(AdminPointSearchCond cond);
+
+    /**
+     * 관리자 포인트 원장 한 줄
+     */
+    AdminPointLedgerRow selectAdminLedgerRow(@Param("pntGnlgrSn") Long pntGnlgrSn);
+
+    /**
+     * 회원 상태 조회 (없으면 null)
+     */
+    String selectMemberSttsCd(@Param("mbrSn") Long mbrSn);
 
     /**
      * 기간 포인트 내역 조회
      */
     List<PointLedgerSummary> selectLedgerList(@Param("mbrSn") Long mbrSn, @Param("fromDt") LocalDateTime fromDt,
             @Param("toDt") LocalDateTime toDt);
+
+    /**
+     * 포인트 내역이 있는 연월 조회(yyyy-MM, 최신순, toDt 이전만)
+     */
+    List<String> selectLedgerMonths(@Param("mbrSn") Long mbrSn, @Param("toDt") LocalDateTime toDt);
 
     /**
      * 기간 적립·사용 합계 조회

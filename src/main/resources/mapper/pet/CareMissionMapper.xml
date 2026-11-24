@@ -25,8 +25,52 @@
          ORDER BY CARE_MSN_SN
     </select>
 
+    <select id="selectAdminMissions" resultMap="careMsnResultMap">
+        /* 관리자 케어미션 목록(사용 중지 포함, 번호순) */
+        SELECT CARE_MSN_SN
+             , MSN_POOL_CD
+             , MSN_NM
+             , CMPN_PNT
+             , ACHV_CRTR_NMTM
+             , MVMN_PATH
+             , USE_YN
+          FROM CARE_MSN
+        <where>
+            <if test="msnPoolCd != null">
+               MSN_POOL_CD = #{msnPoolCd}
+            </if>
+        </where>
+         ORDER BY CARE_MSN_SN
+    </select>
+
+    <select id="selectMission" resultMap="careMsnResultMap">
+        /* 번호로 케어미션 조회(사용 중지 포함) */
+        SELECT CARE_MSN_SN
+             , MSN_POOL_CD
+             , MSN_NM
+             , CMPN_PNT
+             , ACHV_CRTR_NMTM
+             , MVMN_PATH
+             , USE_YN
+          FROM CARE_MSN
+         WHERE CARE_MSN_SN = #{careMsnSn}
+    </select>
+
+    <update id="updateMission" parameterType="com.nyangmeong.pet.domain.CareMsn">
+        /* 케어미션 보상·달성 기준·사용 여부 수정(보낸 칸만) */
+        UPDATE CARE_MSN
+        <set>
+            <if test="cmpnPnt != null">CMPN_PNT = #{cmpnPnt},</if>
+            <if test="achvCrtrNmtm != null">ACHV_CRTR_NMTM = #{achvCrtrNmtm},</if>
+            <if test="useYn != null">USE_YN = #{useYn},</if>
+            MDFR_ID = #{mdfrId},
+            MDFCN_DT = NOW()
+        </set>
+         WHERE CARE_MSN_SN = #{careMsnSn}
+    </update>
+
     <select id="selectMissionByName" resultMap="careMsnResultMap">
-        /* 미션명으로 사용 중 케어미션 조회 */
+        /* 미션명으로 케어미션 조회(진행 반영용, 사용 중지 미션도 오늘 출제분은 진행) */
         SELECT CARE_MSN_SN
              , MSN_POOL_CD
              , MSN_NM
@@ -36,7 +80,6 @@
              , USE_YN
           FROM CARE_MSN
          WHERE MSN_NM = #{msnNm}
-           AND USE_YN = 'Y'
     </select>
 
     <resultMap id="missionTargetSummaryResultMap" type="com.nyangmeong.pet.dto.MissionTargetSummary">
@@ -61,11 +104,36 @@
          ORDER BY R.PET_SN
     </select>
 
+    <select id="selectIssueTarget" resultMap="missionTargetSummaryResultMap">
+        /* 반려동물 1마리의 미션 출제 대상 조회(주양육 관계) */
+        SELECT R.PET_SN
+             , R.MBR_SN
+             , P.PET_SE_CD
+             , CASE WHEN R.RPRS_PET_YN = 'Y' THEN TRUE ELSE FALSE END AS RPRS_PET_YN
+          FROM BRUP_REL R
+          JOIN PET P
+            ON P.PET_SN = R.PET_SN
+           AND P.DEL_YN = 'N'
+         WHERE R.PET_SN = #{petSn}
+           AND R.BRUP_ROLE_CD = #{primaryRoleCd}
+           AND R.USE_YN = 'Y'
+    </select>
+
+    <select id="countDayMissions" resultType="int">
+        /* 반려동물의 그날 출제된 미션 수 조회 */
+        SELECT COUNT(*)
+          FROM DAY_MSN
+         WHERE PET_SN = #{petSn}
+           AND MSN_CRTR_YMD = #{msnCrtrYmd}
+           AND DEL_YN = 'N'
+    </select>
+
     <select id="selectIssuedPetSns" resultType="java.lang.Long">
         /* 그날 미션이 출제된 반려동물 조회 */
         SELECT DISTINCT PET_SN
           FROM DAY_MSN
          WHERE MSN_CRTR_YMD = #{msnCrtrYmd}
+           AND DEL_YN = 'N'
     </select>
 
     <insert id="insertDayMission" parameterType="com.nyangmeong.pet.domain.DayMsn"
@@ -77,6 +145,7 @@
              , MBR_SN
              , MSN_CRTR_YMD
              , SCOR_PNT
+             , ACHV_CRTR_NMTM
              , REG_DT
              , MDFCN_DT
              )
@@ -86,6 +155,7 @@
              , #{mbrSn}
              , #{msnCrtrYmd}
              , #{scorPnt}
+             , #{achvCrtrNmtm}
              , NOW()
              , NOW()
              )
@@ -101,6 +171,7 @@
         <result column="PRGRS_NMTM"     property="prgrsNmtm" />
         <result column="GIVE_PNT"       property="givePnt" />
         <result column="SCOR_PNT"       property="scorPnt" />
+        <result column="ACHV_CRTR_NMTM" property="achvCrtrNmtm" />
         <result column="CMPTN_DT"       property="cmptnDt" />
         <result column="CMPTN_YN"       property="cmptnYn" />
         <result column="CLCLN_CFMTN_YN" property="clclnCfmtnYn" />
@@ -116,6 +187,7 @@
              , D.PRGRS_NMTM
              , D.GIVE_PNT
              , D.SCOR_PNT
+             , D.ACHV_CRTR_NMTM
              , D.CMPTN_DT
              , D.CMPTN_YN
              , D.CLCLN_CFMTN_YN
@@ -131,6 +203,7 @@
          WHERE D.PET_SN = #{petSn}
            AND D.MSN_CRTR_YMD = #{msnCrtrYmd}
            AND D.CARE_MSN_SN = #{careMsnSn}
+           AND D.DEL_YN = 'N'
            FOR UPDATE
     </select>
 
@@ -144,6 +217,7 @@
          WHERE D.MBR_SN = #{mbrSn}
            AND D.MSN_CRTR_YMD = #{msnCrtrYmd}
            AND D.CARE_MSN_SN = #{careMsnSn}
+           AND D.DEL_YN = 'N'
          ORDER BY D.DAY_MSN_SN
          LIMIT 1
            FOR UPDATE
@@ -180,8 +254,18 @@
            AND P.DEL_YN = 'N'
          WHERE D.MSN_CRTR_YMD = #{msnCrtrYmd}
            AND D.CLCLN_CFMTN_YN = 'N'
+           AND D.DEL_YN = 'N'
          ORDER BY D.DAY_MSN_SN
     </select>
+
+    <update id="updateDayMissionDeleteByPetSn">
+        /* 반려동물 삭제 시 일별미션 삭제 처리 */
+        UPDATE DAY_MSN
+           SET DEL_YN = 'Y'
+             , MDFCN_DT = NOW()
+         WHERE PET_SN = #{petSn}
+           AND DEL_YN = 'N'
+    </update>
 
     <update id="updateDayMissionSettled">
         /* 일별미션 정산 확정 */
@@ -211,7 +295,7 @@
              , M.MSN_NM
              , D.SCOR_PNT
              , D.PRGRS_NMTM
-             , M.ACHV_CRTR_NMTM
+             , D.ACHV_CRTR_NMTM
              , CASE WHEN D.CMPTN_YN = 'Y' OR D.CLCLN_CFMTN_YN = 'Y' THEN D.GIVE_PNT END AS GIVE_PNT
              , CASE WHEN D.CMPTN_YN = 'Y' THEN TRUE ELSE FALSE END AS CMPTN_YN
           FROM DAY_MSN D
@@ -222,6 +306,7 @@
            AND P.DEL_YN = 'N'
          WHERE D.PET_SN = #{petSn}
            AND D.MSN_CRTR_YMD = #{msnCrtrYmd}
+           AND D.DEL_YN = 'N'
          ORDER BY D.DAY_MSN_SN
     </select>
 
@@ -242,6 +327,7 @@
            AND P.DEL_YN = 'N'
          WHERE D.MBR_SN = #{mbrSn}
            AND D.MSN_CRTR_YMD = #{msnCrtrYmd}
+           AND D.DEL_YN = 'N'
     </select>
 
     <select id="selectPetNm" resultType="java.lang.String">

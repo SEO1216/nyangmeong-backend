@@ -2,55 +2,36 @@
 
 ## 지금 하는 것
 
-SCR-CMU-001 펫이야기 — 끝남 (승인 2026-10-26 17:06, 시작 2026-10-26 16:22, 검증 1회차 통과, 사람 확인 2026-10-27)
+SCR-CMU-002 실종센터 · 찾았어요 자동 댓글 설정 문구 — 끝남 (2026-11-20). 자동 댓글이 운영 설정 문구를 쓰고 [펫이름]·조사를 받침에 맞춤, 상세 응답에 `dscvAutoCmntCn`
 
-기준: 커뮤니티_기능명세서_v0.7_20261019, 커뮤니티_화면설계서_v0.7_20261019, docs/api/community.md, PST·PST_STTS_HSTRY·PST_IMG·PST_RCMDTN·CMNT·DCLR·DCLR_STTS_HSTRY·CMNTY_AI_CMTRY(db/20261012_create_tables_v0.9.sql), 공통코드 CMUG01·02·04·05
+## 지난 작업
 
-만들 파일(`community` 도메인, 3층. 첫 파일이라 패키지를 만든다):
-- controller `PostController`(`/api/posts`), `CommentController`(`/api/posts/{pstSn}/comments`), `ReportController`(`/api/reports`), `CommunityAiCommentaryController`(`/api/community-ai-commentaries`)
-- service `PostService`, `CommentService`, `ReportService`, `CommunityAiCommentaryService`
-- dto `PostCreateRequest`·`PostUpdateRequest`·`PostResponse`·`PostSummary`·`PostSearchCond`·`PostLikeResponse`·`CommentCreateRequest`·`CommentResponse`·`CommentSummary`·`ReportCreateRequest`·`ReportResponse`·`CommunityAiCommentaryResponse`·`ImageItem`
-- mapper `PostMapper`·`CommentMapper`·`ReportMapper`·`CommunityAiCommentaryMapper` + `mapper/community/*.xml`. 작성자 닉네임은 XML에서 MBR을 JOIN해 읽는다(읽기 전용, `NotificationMapper.xml`과 같은 방식)
-- domain `Post`·`PostImage`·`PostLike`·`Comment`·`Report`·`CommunityAiCommentary`, enum `BoardType`(CMUC0001 펫정보, CMUC0002 펫일상)·`PostStatus`(CMUC0003 정상, CMUC0004 블라인드, CMUC0005 삭제)·`ReportReason`(CMUC0009~0014)·`ReportStatus`(CMUC0015 접수)
-- `db/migration/20261026_01_create_pst_inq_hstry.sql`: 조회수 1일 1회용 `PST_INQ_HSTRY`(PST_SN, MBR_SN, INQ_YMD, REG_DT, UK(PST_SN, MBR_SN, INQ_YMD)). 기준 SQL `db/20261012_create_tables_v0.9.sql`에도 같은 표를 넣는다(`docs/convention/shared-files.md` 절차)
-- 테스트 `PostServiceTest`·`CommentServiceTest`·`ReportServiceTest`·`CommunityAiCommentaryServiceTest`·`PostControllerTest`
-
-구현 전에 고칠 초안(docs/api/community.md, 같은 PR):
-- `PostCreateRequest`·`PostUpdateRequest`: 제목 200자 → **50자**, 내용 4,000자 → **2,000자**(명세 v0.7 FN-CMU-001-14·화면설계서 글쓰기·글수정). `atchFileSns` → **multipart `images`**(List<MultipartFile>, jpg·jpeg·png·webp, 장당 10MB, 최대 10장). 수정은 남길 사진 `keepAtchFileSns` + 새 `images`. 이유는 SCR-CSC-003과 같다(먼저 올려 번호를 받는 공용 업로드 API가 없다). 실종센터 `pstTtl`·`pstCn`의 "(펫이야기와 동일)" 설명도 50·2,000으로 맞춘다
-- `CommentCreateRequest`: 1,000자 → **500자**(FN-CMU-001-11). `prntCmntSn`이 대댓글이면 400 대신 **그 대댓글의 최상위 댓글에 붙인다**(화면설계서 상세 "답글에 대한 답글은 원 댓글 스레드에 이어서 노출")
-- `ReportCreateRequest`: `dclrRsnCd`가 CMUC0014(기타)면 `dclrDtlCn` 필수(화면설계서 댓글신고모달 3번)
-- `PostSummary`: 목록 화면에 나오는 `mbrNcnm`·`regDt`·`thumbImg`(ImageItem, 없으면 null)를 더한다
-
-기능별:
-- FN-CMU-001-01 목록: `GET /posts` → `Page<PostSummary>`, PST_STTS_CD=정상, BBS_CD는 CMUG01 두 값, 기본 최신순 10건. 완료 조건 명령: 블라인드·삭제 글이 빠지고 최신순 10건
-- FN-CMU-001-02 게시판 필터: `?bbsCd=`(없으면 전체, CMUG01 밖이면 400). 완료 조건 명령: 펫일상 필터 테스트
-- FN-CMU-001-03 정렬: `?sort=latest|popular`. 인기순은 기간 제한 없이 RCMDTN_CNT 내림차순, 같으면 최신순. 인기순이면 `popular`는 모두 false. 완료 조건 명령: 인기순 정렬·배지 false 테스트
-- FN-CMU-001-04 인기글 배지: 최근 7일 정상 글 중 좋아요 상위 5개(같으면 최신순)에 `popular=true`. 목록 순서는 바꾸지 않는다. 완료 조건 명령: 8일 전 글은 좋아요가 많아도 배지가 없다
-- FN-CMU-001-05 오늘의 이야기: `GET /community-ai-commentaries?cmtryCrtrYmd=`(없으면 오늘) → CMNTY_AI_CMTRY에서 그 날짜·USE_YN='Y' 행. 없으면 `cmntyAiCmtrySn=null`, `cmtryCn=SystemSettingService.get()`의 AI_CMTRY_BSC_CN. 매일 자정에 문구를 넣는 배치는 이 마일스톤에 없다. 완료 조건 명령: 행 있음·없음 두 경우 테스트
-- FN-CMU-001-06 인기 포토: `GET /posts/popular-photo` → 사진이 있는 펫일상 정상 글 중 최근 7일 → 30일 → 전체 순서로 좋아요 1위 `PostResponse`. 하나도 없으면 `data: null`(화면이 위젯을 숨긴다). 완료 조건 명령: 7일 안에 없으면 30일 글이 나온다, 사진 없는 글은 빠진다
-- FN-CMU-001-07 오늘의 건강팁: `GET /posts/health-tips` → 펫정보 정상 글 중 HLTH_INFO_EXPSR_SEQ가 있는 글을 그 순서로 3건. 관리자 선정 기능은 이 마일스톤에 없다(SQL로 값을 넣어 확인). 완료 조건 명령: 순서대로 최대 3건
-- FN-CMU-001-08 키워드 검색: `?keyword=`, 제목·내용 LIKE. 제목에 있는 글을 먼저, 그 안에서는 선택한 정렬. 0건이면 빈 Page(안내 문구는 화면). 완료 조건 명령: 제목 일치 글이 내용 일치 글보다 앞에 온다
-- FN-CMU-001-09·CMU-002-08·CMU-004-12 좋아요: `POST /posts/{pstSn}/likes` → `PostLikeResponse`, `DELETE /posts/{pstSn}/likes` → 200. `INSERT … ON DUPLICATE KEY UPDATE USE_YN='Y'`의 영향 행 수로 실제로 바뀐 경우에만 RCMDTN_CNT를 ±1 한다. 정상 글이 아니면 `POST_NOT_FOUND`. 완료 조건 명령: 두 번 눌러도 수가 1, 누르지 않은 상태에서 취소해도 200이고 수가 그대로
-- FN-CMU-001-10 상세: `GET /posts/{pstSn}` → `PostResponse`(imgs는 DEL_YN='N' SORT_SEQ 순, `liked`·`owner`, `cmntCnt`는 삭제 댓글 제외). 정상 글이 아니면 `POST_NOT_FOUND`. 조회수는 `PST_INQ_HSTRY`에 `INSERT IGNORE`가 들어간 경우에만 INQ_CNT+1(같은 회원 하루 1회). 하단 최신 5건은 화면이 `GET /posts?bbsCd=&size=5`로 부른다. 완료 조건 명령: 같은 회원이 두 번 열면 1, 다른 회원이 열면 2
-- FN-CMU-001-11·CMU-002-07 댓글: `GET /posts/{pstSn}/comments` → `List<CommentSummary>`(최상위 REG_DT 순, 각 아래 답글 REG_DT 순. 삭제 댓글은 `delYn=true`에 내용·작성자 null, 답글은 유지). `POST` → 201 `CommentResponse`(500자, 공백만이면 400, 부모가 다른 글이면 `COMMENT_NOT_FOUND`). `DELETE /posts/{pstSn}/comments/{cmntSn}` → DEL_YN='Y', 작성자가 아니면 403 `FORBIDDEN`. 완료 조건 명령: 대댓글에 답글을 달면 최상위 댓글에 붙는다, 삭제 댓글 대체·답글 유지, cmntCnt에서 빠진다
-- FN-CMU-001-13·CMU-002-12·CMU-004-12 신고: `POST /reports` → 201 `ReportResponse`(접수 CMUC0015, DCLR_STTS_HSTRY에 null → 접수). `pstSn`·`cmntSn` 둘 다 있거나 둘 다 없으면 400. 같은 대상 중복이면 `REPORT_ALREADY_EXISTS`(UK_DCLR_1·2 위반도 같은 오류로 바꾼다). 대상의 신고가 5건이 되면 같은 트랜잭션에서 글은 **블라인드(CMUC0004)** 로 바꾸고 PST_STTS_HSTRY를 남기며, 댓글은 DEL_YN='Y'로 바꾼다. 명세는 "삭제 처리"지만 공통코드 CMUC0004 설명이 "신고 누적 5회 자동 처리·관리자 해제 가능"이라 글은 블라인드로 한다. 완료 조건 명령: 5번째 신고 뒤 글이 목록·상세에서 빠진다, 같은 회원 두 번째 신고 409, 기타에 상세 없으면 400
-- FN-CMU-001-14 작성: `POST /posts`(multipart) → 201 `PostResponse`. 상태 정상, PST_STTS_HSTRY(null → 정상). 사진은 `FileStore.store()`로 저장하고 PST_IMG에 SORT_SEQ 0부터(첫 장이 대표 사진). 11장이면 `POST_IMAGE_LIMIT_EXCEEDED`. 완료 조건 명령: 작성 후 목록 첫 행·상세에 나온다, 11장 400
-- FN-CMU-001-15 수정·삭제: `PATCH /posts/{pstSn}`(multipart, 게시판 변경 가능, `keepAtchFileSns`에서 빠진 사진은 DEL_YN='Y', 합계 10장 넘으면 400). `DELETE /posts/{pstSn}` → 상태 삭제(CMUC0005) + 이력. 작성자가 아니면 403 `FORBIDDEN`(화면이 안내 후 상세로 보낸다). 완료 조건 명령: 남의 글 수정·삭제 403, 사진 하나 빼고 하나 더한 뒤 상세에 반영, 삭제 뒤 상세 404
-
-전체 완료 조건 명령: `./gradlew build -q` 통과(ArchitectureTest 포함: community는 global만 쓴다)
-화면(Postman, dev-token 1번·2번 회원): 1번 작성(사진 2장) → 목록·상세 → 2번 좋아요 두 번(수 1) → 2번 댓글, 1번 답글 → 1번 댓글 삭제(대체 문구, 답글 유지) → 2번 수정 시도 403 → 회원 5명 신고 후 목록에서 빠짐
-
-이번에 하지 않는 것(다음에 할 것에 남긴다):
-- 케어미션·포인트 반영(SJM 대기). 작성·댓글·좋아요 뒤 `pet` service를 부르는 자리만 남기지 않고, 메서드가 생기면 붙인다
-- 비로그인 열람. 지금 `SecurityPathProperties`는 경로만 보고 메서드를 구분하지 않아 `GET /api/posts/**`만 열 수 없다. 이번에는 모두 로그인 필요로 둔다
-- 오늘의 이야기 자정 배치, 건강팁 관리자 선정, FN-CMU-001-12 공유하기(화면만)
-
-새 의존성: 없음
+SCR-CMU-002 찾았어요 자동 댓글 설정 문구(2026-11-20), SCR-CMU-005 거래 취소 요청 후속(2026-11-20), SCR-CMU-005 거래 취소 요청 무응답 자동 동의(2026-11-20, PR #278), SCR-CMU-001 욕설 필터링 서버 검사(2026-11-19), SCR-CMU-001 답글 대상 닉네임(2026-11-18), SCR-CMU-005 거래 취소 요청과 나가기 차단(2026-11-18), SCR-CMU-005 상대 나감 안내와 채팅 인원수(2026-11-16, PR #255), SCR-CMU-005 종료 방 메시지 차단(2026-11-16, PR #252), SCR-CMU-004 거래완료 글 공개 목록 숨김(2026-11-16, PR #249), SCR-CMU-004 지난 글 자동 마감(2026-11-16), SCR-CMU-004 일정 기한 검증(2026-11-16, PR #244), SCR-CMU-005 알림 이동 경로(PR #240, 2026-11-13), SCR-CMU-004 목록 기본 정렬(2026-11-13), SCR-CMU-002 운영 지역 변환 설정(PR #226, 2026-11-11), SCR-CMU-001 내 글만 보기(PR #211, 2026-11-10), SCR-CMU-001 케어미션 반영(PR #209, 2026-11-10), SCR-CMU-003 검색어 설정 인코딩(PR #204, 2026-11-09), SCR-CMU-002 만료 알림 경로(PR #203, 2026-11-09, 공용 DB SYSC0032 입력·확인용 알림 정리 끝, 외부 뉴스 비우고 재수집 끝), SCR-CMU-003 검색어 반려 3종(PR #201, 2026-11-09), SCR-CMU-004 작성자 조회수 제외(커밋 0328347, 2026-11-09), SCR-CMU-002 작성자 조회수 제외(커밋 f0cafb8, 2026-11-09), SCR-CMU-002 품종 선택 항목·만료 7일·1일 전 알림(PR #190, 2026-11-06), SCR-CMU-005 14일 무응답 자동 종료(PR #186, 2026-11-06), SCR-CMU-001·002·004·005 탈퇴 회원 표시(PR #164·#166·#170·#172)·SCR-ADM-022 완료 사진 열람(2026-11-05), SCR-CMU-004 펫돌봄 대기 4건(2026-11-04), SCR-CMU-002 전북 밖 좌표 거절(PR #154)·시드 게시판 코드(PR #147), SCR-CMU-005 펫돌봄 채팅(PR #139) — 모두 끝남
 
 ## 다음에 할 것
-- 연결 남음: FN-CMU-001-14·09·11 작성·좋아요·댓글 뒤 케어미션·포인트 반영 (`pet` service에 메서드가 생기면 붙인다, SJM)
-- 연결 남음: FN-CMU-001-01~11 비로그인 열람 (`SecurityPathProperties`가 메서드를 구분하지 않아 `GET /api/posts/**`만 열 수 없음, 담당 미정)
-- 연결 남음: FN-CMU-001-05 오늘의 이야기 자정 배치, FN-CMU-001-07 건강팁 관리자 선정 (관리자·배치 마일스톤, 담당 미정). FN-CMU-001-12 공유하기는 화면만
-- 공용 DB 확인용 데이터 정리: 펫이야기 확인으로 만든 글·사진·댓글·좋아요·신고·조회 이력, SQL로 바꾼 `REG_DT`·`HLTH_INFO_EXPSR_SEQ`를 확인 쿼리로 대상 확인 뒤 되돌리거나 지운다(자식 행부터)
-- 연결 남음: FN-CSC-003-14 관리자 답변 등록 API가 `InquiryService.answer()`를 부르도록 연결 (관리자 화면, 담당 미정)
-- 공용 DB에 검증하며 만든 확인용 문의 OTO_INQRY_SN=201(첨부 3건, 상태 이력 1건)을 확인 쿼리로 대상 확인 뒤 지운다(자식 행부터)
+- 연결 남음: SCR-CMU-002 찾았어요 자동 댓글 문구 (프론트 연결 `missingCodes.js` `foundCommentText` 하드코딩 삭제, `MissingOwnerModals.jsx` 미리보기를 상세 응답 `dscvAutoCmntCn`으로, 프론트 저장소에서 /start)
+- 연결 남음: SCR-CMU-005 거래 취소 재요청 제한 (프론트 연결 채팅방 거래 취소 요청 버튼: 409 `CARE_DEAL_CANCEL_REJECTED` 안내, `cnclDmnd.mineYn` 참이고 `dmndSttsCd` PCAC0023이면 버튼 숨김, 프론트 저장소 「거래 취소 요청과 나가기 차단」과 함께 /start)
+- 보류: 관리자 금칙어 관리 API·화면은 지금 만들지 않음(사람 결정 2026-11-20). 금칙어(`KWRD_DICT` AIMC0041)·예외어(AIMC0042)는 SQL로 INSERT·DELETE, 서버가 5분 안에 반영. 닉네임·실종 이름에는 금칙어 검사를 하지 않음(사람 결정 2026-11-20). 팀이 관리자 화면이 필요하다고 정하면 뉴스 키워드 관리(`/api/admin/news`) 방식으로 백엔드 `/start`
+- 사람이 할 일: PR 병합 뒤 팀에 알린다「로컬 DB는 기준 데이터 v0.14 (25)를 실행해야 금칙어 검사가 동작한다(없으면 검사 없이 통과). 단어를 바꾸면 5분 안에 반영」
+- 사람이 할 일: PR #266 병합됨(2026-11-19). 팀에 알린다「댓글 응답에 `rplyTrgtCmntSn`·`rplyTrgtMbrNcnm` 추가, 로컬 DB는 기준 SQL v0.14 (24)를 실행해야 댓글 등록·목록이 500이 나지 않는다(공용 DB는 실행함)」
+- 연결 남음: SCR-CMU-005 거래 취소 요청과 나가기 차단 (프론트 연결 채팅방 메뉴 「거래 취소 요청」·사유 선택 확인 창·요청한 쪽/받은 쪽 카드(`cnclDmnd.mineYn`)·매칭완료~수령 대기 나가기 비활성과 409 `CHAT_LEAVE_IN_DEAL`, 프론트 저장소에서 /start)
+- 사람이 할 일: PR #264 병합됨. 팀에 알린다「기준 SQL v0.14 (21) `MTCH_CNCL_DMND`·기준 데이터 (22) `PCAG07`·`PCAC0021~0024`, 공용 DB 실행함(2026-11-18). 로컬 DB는 두 절을 실행해야 채팅방 조회(`cnclDmnd`)가 500이 나지 않는다」
+- 사람이 할 일(선택): 무응답 자동 동의 확인용 데이터. 공용 DB 취소 요청 4(매칭 97, 방 250)는 2026-11-20 10:59 수동 배치로 자동 동의 확인함(요청 PCAC0022·처리회원 NULL, 매칭 PCAC0017, 방 CHTC0002, 모집 PCAC0001). 시드라 그대로 둬도 됨
+- 사람이 할 일(선택): 확인용 데이터 정리. 공용 DB `DELETE FROM MTCH_CNCL_DMND WHERE PET_PRTC_MTCH_SN = 100;`. 확인 동의로 매칭 100은 PCAC0017, 글 926(모집 26)은 모집중, 방 259는 읽기 전용, 회원 8은 방 259에서 나감(시드 데이터라 그대로 둬도 됨)
+- 사람이 할 일(선택): 확인용 시험 데이터 정리. 공용 DB 방 280(글 901, 회원 1·41, 둘 다 나감)과 그 메시지. 방 277·278과 그 메시지, 취소된 매칭 110(모집글 111·방 상태는 원래대로). 목록에서만 치우려면 1번 회원으로 `POST /api/chat-rooms/278/leave`
+- 사람이 할 일: PR 병합 뒤 팀에 알린다. 「공용 DB `SYS_STNG`에 `DLNG_CMPTN_HIDE_CRTR_DAY_CNT`(기준 SQL 「v0.14 (17)」) 추가함(2026-11-16 실행). 로컬 DB는 같은 ALTER를 실행해야 새 코드가 뜬다(없으면 설정 조회가 실패해 여러 API가 500)」. LJS에게 `global/setting` 응답·요청에 선택 필드가 하나 늘었다고 알린다
+- 사람이 할 일: PR 병합 뒤 공용 DB에 `SYSC0033`(기준 데이터 「v0.14 (18)」, 옛 번호 (16)) INSERT가 들어갔는지 확인하고, 팀에 "매일 00:00 배치가 지난 모집중 펫돌봄 글을 거래완료로 마감한다(첫 실행 때 시드의 지난 글이 정리됨)"고 알린다
+- 사람이 할 일: 기획 담당에게 커뮤니티 기능명세서 FN-CMU-004-01 「기본 최신순」을 「모집 상태(모집중 → 매칭완료 → 거래완료) → 같은 상태는 최신순」으로 고쳐 달라고 알린다. 관리자 펫돌봄 목록은 최신순 그대로
+- 사람이 할 일: 배포 담당에게 운영 서버 비공개 설정·환경변수에 `app.kakao-local.rest-api-key`가 있는지 확인(없으면 배포 뒤 실종·펫돌봄 글 작성이 502). 운영에 `app.region.client`를 따로 정해 두었는지도 확인
+- 사람이 할 일: 장소 검색 `app.kakao-local.client`가 운영에서도 설정이 없어 `fake`라고 YAY·LJS에게 알린다
+- 사람이 할 일: 디스코드의 `application.properties`에서 `app.news.query` 줄을 지우거나 주석으로 바꾸고 팀에 알린다(한글이 깨져 뉴스 수집이 0건이 됨)
+- 사람이 할 일: 공용 DB에 `SYSC0031`(「v0.13 (3)」, PR #186) INSERT가 들어갔는지 확인(`SET NAMES utf8mb4;` 먼저, PR에 완료 댓글). 팀에 "무응답 배치가 첫 실행 때 시드의 오래된 매칭(2026-11-06 확인 15건)을 정리한다"고 알린다
+- 다음 작업: 로그아웃 때 채팅 소켓 끊기는 백엔드 작업 없음(사람 결정 2026-11-11). 로그아웃한 창은 프론트가 이미 끊고(`UserHeader`의 `useChatUnreadCount(Boolean(me))` → `deactivate`), 다른 탭·채팅 창에 로그아웃을 알리는 것은 프론트 저장소에서 /start. 탈퇴 회원 표시는 커뮤니티 끝남(문의·신고는 관리자 전용이라 대상 없음), 남은 후보는 공동 보호자 목록(`PetMapper.selectCaregivers`, pet 담당 확인)·세 회원 DB 테스트(새 의존성, 팀 합의)
+- 사람이 할 일: 프론트에 「작성자를 눌러 이동하는 곳이 있나, 탈퇴 회원을 막아야 하나」를 묻는다(필요하면 후속으로 그 응답에만 탈퇴 여부 필드. 상세·댓글 응답에는 `mbrSn`이 그대로 나간다). LJS에게 `PostMapper.xml`·`CommentMapper.xml` 관리자 쿼리 병합 충돌을 미리 알린다
+- 메모: 시드 사진은 첨부 루트(`app.file.root-dir`, 비우면 `FileRootResolver`의 OS별 기본 경로) 아래 `seed/`에 있어야 보인다. 이 PC는 `uploads/seed`를 복사했고 완료 사진 78장은 있는 펫돌봄 사진을 돌려 채웠다(2026-11-09). 아직 파일 없는 시드 사진 `seed/chat` 159·`seed/inquiry` 102·`seed/news` 14는 채우지 않기로 함(사람 결정 2026-11-09). 팀원에게 `uploads/seed` 압축본과 복사 위치를 공유한다.
+- 사람이 할 일: PR 병합 뒤 팀에 "공용 DB 펫돌봄·실종 시드 글 지역을 전북 읍면동으로 바꿨고, `GET /regions`가 전북만 준다"고 알린다. 로컬 `app.region.client`는 `kakao`로 팀에 공유함(2026-11-11, 키 필요)
+- 사람이 할 일: 공지 정렬 확인으로 `UPEND_FIX_YN='Y'`로 바꾼 공지가 있으면 `UPDATE NTC_MTTR SET UPEND_FIX_YN='N' WHERE NTC_MTTR_SN=<번호>;`로 되돌린다. 공지 작성은 DB가 아닌 관리자 화면이 생기기 전까지 직접 넣는다
+- 정리: 시험용 실종 글 101~104(공용 DB) 중 지우지 않은 것은 `DELETE /api/lost-reports/{lostTpofSn}`로 지운다(글 104 포함)
+- 사람이 할 일: 디스코드에 공유한 `application.properties`와 팀원 각자 설정의 `spring.servlet.multipart.max-request-size`를 100MB로 바꾼다(배포 서버 설정이 있으면 같이)
+- 정리: 검증·확인용으로 만든 문의 223·225·226·227·229·203(203은 삭제 확인 중 DEL_YN='Y'로 이미 지움, 공용 DB, 첨부 파일 4082~4085·4088~4097 포함)와 `uploads/`의 테스트 이미지. 본인 접수 상태 문의는 `DELETE /api/inquiries/{번호}`로 지울 수 있고, 답변된 문의는 직접 정한다
+- 사람이 할 일: 공용 DB 문의 235(2026-11-16 14:44, 회원 1, 픽셀 캐릭터)는 제목·본문이 CP949로 보낸 한글이 깨져 저장된 시험 데이터로 보인다. 같은 시각 LJS SCR-MYP-010 작업과 겹쳐 LJS에게 확인 뒤 `UPDATE OTO_INQRY SET DEL_YN = 'Y' WHERE OTO_INQRY_SN = 235;`(서버 수정 없음, 사람 결정 2026-11-18)

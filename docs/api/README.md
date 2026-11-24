@@ -8,18 +8,19 @@
 
 | 도메인 | 파일 | API | DTO | 담당(API 수) |
 | --- | --- | --- | --- | --- |
-| 공통(global) | [`global.md`](global.md) | 1 | 1 | LJS 1 |
-| 회원(member) | [`member.md`](member.md) | 27 | 28 | YAY 24, SJM 2, LJS 1 |
-| 반려동물(pet) | [`pet.md`](pet.md) | 25 | 19 | SJM 16, LJS 8, KSJ 1 |
-| 건강기록(health) | [`health.md`](health.md) | 50 | 49 | JAJ 50 |
+| 공통(global) | [`global.md`](global.md) | 5 | 4 | LJS 4, KSJ 1 |
+| 회원(member) | [`member.md`](member.md) | 26 | 28 | YAY 22, SJM 2, LJS 2 |
+| 반려동물(pet) | [`pet.md`](pet.md) | 27 | 21 | SJM 16, LJS 10, KSJ 1 |
+| 건강기록(health) | [`health.md`](health.md) | 52 | 52 | JAJ 52 |
 | 장소(place) | [`place.md`](place.md) | 4 | 4 | YAY 4 |
 | 알림(notification) | [`notification.md`](notification.md) | 5 | 4 | LJS 5 |
 | 가계부(expense) | [`expense.md`](expense.md) | 10 | 10 | SJM 10 |
-| 영수증(expense 도메인) | [`receipt.md`](receipt.md) | 6 | 10 | LJS 6 |
+| 영수증(expense 도메인) | [`receipt.md`](receipt.md) | 8 | 14 | LJS 8 |
 | 커뮤니티(community) | [`community.md`](community.md) | 41 | 35 | KSJ 41 |
-| 고객센터(support) | [`support.md`](support.md) | 7 | 7 | KSJ 7 |
+| 고객센터(support) | [`support.md`](support.md) | 13 | 14 | KSJ 7, LJS 6 |
 | AI 대화(ai, 내부 API) | [`ai.md`](ai.md) | 5 | 5 | LJS 5 |
-| 합계 | | 181 | 172 | |
+| 관리자(admin, 여러 도메인 조회) | [`admin.md`](admin.md) | 1 | 3 | LJS 1 |
+| 합계 | | 194 | 188 | |
 
 | 그 밖의 파일 | 내용 |
 | --- | --- |
@@ -34,6 +35,7 @@
 - 요청·응답 DTO는 `record`다(`docs/convention/dto.md`)
 - 필수: 요청은 반드시 보내야 하는 것, 응답은 항상 값이 있는 것(null 아님). 수정(PATCH) 요청은 모두 선택이다
 - `Yn` 필드는 이름을 컬럼 그대로 두고 값은 `true`/`false`다. 응답 DTO는 `boolean`, 요청 DTO는 `Boolean`(PATCH에서 보내지 않음을 `null`로 나타낸다). VO는 `String`이고(`docs/convention/mapper.md`), 바꾸는 코드는 응답은 `XxxResponse.from()`에서 `"Y".equals(...)`, 요청은 service에서 `? "Y" : "N"`로 쓴다(`docs/convention/dto.md`)
+- **금칙어 검사(2026-11-19)**: 댓글(`POST /posts/{pstSn}/comments`), 펫이야기·실종·펫돌봄 글 작성·수정(제목 `pstTtl`·내용 `pstCn`, 실종 특징 `chrcCn`), 1:1 문의 작성·수정(`inqryTtl`·`inqryCn`), 펫돌봄 채팅 텍스트 메시지(`msgCn`)에 금칙어가 있으면 저장하지 않고 400 `PROFANITY_DETECTED`를 준다. 걸린 칸만 `data: [{ field, message }]`로 나가며 걸린 단어는 넣지 않는다. 사진·주소 공유 메시지와 닉네임은 검사하지 않는다. 금칙어는 `KWRD_DICT` 사전용도 `AIMC0041`(예외 `AIMC0042`)이고 서버가 5분마다 다시 읽는다
 - 공통코드는 코드값 `String`이다. 코드 값 표현은 `docs/OPEN_ISSUES.md`에서 아직 정하지 않았다
 - 암호화 컬럼(`_ENC`)은 복호화한 값을 `Enc`를 뗀 이름으로, 마스킹한 값은 `masked` 접두어로 준다. 비밀번호·토큰 해시는 응답에 넣지 않는다
 - "기능 분배 3.1절 N번"은 냥멍케어 기능 분배 문서(2026-10-15 갱신, `milestone.md`의 담당 표가 따르는 문서)의 "두 페이지 이상이 쓰는 기능" 표 번호다

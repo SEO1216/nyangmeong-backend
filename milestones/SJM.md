@@ -1,61 +1,238 @@
 # SJM 마일스톤
 
-기준: 마이페이지_기능명세서_v0.4_20261025 (DMS, 2026-10-26 확인)
+기준: 마이페이지\_기능명세서\_v0.4_20261025 (DMS, 2026-10-26 확인)
 
 ## SCR-MYP-001 마이페이지 홈 (반려동물 목록) — 끝
+
 - 기능: FN-MYP-001-01 내 반려동물 카드 조회(캐릭터 얼굴 이미지는 LJS), FN-MYP-002-02 반려동물 슬라이드(화면은 SCR-MYP-002), FN-MYP-002-03 인식칩 번호 표시(화면은 SCR-MYP-002)
 - 함께 만드는 것: `pet` 도메인의 PET·BRUP_REL 조회 Mapper, 다른 도메인이 부를 내 반려동물 목록 service 메서드
 - 기다리는 것: 없음
 - 완료 조건: `GET /api/pets`가 내가 주양육·공동양육하는 반려동물만 역할·대표 여부·공동양육 인원과 함께 돌려준다. 삭제된 반려동물과 연동 해제된 관계는 빠진다
 
 ## SCR-MYP-003 반려동물 등록/수정 — 끝
+
 - 기능: FN-MYP-003-01 반려동물 등록/수정, FN-MYP-003-02 품종 선택, FN-MYP-003-03 털색 선택, FN-MYP-003-04 목표체중·체중 정상범위, FN-MYP-003-05 인식칩 번호 등록, FN-MYP-003-06 중성화 여부 수정, FN-MYP-003-07 알레르기·기저질환 입력, FN-MYP-002-01 등록 상한 10마리(화면은 SCR-MYP-002), FN-MYP-002-04 수정·프로필 조회(화면은 SCR-MYP-002), FN-MYP-010-05 대표 반려동물 지정(화면은 SCR-MYP-010)
 - API가 남의 것: FN-MYP-003-02 품종 목록 `GET /breeds` (KSJ), FN-MYP-003-03 털색 공통코드 `GET /common-codes` (LJS)
 - 함께 만드는 것: 프로필 체중 동기화 service 메서드(건강 일지 체중 기록이 부름, JAJ), 첫 등록 시 대표 자동 지정
 - 기다리는 것: 품종 마스터 (KSJ)
 - 완료 조건: 11번째 등록은 막힌다. 첫 등록 반려동물이 대표가 되고, 대표 지정 API로 주양육 동물만 대표로 바꿀 수 있다
 
-## SCR-MYP-020 포인트 관리/케어미션 — 진행
+## SCR-MYP-020 포인트 관리/케어미션 — 끝
+
 - 기능: FN-MYP-020-01 보유 포인트, FN-MYP-020-02 적립·사용 내역, FN-MYP-020-03 케어미션 동물 탭, FN-MYP-020-04 케어미션 기록·날짜 이동, FN-MYP-020-05 미션 포인트 지급 규칙, FN-MYP-020-06 공동양육자 수행분 처리, FN-MYP-020-08 검진기록 등록 포인트, FN-MYP-020-09 포인트 요약, FN-MYP-001-03 포인트·지출 한눈에 보기(화면은 SCR-MYP-001, 지출액은 SCR-MYP-030의 통계 API), FN-MYP-001-04 오늘의 케어미션 요약(화면은 SCR-MYP-001)
 - 함께 만드는 것: 포인트 적립·차감 service 메서드(아이템 구매 LJS, 검진 포인트 JAJ), 케어미션 반영 service 메서드(건강기록 JAJ, 커뮤니티 KSJ, 메인 YAY), 자정 정산 배치
 - 기다리는 것: 검진기록 등록·영수증 빠른 등록에서 검진 포인트 호출 (JAJ, FN-MYP-020-08)
 - 완료 조건: 포인트가 부족하면 차감이 `POINT_NOT_ENOUGH`로 막힌다. 같은 반려동물·검진일로 검진 포인트를 두 번 요청하면 한 번만 적립된다
+- 연결 남음: FN-MYP-020-01·09, FN-MYP-001-03·04 (프론트 연결 SCR-MYP-020 포인트 카드·요약, SCR-MYP-001 요약, 프론트 저장소에서 /start) → 프론트 `src/features/point/home/PointSummaryCard.jsx`·`point/summary/PointSummary.jsx`에서 끝
+- 연결 남음: FN-MYP-020-02 (프론트 연결 SCR-MYP-020 포인트 내역, 프론트 저장소에서 /start) → 프론트 `src/features/point/history/PointHistory.jsx`에서 끝
+- 연결 남음: FN-MYP-020-03·04·07 (프론트 연결 SCR-MYP-020 케어미션 탭·날짜 이동·0마리 안내, SCR-MYP-001 오늘의 케어미션, 프론트 저장소에서 /start) → 프론트 `src/features/point/mission/CareMission.jsx`·`point/home/MissionSummaryCard.jsx`에서 끝
+- 연결 남음: FN-MYP-020-08 (검진기록 등록·영수증 빠른 등록에서 `earnCheckupPoint` 호출, JAJ) → `CheckupService.java:283`에서 끝 (영수증 등록도 같은 insert를 지나 호출, 사람 확인)
+- 연결 남음: FN-MYP-020-04·06 (건강 일지 기록·케어리스트 기본 항목 체크·일정·관찰 기록 → `reflect` JAJ, 관찰 중 반려동물 조회 JAJ) → `DailyHealthRecordService.java:89`, `CareItemService.java:492`, `CareScheduleService.java:88`, `ObservationService.java:142·181`의 `reflect`와 `scheduler/CareMissionJob.java:53`의 `searchObservingPetSns()`에서 끝
+- 연결 남음: FN-MYP-020-04·06 (펫이야기 글·댓글 → `reflectRepresentative` KSJ, 아이템 구매 `PointFake` → `PointService.use` LJS)
 
-## SCR-MYP-031 가계부 등록/수정 — 대기
+## SCR-MYP-020 포인트 관리/케어미션 · 케어미션 개편(등급 배점·출제 대상) — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-MYP-020-04·05 (출제·배점·정산)
+- 기다리는 것: 없음
+- 배점: 등급별 고정 배점 쉬움 5P·보통 10P·어려움 15P를 CareMission enum에 둔다(DB 컬럼 아님). 반려동물당 하루 총합 60P는 코드 상수. 2회 미션(식사량 기록하기)도 등급 배점 그대로 10P. DAY_MSN.SCOR_PNT에 저장. CARE_MSN.CMPN_PNT는 배점에 쓰지 않는다
+- 등급(미션 이름은 바뀐 이름 기준): 쉬움 = 배변 기록하기·체중 기록하기·음수량 기록하기·가계부 지출 등록하기·케어 캘린더 일정 등록하기·펫이야기 댓글 작성하기·발 상태 확인하기·눈곱 닦기·잇몸·치석 확인하기·화장실 청소하기 / 보통 = 빗질하기·놀이하기·귀 청소하기·식사량 기록하기·관찰 기록 추가하기 / 어려움 = 양치하기·발바닥 털 다듬기·발톱 관리하기·목욕하기·산책 기록하기·펫이야기 글 등록하기
+- 출제: 일상케어 5 + 활동기반 3 대신, 그날 후보로 만들 수 있는 등급 조합 (어려움, 보통, 쉬움) = (0,4,4)·(1,2,5)·(2,0,6) 중 하나를 무작위로 골라 8개를 뽑는다. 합계는 항상 60P. 일상케어·활동기반 서로 보충 요구사항은 이것으로 대신한다
+- 출제 후보(케어리스트): 보이는 항목(INDCT_YN = 'Y', 삭제 안 함)만 후보. 매일/정기 판정은 고정 목록이 아니라 그 항목의 현재 CARE_ZONE_CD로 한다. 매일 항목은 매일 후보, 정기 항목은 NXTM_PRNMNT_YMD가 오늘이거나 지났을 때만 후보이고 비어 있으면 후보가 아니다. 기록·활동 미션은 지금처럼
+- 출제 후보(기본 항목 없음): 케어리스트 기본 항목이 아직 없는 반려동물(등록 직후 출제·케어리스트를 한 번도 안 연 반려동물의 배치 출제)은 추천 매일 항목 4개(화장실 청소·양치·빗질·놀이)만 케어리스트 후보로 본다. 기본 항목을 만들 때 보이는 항목과 같고, 정기 항목(귀 청소)은 만든 날 예정일이 오늘+주기라 후보가 아니기 때문
+- 출제 예외: 어떤 조합도 만들 수 없는 반려동물은 그날만 등급 가중치(쉬움 1·보통 2·어려움 3) 비율로 60P를 나누고, 남는 포인트는 높은 등급부터(같은 등급은 출제 순서대로) 더해 합계 60P를 맞춘다
+- 항목 전달: 고른 항목은 pet이 건강기록 테이블을 직접 읽지 않고, 관찰 중 반려동물(observationService → careMissionService.issue)처럼 scheduler CareMissionJob이 건강기록 서비스에서 받아 넘긴다
+- 달성 기준: 식사량 기록하기 ACHV_CRTR_NMTM 1 → 2 (기준 데이터와 변경 절)
+- 정산: settledPoint의 "진행률 50% 이하 0P" 삭제, 진행률만큼 지급(식사량 반만 하면 5P)
+- 배포 날: 이미 출제된 미션은 DAY_MSN에 복사된 배점·달성 기준으로 정산되므로 따로 처리하지 않는다
+- 미션 이름 변경: 발 관리하기 → 발 상태 확인하기, 눈 주변 관리하기 → 눈곱 닦기, 발바닥 털 관리하기 → 발바닥 털 다듬기, 구강 상태 확인하기 → 잇몸·치석 확인하기. CareMission enum과 CARE_MSN.MSN_NM(기준 데이터·변경 절·시드 118줄)을 같이 바꾼다(enum과 행이 MSN_NM으로 짝지어져 있음). 시드 660줄 포인트 내역 메모는 지난 기록이라 그대로. MasterSeeder 미션 목록도 영향 있는지 확인
+- 완료 조건: ./gradlew build -q 통과, 위 규칙의 단위 테스트, docs/api/pet.md 반영
+- 연결 남음: FN-MYP-020-05 (프론트 연결 SCR-MYP-020 포인트 안내 `features/point/guide/PointGuide.jsx` 6행 "미션마다 1~20P가 쌓여요"를 등급 배점 문구로, 프론트 저장소에서 /start)
+
+## SCR-MYP-020 포인트 관리/케어미션 · 포인트 내역 월 목록 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 걸치는 기능 FN-MYP-020-02 (적립·사용 내역 월 선택 창)
+- 기다리는 것: 없음
+- 완료 조건: `GET /api/point-ledgers/months`가 로그인 회원 본인의 포인트 내역이 있는 연월만 `List<PointLedgerMonthSummary(yearMonth)>`로 최신순 돌려준다(가계부 `GET /api/expenses/months`와 같은 모양). 연월 경계는 `GET /api/point-ledgers`와 같다. ./gradlew build -q 통과, docs/api/pet.md 반영
+
+## SCR-MYP-031 가계부 등록/수정 — 끝
+
 - 기능: FN-MYP-031-02 직접 입력 폼, FN-MYP-031-03 인식 결과 확인·수정, FN-MYP-031-05 영수증 업로드(인식 실패 후 직접 입력 저장의 영수증 연결), FN-MYP-031-06 중복 지출 확인, FN-MYP-030-08 한도 알림(화면은 SCR-MYP-030)
 - API가 남의 것: FN-MYP-031-03·05 영수증 업로드·분석 (LJS, `expense` 영수증 API 재사용)
 - 함께 만드는 것: 지출 생성·중복 확인 service 메서드(영수증 저장 LJS가 부름)
 - 기다리는 것: 없음
 - 완료 조건: `POST /api/expenses`가 1원 미만과 병원+공용 조합을 막는다. 저장 뒤 월 합계가 한도의 90%·100%를 넘으면 한도 알림 이벤트를 발행한다
+- 연결 남음: FN-MYP-031-02·03·05·06 (프론트 연결 SCR-MYP-031 직접 입력·인식 결과 확인 저장·실패 후 직접 입력의 영수증 연결·중복 지출 확인 모달, 프론트 저장소에서 /start) → 프론트 `src/features/expense/dashboard/ExpenseAddModal.jsx`·`ExpenseReceiptReview.jsx`·`ExpenseDuplicateDialog.jsx`에서 끝
+- 연결 남음: FN-MYP-031-05 (영수증 저장 `ExpenseFake` → `ExpenseService.create`·`findDuplicates`, LJS) → `ReceiptSaveService.java:120`(create)·`:76`(`searchDuplicates`)에서 끝
+- 연결 남음: FN-MYP-030-08 (알림 목록 COM-004에 가계부 한도 알림 표시, LJS) → 백엔드 끝(`ExpenseService.java:313·316` 발행, `NotificationService.search`), 화면 미확인
 
-## SCR-MYP-004 공동양육자 목록 — 대기
+## SCR-MYP-004 공동양육자 목록 — 끝
+
 - 기능: FN-MYP-004-01 가족 목록, FN-MYP-004-03 주양육자 표시, FN-MYP-004-04 내 연동 상태, FN-MYP-006-02 공동양육 연동 자진 해제(화면은 SCR-MYP-006), FN-MYP-006-04 목록 즉시 반영(화면은 SCR-MYP-006)
 - 함께 만드는 것: 연동 양육자·연동 반려동물 조회 service 메서드(진료 사전 알림·영수증 LJS가 부름)
 - 기다리는 것: 없음
 - 완료 조건: 주양육자는 공동양육자를 해제할 수 있고, 공동양육자는 자기 연동만 해제할 수 있다. 해제 이력이 BRUP_LINK_STTS_HSTRY에 남는다
+- 연결 남음: FN-MYP-004-01·03·04 (프론트 연결 SCR-MYP-002 슬라이드 카드 가족 영역·[✕], 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/FamilySection.jsx`에서 끝
+- 연결 남음: FN-MYP-006-02·04 (프론트 연결 SCR-MYP-006 확인 팝업·토스트, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/PetUnlinkDialog.jsx`에서 끝
 
-## SCR-MYP-005 공동양육자 추가 — 대기
+## SCR-MYP-005 공동양육자 추가 — 끝
+
 - 기능: FN-MYP-005-01 이메일 초대, FN-MYP-005-02 초대 대상 반려동물 선택, FN-MYP-005-03 보낸 초대, FN-MYP-005-04 초대 만료, FN-MYP-005-05 초대 수락 화면, FN-MYP-005-07 거절, FN-MYP-005-08 거절 확인 모달, FN-MYP-005-09 초대 이메일 일치 확인, FN-MYP-005-10 초대 만료·종료 안내
 - 기다리는 것: 없음(알림·메일 이벤트는 LJS가 끝냄)
 - 완료 조건: 7일 지난 초대는 수락할 수 없다. 로그인 이메일이 초대 이메일과 다르면 수락이 막힌다. 반려동물당 공동양육자 5명을 넘지 않는다
+- 연결 남음: FN-MYP-005-01·02 (프론트 연결 SCR-MYP-005 5-1 초대 모달, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/InviteModal.jsx`에서 끝
+- 연결 남음: FN-MYP-005-01 (프론트 연결 SCR-MYP-005 5-1 초대 모달 409 처리를 linkedPets·pendingPets 목록으로, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/InviteModal.jsx`에서 끝
+- 연결 남음: FN-MYP-005-03·04 (프론트 연결 SCR-MYP-002 하단 보낸 초대, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/SentInvitations.jsx`에서 끝
+- 연결 남음: FN-MYP-005-05·07·08·09·10 (프론트 연결 SCR-MYP-005 5-3 수락·5-4 거절 확인 모달·5-5 이메일 불일치·5-6 만료·종료 안내, 프론트 저장소에서 /start) → 프론트 `src/features/pet/invite/InvitationAccept.jsx`·`InvitationRejectDialog.jsx`·`InvitationMismatch.jsx`에서 끝
 
-## SCR-MYP-030 가계부 목록 — 대기
+## SCR-MYP-030 가계부 목록 — 끝
+
 - 기능: FN-MYP-030-01 총 지출·월 한도·진행률, FN-MYP-030-02 월간 달력, FN-MYP-030-03 날짜별 상세·수정·삭제, FN-MYP-030-04 카테고리별 지출, FN-MYP-030-05 반려동물별 지출, FN-MYP-030-06 이번달 주요 지출, FN-MYP-030-09 기간 조회·월 전환, FN-MYP-030-10 필터, FN-MYP-030-11 정렬, FN-MYP-030-12 내역 리스트, FN-MYP-030-13 한도 설정 모달, FN-MYP-030-14 한도 미설정 상태, FN-MYP-030-15 삭제 확인 모달, FN-MYP-030-16 월 피커, FN-MYP-030-17 편집 모드·삭제 범위, FN-MYP-030-18 선택·전체 선택, FN-MYP-030-19 선택 요약·삭제, FN-MYP-030-20 페이지네이션, FN-MYP-030-21 다중 삭제 확인 모달
 - 기다리는 것: 없음
 - 완료 조건: 월 통계가 공용 지출을 반려동물별 합계와 따로 돌려준다. 한도를 처음 저장하면 한도 알림 수신이 켜진다
+- 연결 남음: FN-MYP-030-01~06·09~21 (프론트 연결 SCR-MYP-030 가계부 기본 화면·전체 내역·편집 모드·한도 설정·삭제 모달·월 피커, 프론트 저장소에서 /start) → 프론트 `src/features/expense/dashboard/ExpenseDashboard.jsx`·`expense/history/ExpenseHistory.jsx`·`expense/dashboard/ExpenseLimitModal.jsx`에서 끝
 
-## SCR-MYP-002 반려동물 삭제 — 대기
+## SCR-MYP-002 반려동물 삭제 — 끝
+
 - 기능: FN-MYP-002-07 삭제 확인 팝업, FN-MYP-002-08 공동양육 연동 자동 해제
 - 기다리는 것: 반려동물 삭제 연쇄 범위(docs/api/issues.md 마이페이지 3번, 팀)
 - 완료 조건: 주양육자만 삭제할 수 있다. 삭제하면 연동이 모두 해제되고 공동양육자에게 알림이 가며, 대표였으면 다음 주양육 동물로 승계된다. 지출은 남는다
+- 연결 남음: FN-MYP-002-07 (프론트 연결 SCR-MYP-002 ⋮ 메뉴 [반려동물 삭제]·2-3 삭제 확인 팝업·2-4 등록 카드 복귀, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/PetDeleteDialog.jsx`에서 끝
+- 연결 남음: FN-MYP-002-08 (알림함 COM-004에 공동양육 연동 해제 알림 표시, LJS) → 백엔드 끝(`PetService.java:273`, 반려동물 삭제 때의 알림), 화면 미확인
 
-## SCR-MYP-040 회원정보 수정 — 대기
+## SCR-MYP-040 회원정보 수정 — 끝
+
 - 기능: FN-MYP-040-02 프로필 사진, FN-MYP-040-03 이메일(로그인 아이디), FN-MYP-040-05 휴대폰 번호 변경, FN-MYP-040-08 프로필 사진(SNS), FN-MYP-040-09 계정 표시(SNS), FN-MYP-040-11 휴대폰 번호 변경(SNS), FN-MYP-040-13 계정 정보
 - API가 남의 것: FN-MYP-040-05·11 휴대폰 번호 중복 확인 `GET /members/phone-availability` (YAY)
 - 기다리는 것: 닉네임·휴대전화·비밀번호 검증 (YAY), `GET /members/me` 경로 겹침(docs/api/issues.md 마이페이지 14번)
 - 완료 조건: `PATCH /api/members/me`가 다른 회원이 쓰는 휴대폰 번호를 서버에서 다시 막는다. 조회가 가입 방식·가입일·최근 로그인을 돌려준다
+- 연결 남음: FN-MYP-040-02·03·08·09·13 (프론트 연결 SCR-MYP-040 6-2·6-3 프로필 요약·계정 정보, 프론트 저장소에서 /start) → 프론트 `src/features/member/profile/AccountInfoCard.jsx`·`ProfileEditForm.jsx`에서 끝
+- 연결 남음: FN-MYP-040-02·05·08·11 (프론트 연결 SCR-MYP-040 6-2·6-3 사진 변경·기본 이미지로·휴대폰 번호 수정·저장, 프론트 저장소에서 /start) → 프론트 `src/features/member/profile/ProfileImageField.jsx`·`PhoneField.jsx`에서 끝
+
+## SCR-MYP-002 반려동물 프로필 목록 · 목록 응답에 중성화 여부·정상 체중 범위 추가 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-002-02·003-06과 걸친다
+- 기다리는 것: 프론트 SCR-MYP-002 슬라이드 (프론트 저장소, 지금은 슬라이드마다 `GET /pets/{petSn}` 상세를 불러 채움)
+- 완료 조건: `GET /api/pets`의 `PetSummary`에 `nutrYn`·`minBdwg`·`maxBdwg`가 들어 있다. 프론트가 상세 조회 없이 슬라이드의 "(중성화 완료)"와 "정상 a~bkg"를 채울 수 있다
+- 연결 남음: FN-MYP-002-02 (프론트 연결 SCR-MYP-002 슬라이드 "(중성화 완료)"·"정상 a~bkg"를 목록 값으로, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/PetSlide.jsx`에서 끝
+
+## SCR-MYP-002 반려동물 삭제 · 공동양육 자동 해제 테스트 보강 — 끝
+
+- 기능: FN-MYP-002-08 공동양육 연동 자동 해제
+- 완료 조건:
+  - `명령:` ./gradlew build -q 통과
+  - PetServiceTest: 삭제 중 연동이 동시에 해제돼 updateBrupRelUnlink가 0이면 그 공동양육자의 이력(PETC0027)·알림을 남기지 않는다
+  - PetMapperXmlTest(새로 만듦, 다른 도메인의 \*MapperXmlTest 방식): selectLinkedCoParentRels가 그 반려동물의 USE_YN='Y' 공동양육자만 고르고(주양육자·해제된 행 제외), updateBrupRelUnlink가 USE_YN='Y' 행만 해제하고 RPRS_PET_YN도 'N'으로 바꾼다
+- 비고: 구현은 끝남. 이력 유형은 FORCED_UNLINKED가 아니라 PET_DELETED(PETC0027)
+
+## SCR-MYP-005 공동양육자 추가 · 수락 카드 품종 필드 추가 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-005-05와 걸친다
+- 기다리는 것: 프론트 SCR-MYP-005 수락 카드 (프론트 저장소, 끝남. 응답에 `vrtyNm`·`vrtyDrctInptNm`이 있으면 직접입력 우선으로 품종 줄을 보이게 만들어 뒀다)
+- 완료 조건: `GET /api/caregiver-invitations/{jntBrupInvtnSn}`의 `pets[]`(`CaregiverInvitationPetSummary`)에 `vrtyNm`·`vrtyDrctInptNm`이 들어 있다. 보낸 초대 목록(`CaregiverInvitationSummary.pets`)도 같은 타입이므로 함께 나온다. 이메일 불일치·만료 응답에는 `pets`를 계속 내리지 않는다
+
+## SCR-MYP-030 가계부 목록 · 일괄 삭제 제외 목록 추가·건수 불일치 409 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-030-18·19·21과 걸친다
+- 기다리는 것: 프론트 SCR-MYP-030 전체 내역 (프론트 저장소, 끝남. 사람 결정 B안: 조회 결과 전체 선택 뒤 개별 해제한 건만 제외하고 지운다. 프론트는 이 API가 나온 뒤에 해제한 번호를 보내도록 바꾼다)
+- 완료 조건: `POST /api/expenses/bulk-delete`가 제외 번호 목록 `excludeExpndSn`을 받고, 건수 검사 기대값 `expectedCnt`를 "조건에 맞는 건수 − 제외 수"로 비교하며, 불일치면 지금의 400(`INVALID_INPUT_VALUE`)이 아닌 409로 응답한다. 제외 번호는 조건 밖이거나 남의 지출이어도 무시하지 않고 거절 규칙을 정한다
+- 결과: 잘못된 제외 번호(조건 밖·남의 지출·없는 번호·삭제된 번호)는 구별하지 않고 모두 409 `EXPENSE_BULK_DELETE_CHANGED`. 검사 뒤 삭제 건수가 기대값과 다르면 409로 롤백한다. 제외 번호는 최대 1000개
+- 연결 남음: FN-MYP-030-18·19·21 (프론트 연결 SCR-MYP-030 전체 선택 뒤 해제한 번호를 `excludeExpndSn`으로 보내기·409 처리, 프론트 저장소에서 /start) → 프론트 `src/features/expense/history/ExpenseBulkDeleteDialog.jsx`·`expense/queries.js`에서 끝
+
+## SCR-MYP-031 가계부 등록/수정 · 등록·수정 미래 날짜 검증 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-031-02와 걸친다
+- 기다리는 것: 프론트 SCR-MYP-030 (프론트 저장소, 끝남. 사람 결정 2026-11-02: 오늘(KST)까지만 허용. 프론트 폼과 달력은 이미 막았다)
+- 완료 조건: `POST /api/expenses`(`ExpenseService.validate`)와 `PATCH /api/expenses/{expndSn}`(`update`)에서 `EXPND_YMD`가 오늘(KST)보다 뒤면 400(`INVALID_INPUT_VALUE`)이다
+- 연결 남음: 영수증 저장 `ExpenseFake` → `ExpenseService.create` 연결 때 같은 미래 날짜 검사를 받는다 (LJS) → `ExpenseService.java:111`(`create`의 `checkNotFuture`)에서 끝
+
+## SCR-MYP-030 가계부 목록 · 시드 병원 공용 지출 행 수정 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-031-02 "병원은 공용 불가" 규칙과 걸친다
+- 기다리는 것: 프론트 SCR-MYP-030 (프론트 저장소, 끝남. 사람 확인 중 발견)
+- 완료 조건: `db/seed/20261028_seed_data.sql`의 `EXPND`에서 병원(`MYPC0012`) + 공용(`PET_SN` NULL) 176행(처음 발견한 `EXPND_SN=406`, 회원 1, 2026-10-05, 42,000원 포함)의 `PET_SN`을 채워 그런 행이 없게 한다. 회원마다 사용 중·삭제 안 된 반려동물을 `PET_SN` 순으로 세워 지출일(같으면 `EXPND_SN`) 순으로 돌아가며 배정한다. 공용 DB 반영 SQL은 사람이 DBeaver로 직접 실행한다. 서버 등록·수정은 이미 `EXPENSE_PET_REQUIRED`로 막고 있어 코드 수정은 없다
+
+## SCR-MYP-031 가계부 등록/수정 · 영수증 저장 경로 미래 날짜 검증 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-031-05·FN-AIM-009-10과 걸친다
+- 기다리는 것: 없음(영수증 저장은 이미 `ExpenseService.create(ExpenseCreateCommand)`를 부른다)
+- 완료 조건: `ExpenseService.create(ExpenseCreateCommand)`가 `expndYmd`가 오늘(KST)보다 뒤면 400(`INVALID_INPUT_VALUE`)을 던지고, 영수증 저장 전체가 롤백된다
+
+## SCR-HLT-002 건강 일지 · SJM 몫(PetService.syncWeight) — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-HLT-002-09~11 체중 기록 등록·수정·삭제 뒤 프로필 체중 동기화(화면은 SCR-HLT-002, JAJ). `PetService.syncWeight(Long petSn, BigDecimal weight, Long actorMbrSn)`를 더한다
+- 기다리는 것: 없음
+- 프론트 연결: 없음(서버 내부 호출). JAJ가 `PetWeightFake`를 이 메서드로 바꾼다(JAJ 마일스톤 SCR-HLT-002 · 프로필 체중 동기화 연결)
+- 완료 조건: `PetService.syncWeight`가 `PET_BDWG`만 `MDFR_ID`·`MDFCN_DT`와 함께 갱신하고, 삭제됐거나 없는 반려동물이면 404 `PET_NOT_FOUND`를 던진다. 권한 검사는 하지 않는다(호출하는 쪽 담당). 단위 테스트와 `./gradlew build -q`가 통과한다
+- 연결 남음: FN-HLT-002-09~11 (`PetWeightFake`를 `PetService.syncWeight`로 바꾸기, JAJ) → `DailyHealthRecordService.java:192`에서 끝
+
+## SCR-MYP-003 반려동물 등록/수정 · 종에 맞지 않는 털색 코드 거절 — 끝
+
+- 기능: 명세 기능 ID 추가 없음, FN-MYP-003-03에 걸침 (`PetService` 등록·수정의 털색 검증)
+- 기다리는 것: 이 프론트 작업(수정 모달이 종에 맞지 않는 털색을 다시 고르게 막음). 완료됨
+- 완료 조건: 강아지 전용 털색(PETC0010·0011·0012·0028~0031)을 고양이에, 고양이 전용(PETC0014~0016·0032~0034)을 강아지에 보내면 거절한다. 직접 입력(PETC0017)과 공통 털색은 어느 종에서나 받는다. 시드에서 불일치인 고양이+PETC0011 55마리는 데이터 정리 방침을 정한다
+
+## SCR-MYP-003 반려동물 등록/수정 · 종에 맞지 않는 털색 데이터 정리 — 끝
+
+- 기능: 명세 기능 ID 추가 없음, FN-MYP-003-03에 걸침 (시드와 공용 DB의 고양이+PETC0011 55마리)
+- 기다리는 것: 이 프론트 작업(털색 선택 칸 글자색, 끝남)
+- 완료 조건: 시드 파일(PET 1000행 기준)에서 고양이+PETC0011 55마리를 고양이 털색으로 고쳐 종-털색 불일치가 없게 한다. 공용 DB는 팀에 알린 뒤 반영하고, 반영 SQL은 사람이 DBeaver로 직접 실행한다. 어떤 고양이 털색으로 바꿀지는 정해야 한다
+
+## SCR-MYP-003 반려동물 등록/수정 · 등록 직후 케어미션 즉시 출제 — 끝
+
+- 기능: 명세 기능 ID 추가 없음, FN-MYP-003-01·FN-MYP-020-03에 걸침 (`PetService.createPet` → `CareMissionService.issueFor`)
+- 기다리는 것: 없음(프론트 변경 없음)
+- 완료 조건: 반려동물을 등록하면 오늘 미션이 바로 출제돼 `GET /pets/{petSn}/daily-missions`가 돌려준다. 이미 출제된 날은 건너뛰어 배치와 중복 출제가 없다. 단위 테스트와 `./gradlew build -q`가 통과한다
+
+## SCR-MYP-003 반려동물 등록/수정 · 체중 정상범위 자동 계산 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-003-04와 걸친다. `PET.BDWG_RNG_DRCT_INPT_YN`('Y' 직접 입력·'N' 자동 계산, 기존 행 'Y')을 더하고, 등록·수정이 `PetBdwgRange`(기준 체중 × 0.9 ~ × 1.1, 소수 둘째 자리 HALF_UP)로 범위를 계산한다. 건강 일지 체중 기록 때 갱신과 그래프는 건강기록 담당
+- 기다리는 것: 없음
+- 완료 조건: 등록 'N'이면 보낸 범위를 무시하고 계산해 저장, 'Y'(생략 포함)이면 보낸 값 저장. 수정에서 'N' 전환·체중 변경(현재 'N')이면 다시 계산, 플래그 없이 범위만 보내면 'Y'로 바꾸고 저장. 상세·목록 응답에 `bdwgRngDrctInptYn`. 단위 테스트와 `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-003-04 (프론트 연결 SCR-MYP-003 등록·수정 모달의 `bdwgRngDrctInptYn` 전송·표시, 프론트 저장소에서 /start) → 프론트 등록·수정 모달에서 끝
+- 연결 남음: FN-HLT-002-09~11 (건강 일지 체중 기록 때 정상 범위 갱신·그래프를 `PetBdwgRange.of()`로, 'Y'인 반려동물은 바꾸지 않음, JAJ) → `DailyHealthRecordService`에서 끝
+
+## SCR-MYP-003 반려동물 등록/수정 · 체중 입력 규칙 확정 반영 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. FN-MYP-003-01·04에 걸친다. 회의 확정: 체중·최소·최대 체중은 소수 둘째 자리까지, 최대 200kg. 자동 계산 최대값도 200kg으로 자른다
+- 기다리는 것: 없음
+- 완료 조건: 등록·수정에서 `petBdwg`·`goalBdwg`·`minBdwg`·`maxBdwg`가 소수 셋째 자리이거나 200 초과면 400. `PetBdwgRange.of()` 최대값이 200을 넘으면 200. 단위 테스트와 `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-003-01·04 (프론트 연결 SCR-MYP-003 등록·수정 모달의 체중·목표·최소·최대 체중 입력 소수 둘째 자리·200kg 제한, 프론트 저장소에서 /start)
+
+## SCR-MYP-005 공동양육자 추가 · 보낸 초대 취소·삭제 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 취소·삭제는 FN-MYP-005-03(보낸 초대), 받는 쪽 취소 안내는 FN-MYP-005-10(만료·종료 안내)에 붙인다(두 ID의 명세 문구 수정은 /end 때 문서 작업). 확정: 대기 중(PETC0020) 초대만 취소, 취소한 초대만 목록에서 삭제
+- 기다리는 것: 없음
+- 완료 조건: 주양육자 본인이 보낸 대기 중 초대만 취소되고 이력(대기중→취소)이 남는다. 취소된 초대는 받는 사람이 수락·거절할 수 없다. 취소된 초대만 보낸 목록에서 삭제된다. `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-005-03 (프론트 연결 SCR-MYP-005 보낸 초대 목록 [취소]·[삭제] 버튼, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/`의 보낸 초대 목록에서 끝
+- 연결 남음: FN-MYP-005-10 (프론트 연결 SCR-MYP-005 수락 화면 "취소된 초대예요" 안내, 프론트 저장소에서 /start) → 프론트 `src/features/pet/list/`의 초대 수락 화면에서 끝
+
+## SCR-MYP-003 반려동물 등록/수정 · 공동양육 포함 10마리 한도 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 등록은 FN-MYP-003-01, 초대 수락은 FN-MYP-005-05에 붙인다(명세 문구 수정은 /end 때 문서 작업). 확정 정책: 계정당 반려동물은 주양육 + 공동양육 합쳐 최대 10마리. 초대 보내기는 막지 않는다. 이미 10마리를 넘은 회원의 데이터는 그대로 두고 새 등록·수락만 막는다
+- 기다리는 것: 없음
+- 완료 조건: 합계 10이면 등록 400 `PET_LIMIT_EXCEEDED`(문구에 "공동양육을 포함해"). 수락은 합계 + 고른 수가 10을 넘으면 400(data에 남은 자리 수)이고 아무것도 연동하지 않는다. 받은 초대 상세에 남은 자리 수(0 미만은 0). 같은 회원의 동시 등록·수락이 한도를 넘지 않는다. 단위 테스트와 `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-003-01 (프론트 연결 SCR-MYP-003 등록 카드 "모두 등록했어요"를 공동양육 포함 합계로 판정, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면이 `remainingPetCount`만큼만 고르게 막고 안내, 프론트 저장소에서 /start)
+
+## SCR-MYP-003 반려동물 등록/수정 · 운영 설정값 연결 — 끝
+
+- 기능: 명세 기능 ID 추가 없음. 등록은 FN-MYP-003-01, 초대 상세·수락은 FN-MYP-005-05, 초대 보내기는 FN-MYP-005에 붙인다. 고정값 대신 systemSettingService.get() 기준으로 바꾼다: 반려동물 최대 수 PET_MAX_CNT(PetLimit.MAX_PET_COUNT 대신, PetService 등록·CaregiverInvitationService 받은 초대 남은 수·수락), 공동양육자 최대 인원 JNT_BRUP_MAX_NOPE(MAX_CAREGIVER_COUNT 대신), 초대 유효 일수 INVTN_VLD_DAY_CNT(VALID_DAYS 대신, 만료일 계산). 오류 문구 숫자(PET_LIMIT_EXCEEDED "10마리", CAREGIVER_LIMIT_EXCEEDED "5명")도 설정값으로, ErrorCode는 공용 파일 규칙대로. 프론트가 반려동물 최대 수를 알 수 있게 내려줄 방법 제안(공개 설정 API가 있으면 그것, 없으면 GET /pets 등). 이미 넘은 회원은 데이터 그대로, 새 등록·수락만 막는다
+- 기다리는 것: 없음
+- 완료 조건: 위 세 값이 설정값을 따르고 오류 문구 숫자도 설정값이다. 테스트와 docs/api/pet.md 반영, `./gradlew build -q` 통과. PR 본문 범위는 "~" 대신 "–"
+- 연결 남음: FN-MYP-003-01 (프론트 연결 SCR-MYP-001·002·003 `PetListPage`·`PetSlide`·`PetEmpty`의 "10마리"와 등록 카드 판정을 `GET /pets/limit`의 `petMaxCnt`로, `MAX_OWN_PETS = 10` 제거, 프론트 저장소에서 /start)
+- 연결 남음: FN-MYP-005-05 (프론트 연결 SCR-MYP-005 수락 화면 안내 문구의 "10마리"를 `petMaxCnt`로, 400 문구는 서버 `message`, 프론트 저장소에서 /start)
+- 연결 남음: 공통 오류 처리 파일 4개와 `ErrorCode` 두 문구 `%d` 서식 (LJS에게 PR 전에 알리기, SJM)
+
+## SCR-MYP-003 반려동물 등록/수정 · 인식칩 번호 12·15자리 검증 — 끝
+
+- 기능: 명세 기능 ID 추가 없음, FN-MYP-003-05(인식칩 번호)에 붙인다(명세 문구 수정은 /end 때 문서 작업). 확정 정책: 인식칩 번호는 숫자 12자리 또는 15자리만 허용하고 빈 값(미입력)은 허용한다. 지금은 `^[0-9]{0,20}$`
+- 기다리는 것: 없음
+- 완료 조건: `PetCreateRequest`·`PetUpdateRequest`의 `chipNo`가 12·15자리 숫자와 빈 값만 받고 나머지는 400. AI매니저 수정 카드(`draft_pet_update`)의 `chipNo` 규칙도 같은 값으로 나온다. 테스트와 `docs/api/pet.md` 반영, `./gradlew build -q` 통과
+- 연결 남음: FN-MYP-003-05 (프론트 연결 SCR-MYP-003 등록·수정 모달 인식칩 입력 12·15자리 안내·검증, 수정 때 바꾸지 않은 값은 보내지 않기, 프론트 저장소에서 /start)
+- 연결 남음: AI 저장소 `data/tool_prompts.yaml`의 `chip_no` 설명과 `data/tools.snapshot.json`의 `chipNo.pattern` 갱신 (담당 확인)
 
 ## 제외
+
 - FN-MYP-001-02·05: 화면만 있다(더보기 펼침, 0마리 안내)
 - FN-MYP-002-05·06: 화면만 있다(삭제 메뉴, 0마리 안내)
 - FN-MYP-004-02: 화면만 있다(초대 카드)
@@ -74,4 +251,6 @@
 - FN-MYP-040-07·12: 화면만 있다(탈퇴 화면 SCR-ACC-020으로 이동, 탈퇴 API는 YAY)
 
 ## 대조
+
 - 마이페이지: 명세 116 = 마일스톤 70 + 제외 46
+- 연결 남음: FN-MYP-020-02 (프론트 연결 SCR-MYP-020 포인트 내역 월 선택 창 `src/features/point/history/PointHistory.jsx`, 프론트 저장소에서 /start)

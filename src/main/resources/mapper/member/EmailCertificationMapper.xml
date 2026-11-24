@@ -13,6 +13,8 @@
         <result column="CERT_CMPTN_DT"      property="certCmptnDt" />
         <result column="CERT_USE_CMPTN_DT"  property="certUseCmptnDt" />
         <result column="CERT_INVLD_DT"      property="certInvldDt" />
+        <result column="PSWD_INIT_TKN_HASH"    property="pswdInitTknHash" />
+        <result column="INIT_AUTHRT_EXPRY_DT"  property="initAuthrtExpryDt" />
         <result column="REG_DT"             property="regDt" />
     </resultMap>
 
@@ -28,6 +30,8 @@
              , CERT_CMPTN_DT
              , CERT_USE_CMPTN_DT
              , CERT_INVLD_DT
+             , PSWD_INIT_TKN_HASH
+             , INIT_AUTHRT_EXPRY_DT
              , REG_DT
           FROM EML_CERT
          WHERE EML_CERT_SN = #{emlCertSn}
@@ -40,6 +44,20 @@
            AND EML_CERT_PRPS_CD = #{emlCertPrpsCd}
            AND REG_DT >= #{since}
          ORDER BY REG_DT, EML_CERT_SN
+    </select>
+
+    <!-- 가장 최근 발송 인증 한 건이 틀린 횟수 제한으로 무효가 됐는지 -->
+    <select id="countLatestFailLocked" resultType="int">
+        SELECT COUNT(*)
+          FROM (SELECT CERT_FAIL_NMTM
+                     , CERT_INVLD_DT
+                  FROM EML_CERT
+                 WHERE CERT_TRGT_EML_HMAC = #{certTrgtEmlHmac}
+                   AND EML_CERT_PRPS_CD = #{emlCertPrpsCd}
+                 ORDER BY REG_DT DESC, EML_CERT_SN DESC
+                 LIMIT 1) LATEST
+         WHERE LATEST.CERT_INVLD_DT IS NOT NULL
+           AND LATEST.CERT_FAIL_NMTM &gt;= #{failLimit}
     </select>
 
     <insert id="insert" parameterType="com.nyangmeong.member.domain.EmailCertification"
@@ -96,5 +114,26 @@
          WHERE EML_CERT_SN = #{emlCertSn}
            AND CERT_CMPTN_DT IS NOT NULL
            AND CERT_USE_CMPTN_DT IS NULL
+    </update>
+
+    <update id="updatePasswordResetToken">
+        UPDATE EML_CERT
+           SET PSWD_INIT_TKN_HASH = #{pswdInitTknHash,jdbcType=CHAR}
+             , INIT_AUTHRT_EXPRY_DT = #{initAuthrtExpryDt,jdbcType=TIMESTAMP}
+         WHERE EML_CERT_SN = #{emlCertSn}
+           AND CERT_USE_CMPTN_DT IS NULL
+    </update>
+
+    <!-- 재설정 권한은 한 번만 : 토큰 일치·인증 완료·미사용·미무효화·미만료일 때만 1행이 바뀐다 -->
+    <update id="updatePasswordResetUsed">
+        UPDATE EML_CERT
+           SET CERT_USE_CMPTN_DT = #{now}
+         WHERE EML_CERT_SN = #{emlCertSn}
+           AND EML_CERT_PRPS_CD = #{emlCertPrpsCd}
+           AND PSWD_INIT_TKN_HASH = #{pswdInitTknHash}
+           AND CERT_CMPTN_DT IS NOT NULL
+           AND CERT_USE_CMPTN_DT IS NULL
+           AND CERT_INVLD_DT IS NULL
+           AND INIT_AUTHRT_EXPRY_DT &gt; #{now}
     </update>
 </mapper>

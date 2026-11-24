@@ -1,0 +1,135 @@
+package com.nyangmeong.health.controller;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.nyangmeong.global.aitool.AiTool;
+import com.nyangmeong.global.aitool.AiToolKind;
+import com.nyangmeong.global.response.ApiResponse;
+import com.nyangmeong.global.security.domain.LoginMember;
+import com.nyangmeong.health.dto.CareCompletionCreateRequest;
+import com.nyangmeong.health.dto.CareCompletionResponse;
+import com.nyangmeong.health.dto.CareCompletionSearchCond;
+import com.nyangmeong.health.dto.CareCompletionSummary;
+import com.nyangmeong.health.dto.CareItemCreateRequest;
+import com.nyangmeong.health.dto.CareItemIndicationSaveRequest;
+import com.nyangmeong.health.dto.CareItemResponse;
+import com.nyangmeong.health.dto.CareItemSearchCond;
+import com.nyangmeong.health.dto.CareItemSummary;
+import com.nyangmeong.health.dto.CareItemUpdateRequest;
+import com.nyangmeong.health.dto.CareMissionProgressResponse;
+import com.nyangmeong.health.service.CareItemService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+/**
+ * [토탈 케어리스트 컨트롤러]
+ * - SCR-HLT-003 케어 항목·완료 기록 (docs/api/health.md)
+ */
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/pets/{petSn}")
+public class CareItemController {
+
+    private final CareItemService careItemService;
+
+    @Operation(summary = "케어 항목 목록(토탈 케어리스트)")
+    @AiTool(name = "list_care_items", domain = "health", kind = AiToolKind.READ)
+    @GetMapping("/care-items")
+    public ResponseEntity<ApiResponse<List<CareItemSummary>>> search(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @ModelAttribute CareItemSearchCond cond) {
+        return ResponseEntity.ok(ApiResponse.success(careItemService.search(me.id(), petSn, cond)));
+    }
+
+    @Operation(summary = "케어리스트 표시 항목 저장")
+    @PutMapping("/care-items/indications")
+    public ResponseEntity<ApiResponse<List<CareItemSummary>>> saveIndications(
+            @AuthenticationPrincipal LoginMember me, @PathVariable Long petSn,
+            @Valid @RequestBody CareItemIndicationSaveRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(careItemService.saveIndications(me.id(), petSn, req)));
+    }
+
+    @Operation(summary = "케어리스트 오늘 케어미션 진행")
+    @GetMapping("/care-items/mission-progress")
+    public ResponseEntity<ApiResponse<CareMissionProgressResponse>> searchMissionProgress(
+            @AuthenticationPrincipal LoginMember me, @PathVariable Long petSn) {
+        return ResponseEntity.ok(ApiResponse.success(careItemService.searchMissionProgress(me.id(), petSn)));
+    }
+
+    @Operation(summary = "케어 항목 추가")
+    @AiTool(name = "draft_care_item", domain = "health", kind = AiToolKind.CARD)
+    @PostMapping("/care-items")
+    public ResponseEntity<ApiResponse<CareItemResponse>> create(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @Valid @RequestBody CareItemCreateRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(careItemService.create(me.id(), petSn, req)));
+    }
+
+    @Operation(summary = "케어 항목 수정")
+    @AiTool(name = "draft_care_item_update", domain = "health", kind = AiToolKind.CARD)
+    @PatchMapping("/care-items/{careArtclSn}")
+    public ResponseEntity<ApiResponse<CareItemResponse>> update(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @PathVariable Long careArtclSn, @Valid @RequestBody CareItemUpdateRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(careItemService.update(me.id(), petSn, careArtclSn, req)));
+    }
+
+    @Operation(summary = "케어 항목 삭제")
+    @DeleteMapping("/care-items/{careArtclSn}")
+    public ResponseEntity<ApiResponse<Void>> delete(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @PathVariable Long careArtclSn) {
+        careItemService.delete(me.id(), petSn, careArtclSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "케어 완료 기록 목록")
+    @AiTool(name = "list_care_completions", domain = "health", kind = AiToolKind.READ)
+    @GetMapping("/care-completions")
+    public ResponseEntity<ApiResponse<List<CareCompletionSummary>>> searchCompletions(
+            @AuthenticationPrincipal LoginMember me, @PathVariable Long petSn,
+            @ModelAttribute CareCompletionSearchCond cond) {
+        return ResponseEntity.ok(ApiResponse.success(careItemService.searchCompletions(me.id(), petSn, cond)));
+    }
+
+    @Operation(summary = "케어 완료 체크")
+    @AiTool(name = "draft_care_completion", domain = "health", kind = AiToolKind.CARD)
+    @PostMapping("/care-completions")
+    public ResponseEntity<ApiResponse<CareCompletionResponse>> complete(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @Valid @RequestBody CareCompletionCreateRequest req) {
+        CareItemService.Completed completed = careItemService.complete(me.id(), petSn, req);
+        if (completed.created()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(completed.response()));
+        }
+        return ResponseEntity.ok(ApiResponse.success(completed.response()));
+    }
+
+    @Operation(summary = "그날 케어 완료 기록 취소(투약은 그날 체크 전부)")
+    @DeleteMapping("/care-completions/{careCmptnHstrySn}")
+    public ResponseEntity<ApiResponse<Void>> cancel(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @PathVariable Long careCmptnHstrySn) {
+        careItemService.cancel(me.id(), petSn, careCmptnHstrySn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @Operation(summary = "투약 오늘 마지막 1회 취소")
+    @DeleteMapping("/care-items/{careArtclSn}/today-completion/last")
+    public ResponseEntity<ApiResponse<Void>> cancelLastToday(@AuthenticationPrincipal LoginMember me,
+            @PathVariable Long petSn, @PathVariable Long careArtclSn) {
+        careItemService.cancelLastToday(me.id(), petSn, careArtclSn);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+}

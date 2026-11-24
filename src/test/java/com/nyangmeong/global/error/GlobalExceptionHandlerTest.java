@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -48,7 +49,18 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/business")
         String business() {
-            throw new CustomException(ErrorCode.PET_LIMIT_EXCEEDED);
+            throw new CustomException(ErrorCode.PET_WEIGHT_LOCKED);
+        }
+
+        @GetMapping("/test/business-message")
+        String businessMessage() {
+            throw CustomException.withMessage(ErrorCode.PET_LIMIT_EXCEEDED,
+                    ErrorCode.PET_LIMIT_EXCEEDED.message().formatted(10));
+        }
+
+        @GetMapping("/test/business-field")
+        String businessField() {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "careCycleCd");
         }
 
         @PostMapping("/test/valid")
@@ -75,6 +87,11 @@ class GlobalExceptionHandlerTest {
         String upload() {
             throw new MaxUploadSizeExceededException(10L * 1024 * 1024);
         }
+
+        @GetMapping("/test/bad-encoding")
+        String badEncoding() {
+            throw new InvalidParameterException("Character decoding failed. Parameter [q] has been ignored.");
+        }
     }
 
     @Autowired
@@ -86,9 +103,37 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("error"))
                 .andExpect(jsonPath("$.httpCode").value(400))
-                .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.PET_LIMIT_EXCEEDED.message()))
+                .andExpect(jsonPath("$.code").value("PET_WEIGHT_LOCKED"))
+                .andExpect(jsonPath("$.message").value(ErrorCode.PET_WEIGHT_LOCKED.message()))
                 .andExpect(jsonPath("$.path").value("/test/business"));
+    }
+
+    @Test
+    void withMessage로_정한_문구가_message로_나가고_서식_기호가_남지_않는다() throws Exception {
+        mockMvc.perform(get("/test/business-message"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PET_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.message").value(ErrorCode.PET_LIMIT_EXCEEDED.message().formatted(10)))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("%"))))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void 칸을_실은_CustomException은_data에_칸_이름과_ErrorCode_문구가_나간다() throws Exception {
+        mockMvc.perform(get("/test/business-field"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].field").value("careCycleCd"))
+                .andExpect(jsonPath("$.data[0].message").value(ErrorCode.INVALID_INPUT_VALUE.message()));
+    }
+
+    @Test
+    void 칸이_없는_CustomException은_data가_없다() throws Exception {
+        mockMvc.perform(get("/test/business"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test
@@ -105,6 +150,14 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(post("/test/valid").contentType(MediaType.APPLICATION_JSON).content("not-json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void 요청_값을_UTF_8로_풀지_못하면_400_BAD_REQUEST다() throws Exception {
+        mockMvc.perform(get("/test/bad-encoding"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.path").value("/test/bad-encoding"));
     }
 
     @Test

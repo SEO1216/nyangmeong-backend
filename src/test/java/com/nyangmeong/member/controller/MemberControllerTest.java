@@ -1,5 +1,6 @@
 package com.nyangmeong.member.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -7,20 +8,26 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -40,14 +47,28 @@ import com.nyangmeong.global.security.handler.RestAuthenticationEntryPoint;
 import com.nyangmeong.global.security.jwt.JwtProperties;
 import com.nyangmeong.global.security.jwt.JwtTokenProvider;
 import com.nyangmeong.global.security.jwt.TokenCookies;
+import com.nyangmeong.global.security.session.LoginSessionManager;
 import com.nyangmeong.member.dto.MemberCreateRequest;
 import com.nyangmeong.member.dto.MemberJoinResult;
 import com.nyangmeong.member.dto.MemberNicknameAvailabilityResponse;
 import com.nyangmeong.member.dto.MemberNicknameUpdateRequest;
+import com.nyangmeong.member.dto.MemberSnsLinkRequest;
 import com.nyangmeong.member.dto.MemberPhoneAvailabilityResponse;
+import com.nyangmeong.member.dto.MemberRecoverRequest;
+import com.nyangmeong.member.dto.MemberRecoveryInfoRequest;
+import com.nyangmeong.member.dto.MemberRecoveryResponse;
 import com.nyangmeong.member.dto.MemberResponse;
+import com.nyangmeong.member.dto.MemberTutorialResponse;
+import com.nyangmeong.member.dto.MemberUpdateRequest;
+import com.nyangmeong.member.dto.MemberWithdrawRequest;
+import com.nyangmeong.member.dto.PasswordChangeRequest;
+import com.nyangmeong.member.dto.PasswordVerifyRequest;
 import com.nyangmeong.member.service.MemberJoinService;
+import com.nyangmeong.member.service.MemberPasswordService;
+import com.nyangmeong.member.service.MemberRecoveryService;
 import com.nyangmeong.member.service.MemberService;
+import com.nyangmeong.member.service.MemberSnsLinkService;
+import com.nyangmeong.member.service.MemberWithdrawService;
 import com.nyangmeong.member.service.NicknameSetupTokenManager;
 
 import jakarta.servlet.http.Cookie;
@@ -57,6 +78,7 @@ import jakarta.servlet.http.Cookie;
  * - 가입은 로그인 쿠키 없이 201 + 닉네임 설정 쿠키만 / 입력 오류는 서비스까지 가지 않는다
  * - 닉네임 설정은 로그인 회원 또는 닉네임 설정 쿠키만 / 둘 다 없으면 401
  * - 쿠키는 실제 NicknameSetupTokenManager 로 발급·검증한다
+ * - 비밀번호 확인·변경은 로그인 회원만 / 필수값·형식 오류는 서비스까지 가지 않고 / 변경 성공 시 요청한 기기에 새 세션을 준다
  */
 @WebMvcTest(controllers = MemberController.class)
 @Import({SecurityConfig.class, JwtTokenProvider.class, JwtProperties.class, TokenCookies.class,
@@ -84,10 +106,25 @@ class MemberControllerTest {
     MemberJoinService memberJoinService;
 
     @MockitoBean
+    MemberRecoveryService memberRecoveryService;
+
+    @MockitoBean
+    MemberPasswordService memberPasswordService;
+
+    @MockitoBean
+    MemberWithdrawService memberWithdrawService;
+
+    @MockitoBean
+    MemberSnsLinkService memberSnsLinkService;
+
+    @MockitoBean
+    LoginSessionManager loginSessionManager;
+
+    @MockitoBean
     AuthMemberMapper authMemberMapper;
 
     private final MemberResponse memberResponse = new MemberResponse("newbie@example.com", "냥멍12345678",
-            "01012345678", null, "USRC0006", false, List.of());
+            "01012345678", null, "USRC0006", false, List.of(), null, null);
 
     private MockHttpServletRequestBuilder join(String body) {
         return post("/api/members")
@@ -253,7 +290,7 @@ class MemberControllerTest {
     void 닉네임_설정_쿠키가_있으면_그_회원의_닉네임을_저장한다() throws Exception {
         when(memberService.updateNickname(eq(11L), any(MemberNicknameUpdateRequest.class)))
                 .thenReturn(new MemberResponse("newbie@example.com", "초코맘", "01012345678", null, "USRC0006", true,
-                        List.of()));
+                        List.of(), null, null));
 
         mockMvc.perform(nickname("{\"mbrNcnm\":\"초코맘\"}").cookie(setupCookie(11L)))
                 .andExpect(status().isOk())
@@ -299,5 +336,421 @@ class MemberControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(memberService, never()).updateNickname(any(), any());
+    }
+
+    private MockHttpServletRequestBuilder recovery(String path, String body) {
+        return post(path)
+                .header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    @Test
+    void 복구_안내는_로그인_쿠키_없이_200이고_보관_정보를_준다() throws Exception {
+        when(memberRecoveryService.getRecovery(any(MemberRecoveryInfoRequest.class)))
+                .thenReturn(new MemberRecoveryResponse("newbie@example.com", "초코맘",
+                        LocalDateTime.of(2026, 10, 20, 9, 0), LocalDateTime.of(2026, 11, 19, 9, 0), "010-****-5678",
+                        List.of()));
+
+        mockMvc.perform(recovery("/api/members/recovery-info", "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\"tkn\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.acntEml").value("newbie@example.com"))
+                .andExpect(jsonPath("$.data.mbrNcnm").value("초코맘"))
+                .andExpect(jsonPath("$.data.maskedMblTelno").value("010-****-5678"))
+                .andExpect(jsonPath("$.data.missingTrms").isEmpty());
+    }
+
+    @Test
+    void 보관_번호가_없으면_복구_안내에서_가린_번호가_빠진다() throws Exception {
+        when(memberRecoveryService.getRecovery(any(MemberRecoveryInfoRequest.class)))
+                .thenReturn(new MemberRecoveryResponse("newbie@example.com", "초코맘",
+                        LocalDateTime.of(2026, 10, 20, 9, 0), LocalDateTime.of(2026, 11, 19, 9, 0), null, List.of()));
+
+        mockMvc.perform(recovery("/api/members/recovery-info", "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\"tkn\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.maskedMblTelno").doesNotExist());
+    }
+
+    @Test
+    void 복구_안내는_값이_비면_400이고_서비스를_부르지_않는다() throws Exception {
+        mockMvc.perform(recovery("/api/members/recovery-info", "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\" \"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(recovery("/api/members/recovery-info", "{\"rcvryAuthrtTkn\":\"tkn\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(memberRecoveryService, never()).getRecovery(any());
+    }
+
+    @Test
+    void 복구_권한이_없으면_400이다() throws Exception {
+        when(memberRecoveryService.getRecovery(any(MemberRecoveryInfoRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.MEMBER_RECOVERY_NOT_AVAILABLE));
+
+        mockMvc.perform(recovery("/api/members/recovery-info", "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\"tkn\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("복구 확인 시간이 지났습니다. 이메일 인증을 다시 진행해 주세요."));
+    }
+
+    @Test
+    void 복구_실행은_로그인_쿠키_없이_200이고_쿠키를_내리지_않는다() throws Exception {
+        mockMvc.perform(recovery("/api/members/recovery",
+                "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\"tkn\",\"trmsAgres\":[{\"trmsSn\":1,\"agreYn\":true}],"
+                        + "\"mblTelno\":\"010-1234-5678\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        verify(memberRecoveryService).recover(any(MemberRecoverRequest.class));
+    }
+
+    @Test
+    void 복구_실행은_약관_항목이_틀리거나_값이_비면_400이다() throws Exception {
+        mockMvc.perform(recovery("/api/members/recovery",
+                "{\"emlCertSn\":3,\"rcvryAuthrtTkn\":\"tkn\",\"trmsAgres\":[{\"trmsSn\":1}]}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(recovery("/api/members/recovery", "{\"emlCertSn\":3}"))
+                .andExpect(status().isBadRequest());
+
+        verify(memberRecoveryService, never()).recover(any());
+    }
+
+    @Test
+    void 복구_요청_문자열에_권한_토큰이_남지_않는다() {
+        assertThat(new MemberRecoveryInfoRequest(3L, "secret-tkn").toString()).doesNotContain("secret-tkn");
+        assertThat(new MemberRecoverRequest(3L, "secret-tkn", null, "01012345678").toString())
+                .doesNotContain("secret-tkn", "01012345678");
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 회원정보_수정_조회는_로그인_회원의_정보를_준다() throws Exception {
+        when(memberService.getMember(5L)).thenReturn(new MemberResponse("newbie@example.com", "초코맘", "01012345678",
+                null, "USRC0006", true, List.of(), LocalDateTime.of(2026, 8, 14, 9, 0),
+                LocalDateTime.of(2026, 10, 21, 10, 42)));
+
+        mockMvc.perform(get("/api/members/me").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.acntEml").value("newbie@example.com"))
+                .andExpect(jsonPath("$.data.mblTelno").value("01012345678"))
+                .andExpect(jsonPath("$.data.joinDt").exists())
+                .andExpect(jsonPath("$.data.lastLgnDt").exists());
+    }
+
+    @Test
+    void 회원정보_수정_조회는_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(get("/api/members/me").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberService, never()).getMember(any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 회원정보_수정은_multipart로_번호와_사진을_받는다() throws Exception {
+        when(memberService.updateMember(eq(5L), any(MemberUpdateRequest.class))).thenReturn(memberResponse);
+        MockMultipartFile photo = new MockMultipartFile("profilePhoto", "me.png", "image/png", new byte[] {1, 2});
+
+        mockMvc.perform(multipart(HttpMethod.PATCH, "/api/members/me").file(photo)
+                .param("mblTelno", "+82 10-1234-5678")
+                .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<MemberUpdateRequest> captor = ArgumentCaptor.forClass(MemberUpdateRequest.class);
+        verify(memberService).updateMember(eq(5L), captor.capture());
+        assertThat(captor.getValue().mblTelno()).isEqualTo("+82 10-1234-5678");
+        assertThat(captor.getValue().profilePhoto().getOriginalFilename()).isEqualTo("me.png");
+    }
+
+    @Test
+    void 회원정보_수정은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(multipart(HttpMethod.PATCH, "/api/members/me").param("profilePhotoReset", "true")
+                .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberService, never()).updateMember(any(), any());
+    }
+
+    private MockHttpServletRequestBuilder linkSns(String body) {
+        return post("/api/members/me/sns-links")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void SNS_연동은_로그인_회원의_번호와_요청으로_부르고_회원_응답을_준다() throws Exception {
+        when(memberSnsLinkService.link(eq(5L), any(MemberSnsLinkRequest.class), any())).thenReturn(memberResponse);
+
+        mockMvc.perform(linkSns("{\"snsOffrCd\":\"USRC0007\",\"code\":\"fake-a\",\"state\":\"s\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.joinPathCd").value("USRC0006"));
+
+        ArgumentCaptor<MemberSnsLinkRequest> captor = ArgumentCaptor.forClass(MemberSnsLinkRequest.class);
+        verify(memberSnsLinkService).link(eq(5L), captor.capture(), any());
+        assertThat(captor.getValue().snsOffrCd()).isEqualTo("USRC0007");
+        assertThat(captor.getValue().code()).isEqualTo("fake-a");
+        assertThat(captor.getValue().state()).isEqualTo("s");
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void SNS_연동에서_다른_회원의_계정이면_409다() throws Exception {
+        when(memberSnsLinkService.link(eq(5L), any(MemberSnsLinkRequest.class), any()))
+                .thenThrow(new CustomException(ErrorCode.SNS_ACCOUNT_LINKED_TO_OTHER));
+
+        mockMvc.perform(linkSns("{\"snsOffrCd\":\"USRC0007\",\"code\":\"fake-a\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SNS_ACCOUNT_LINKED_TO_OTHER"));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void SNS_연동은_제공자와_인가_코드가_없으면_400이다() throws Exception {
+        mockMvc.perform(linkSns("{\"snsOffrCd\":\"USRC0007\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(memberSnsLinkService, never()).link(any(), any(), any());
+    }
+
+    @Test
+    void SNS_연동은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(linkSns("{\"snsOffrCd\":\"USRC0007\",\"code\":\"fake-a\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberSnsLinkService, never()).link(any(), any(), any());
+    }
+
+    private MockHttpServletRequestBuilder verifyPassword(String body) {
+        return post("/api/members/me/password-verification")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    private MockHttpServletRequestBuilder changePassword(String body) {
+        return patch("/api/members/me/password")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_확인은_통과하면_200이다() throws Exception {
+        mockMvc.perform(verifyPassword("{\"pswd\":\"oldpass12\"}"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PasswordVerifyRequest> captor = ArgumentCaptor.forClass(PasswordVerifyRequest.class);
+        verify(memberPasswordService).verify(eq(5L), captor.capture());
+        assertThat(captor.getValue().pswd()).isEqualTo("oldpass12");
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_확인에서_현재_비밀번호가_틀리면_400이다() throws Exception {
+        org.mockito.Mockito.doThrow(new CustomException(ErrorCode.CURRENT_PASSWORD_MISMATCH))
+                .when(memberPasswordService).verify(eq(5L), any(PasswordVerifyRequest.class));
+
+        mockMvc.perform(verifyPassword("{\"pswd\":\"wrongpass1\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_MISMATCH"));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_확인은_비밀번호가_비면_400이고_서비스까지_가지_않는다() throws Exception {
+        mockMvc.perform(verifyPassword("{}")).andExpect(status().isBadRequest());
+        mockMvc.perform(verifyPassword("{\"pswd\":\"  \"}")).andExpect(status().isBadRequest());
+
+        verify(memberPasswordService, never()).verify(any(), any());
+    }
+
+    @Test
+    void 비밀번호_확인은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(verifyPassword("{\"pswd\":\"oldpass12\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberPasswordService, never()).verify(any(), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_변경은_바꾼_뒤_요청한_기기에_새_세션을_준다() throws Exception {
+        mockMvc.perform(changePassword(
+                "{\"currentPswd\":\"oldpass12\",\"pswd\":\"newpass34\",\"pswdCnfrm\":\"newpass34\"}"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<PasswordChangeRequest> captor = ArgumentCaptor.forClass(PasswordChangeRequest.class);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(memberPasswordService, loginSessionManager);
+        order.verify(memberPasswordService).change(eq(5L), captor.capture());
+        order.verify(loginSessionManager).issue(eq(5L), any());
+        assertThat(captor.getValue().currentPswd()).isEqualTo("oldpass12");
+        assertThat(captor.getValue().pswd()).isEqualTo("newpass34");
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_변경은_세_값_중_하나라도_비면_400이다() throws Exception {
+        mockMvc.perform(changePassword("{\"pswd\":\"newpass34\",\"pswdCnfrm\":\"newpass34\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(changePassword("{\"currentPswd\":\"oldpass12\",\"pswdCnfrm\":\"newpass34\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(changePassword("{\"currentPswd\":\"oldpass12\",\"pswd\":\"newpass34\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(memberPasswordService, never()).change(any(), any());
+        verify(loginSessionManager, never()).issue(any(), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_변경은_새_비밀번호_형식이_틀리면_400이다() throws Exception {
+        for (String weak : new String[] {"short1", "onlyletters", "12345678", "has space1a"}) {
+            mockMvc.perform(changePassword("{\"currentPswd\":\"oldpass12\",\"pswd\":\"" + weak
+                    + "\",\"pswdCnfrm\":\"" + weak + "\"}")).andExpect(status().isBadRequest());
+        }
+
+        verify(memberPasswordService, never()).change(any(), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 비밀번호_변경이_거절되면_새_세션을_주지_않는다() throws Exception {
+        org.mockito.Mockito.doThrow(new CustomException(ErrorCode.CURRENT_PASSWORD_MISMATCH))
+                .when(memberPasswordService).change(eq(5L), any(PasswordChangeRequest.class));
+
+        mockMvc.perform(changePassword(
+                "{\"currentPswd\":\"wrongpass1\",\"pswd\":\"newpass34\",\"pswdCnfrm\":\"newpass34\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CURRENT_PASSWORD_MISMATCH"));
+
+        verify(loginSessionManager, never()).issue(any(), any());
+    }
+
+    @Test
+    void 비밀번호_변경은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(changePassword(
+                "{\"currentPswd\":\"oldpass12\",\"pswd\":\"newpass34\",\"pswdCnfrm\":\"newpass34\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberPasswordService, never()).change(any(), any());
+    }
+
+    private static final String SNS_JOIN_BODY = """
+            {"joinPathCd":"USRC0008","signupTkn":"tkn","mblTelno":"01012345678",
+             "trmsAgres":[{"trmsSn":1,"agreYn":true}]}
+            """;
+
+    @Test
+    void SNS_가입은_signupTkn을_서비스에_넘기고_201과_닉네임_쿠키를_준다() throws Exception {
+        when(memberJoinService.create(any(MemberCreateRequest.class)))
+                .thenReturn(new MemberJoinResult(21L, memberResponse));
+
+        mockMvc.perform(join(SNS_JOIN_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Set-Cookie", Matchers.startsWith("ncnm_setup=")));
+
+        ArgumentCaptor<MemberCreateRequest> captor = ArgumentCaptor.forClass(MemberCreateRequest.class);
+        verify(memberJoinService).create(captor.capture());
+        assertThat(captor.getValue().signupTkn()).isEqualTo("tkn");
+        assertThat(captor.getValue().pswd()).isNull();
+    }
+
+    @Test
+    void SNS_가입에_pswd를_보내면_400이다() throws Exception {
+        when(memberJoinService.create(any(MemberCreateRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.BAD_REQUEST));
+
+        mockMvc.perform(join(SNS_JOIN_BODY.replace("\"signupTkn\":\"tkn\",",
+                "\"signupTkn\":\"tkn\",\"pswd\":\"pass1234\",\"pswdCnfrm\":\"pass1234\",")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void SNS_가입에_signupTkn이_없으면_400이다() throws Exception {
+        when(memberJoinService.create(any(MemberCreateRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.BAD_REQUEST));
+
+        mockMvc.perform(join(SNS_JOIN_BODY.replace("\"signupTkn\":\"tkn\",", "")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    private MockHttpServletRequestBuilder withdraw(String body) {
+        return post("/api/members/me/withdraw")
+                .header("X-Requested-With", "XMLHttpRequest")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 회원탈퇴는_탈퇴한_뒤_요청한_기기의_쿠키를_지운다() throws Exception {
+        mockMvc.perform(withdraw("{\"noticeConfirmed\":true,\"confirmPhrase\":\"정말로 탈퇴하겠습니다.\"}"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<MemberWithdrawRequest> captor = ArgumentCaptor.forClass(MemberWithdrawRequest.class);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(memberWithdrawService, loginSessionManager);
+        order.verify(memberWithdrawService).withdraw(eq(5L), captor.capture());
+        order.verify(loginSessionManager).revoke(any(), any());
+        assertThat(captor.getValue().confirmPhrase()).isEqualTo("정말로 탈퇴하겠습니다.");
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 회원탈퇴는_유의사항_확인이_없거나_false면_400이다() throws Exception {
+        mockMvc.perform(withdraw("{\"noticeConfirmed\":false,\"confirmPhrase\":\"정말로 탈퇴하겠습니다.\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+        mockMvc.perform(withdraw("{\"confirmPhrase\":\"정말로 탈퇴하겠습니다.\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+        mockMvc.perform(withdraw("{\"noticeConfirmed\":true}"))
+                .andExpect(status().isBadRequest());
+
+        verify(memberWithdrawService, never()).withdraw(any(), any());
+        verify(loginSessionManager, never()).revoke(any(), any());
+    }
+
+    @Test
+    void 회원탈퇴는_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(withdraw("{\"noticeConfirmed\":true,\"confirmPhrase\":\"정말로 탈퇴하겠습니다.\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberWithdrawService, never()).withdraw(any(), any());
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 튜토리얼_조회는_로그인_회원의_봤음_여부를_준다() throws Exception {
+        when(memberService.getTutorial(5L)).thenReturn(new MemberTutorialResponse(false));
+
+        mockMvc.perform(get("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tutrlViewYn").value(false));
+    }
+
+    @Test
+    @WithMockLoginMember(id = 5L)
+    void 튜토리얼_저장은_본문_없이_봤음_true를_준다() throws Exception {
+        when(memberService.markTutorialViewed(5L)).thenReturn(new MemberTutorialResponse(true));
+
+        mockMvc.perform(put("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tutrlViewYn").value(true));
+    }
+
+    @Test
+    void 튜토리얼_조회와_저장은_로그인하지_않으면_401이다() throws Exception {
+        mockMvc.perform(get("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/members/me/tutorial").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+
+        verify(memberService, never()).getTutorial(any());
+        verify(memberService, never()).markTutorialViewed(any());
     }
 }

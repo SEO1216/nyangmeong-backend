@@ -1,0 +1,55 @@
+package com.nyangmeong.global.batch;
+
+import java.util.Arrays;
+
+import com.nyangmeong.global.error.CustomException;
+import com.nyangmeong.global.error.ErrorCode;
+
+/**
+ * [배치 구분]
+ * - SYSG02 (BTCH_EXCN_HSTRY.BTCH_SE_CD)
+ */
+public enum BatchType {
+    CARE_MISSION("SYSC0006", "케어미션 출제"),
+    CARE_SCHEDULE_ALARM("SYSC0007", "케어 일정 사전 알림"),
+    AI_CONVERSATION_PURGE("SYSC0008", "AI 대화 정리"),
+    PRESCRIPTION_EXPIRY("SYSC0009", "처방 만료"),
+    MEMBER_SUSPENSION_EXPIRY("SYSC0026", "회원 정지 만료 해제"),
+    MEMBER_PURGE("SYSC0027", "탈퇴 회원 파기"),
+    NEWS_COLLECT("SYSC0028", "뉴스 수집"),
+    CHARACTER_JOB_TIMEOUT("SYSC0029", "캐릭터 생성 시간 초과"),
+    TODAY_PHRASE_SELECT("SYSC0030", "오늘의 한마디 선택"),
+    CARE_MATCH_NO_RESPONSE("SYSC0031", "펫돌봄 매칭 무응답 종료"),
+    LOST_EXPIRY_ALARM("SYSC0032", "실종 만료 사전 알림"),
+    CARE_RECRUITMENT_CLOSE("SYSC0033", "펫돌봄 지난 모집 마감");
+
+    private final String code;
+    private final String label;
+
+    BatchType(String code, String label) {
+        this.code = code;
+        this.label = label;
+    }
+
+    /**
+     * 코드로 배치 구분 조회
+     */
+    public static BatchType from(String code) {
+        return Arrays.stream(values())
+                .filter(type -> type.is(code))
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.NOT_FOUND));
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public boolean is(String code) {
+        return this.code.equals(code);
+    }
+}

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nyangmeong.global.aitool.AiTool;
+import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
 import com.nyangmeong.health.dto.CareScheduleCreateRequest;
@@ -39,6 +41,10 @@ public class CareScheduleController {
 
     private final CareScheduleService careScheduleService;
 
+    /**
+     * 케어 캘린더 일정 목록
+     * - AI 도구 아님 : 대화창은 회원 단위 list_my_care_schedules 로 한 아이 일정도 읽음 (MyCareScheduleController)
+     */
     @Operation(summary = "케어 캘린더 일정 목록")
     @GetMapping
     public ResponseEntity<ApiResponse<List<CareScheduleSummary>>> search(@AuthenticationPrincipal LoginMember me,
@@ -47,6 +53,7 @@ public class CareScheduleController {
     }
 
     @Operation(summary = "일정 등록")
+    @AiTool(name = "draft_schedule", domain = "health", kind = AiToolKind.CARD)
     @PostMapping
     public ResponseEntity<ApiResponse<CareScheduleResponse>> create(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn, @Valid @RequestBody CareScheduleCreateRequest req) {
@@ -55,6 +62,7 @@ public class CareScheduleController {
     }
 
     @Operation(summary = "일정 수정")
+    @AiTool(name = "draft_schedule_update", domain = "health", kind = AiToolKind.CARD)
     @PatchMapping("/{schdlSn}")
     public ResponseEntity<ApiResponse<CareScheduleResponse>> update(@AuthenticationPrincipal LoginMember me,
             @PathVariable Long petSn, @PathVariable Long schdlSn, @Valid @RequestBody CareScheduleUpdateRequest req) {

@@ -15,8 +15,13 @@ public class Report {
     private Long mbrSn;
     private Long prcsMbrSn;
     private Long pstSn;
+    /** 채팅 상대 신고의 채팅방 */
+    private Long otoChatRoomSn;
+    /** 채팅 상대 신고의 대상 회원 */
+    private Long trgtMbrSn;
     private String dclrRsnCd;
     private String dclrPrcsSttsCd;
+    private String dclrActnCd;
     private String dclrDtlCn;
     private LocalDateTime prcsDt;
     private LocalDateTime regDt;

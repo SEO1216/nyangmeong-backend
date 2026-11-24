@@ -129,6 +129,14 @@
              , #{cmptnYn} )
     </insert>
 
+    <update id="updateRoomTitle">
+        /* AI 대화방 제목 수정(본인 것만) */
+        UPDATE AI_CNVRS_ROOM
+           SET CNVRS_TTL_ENC = #{cnvrsTtlEnc}
+         WHERE AI_CNVRS_ROOM_SN = #{aiCnvrsRoomSn}
+           AND MBR_SN = #{mbrSn}
+    </update>
+
     <delete id="deleteRoom">
         /* AI 대화방 삭제(본인 것만, 메시지는 CASCADE) */
         DELETE FROM AI_CNVRS_ROOM
@@ -144,4 +152,22 @@
             #{mbrSn}
         </foreach>
     </delete>
+
+    <resultMap id="adminDailyAiChatResultMap" type="com.nyangmeong.ai.dto.AdminDailyAiChatSummary">
+        <result column="YMD" property="ymd" />
+        <result column="CNT" property="cnt" />
+    </resultMap>
+
+    <select id="selectDailyMessageCounts" resultMap="adminDailyAiChatResultMap">
+        /* 관리자 대시보드 일별 AI 대화 메시지 수 : 내용은 읽지 않는다 */
+        SELECT DATE(REG_DT) AS YMD
+             , COUNT(*)     AS CNT
+          FROM AI_CNVRS_MSG
+         WHERE ROLE_CD = #{roleCd}
+           AND REG_DT &gt;= #{fromDt}
+           AND REG_DT &lt; #{toDt}
+         GROUP BY DATE(REG_DT)
+         ORDER BY YMD
+    </select>
+
 </mapper>

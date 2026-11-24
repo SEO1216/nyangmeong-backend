@@ -2,7 +2,11 @@ package com.nyangmeong.community.service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +19,8 @@ import com.nyangmeong.community.domain.Post;
 import com.nyangmeong.community.domain.PostImage;
 import com.nyangmeong.community.domain.PostStatus;
 import com.nyangmeong.community.domain.PostStatusHistory;
+import com.nyangmeong.community.dto.HealthTipDesignation;
+import com.nyangmeong.community.dto.HealthTipSlot;
 import com.nyangmeong.community.dto.PostCreateRequest;
 import com.nyangmeong.community.dto.PostImageSummary;
 import com.nyangmeong.community.dto.PostLikeResponse;
@@ -26,10 +32,14 @@ import com.nyangmeong.community.mapper.PostMapper;
 import com.nyangmeong.global.auth.OwnerAuthorizer;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.file.FileCategory;
+import com.nyangmeong.global.file.FileOwner;
 import com.nyangmeong.global.file.FileStore;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.global.setting.SystemSettingService;
+import com.nyangmeong.global.validation.ProfanityFilter;
+import com.nyangmeong.pet.domain.CareMission;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,17 +57,21 @@ public class PostService {
     static final String SORT_POPULAR = "popular";
     /** 인기 포토 대체 기간 (일), 마지막은 전체 기간 */
     static final List<Integer> POPULAR_PHOTO_DAYS = Arrays.asList(7, 30, null);
+    /** 오늘의 건강팁 노출 자리 수 */
+    static final int HEALTH_TIP_SLOTS = 3;
 
     private final PostMapper postMapper;
     private final FileStore fileStore;
     private final OwnerAuthorizer ownerAuthorizer;
     private final SystemSettingService systemSettingService;
+    private final PetStoryMissionReflector missionReflector;
+    private final ProfanityFilter profanityFilter;
 
     /**
-     * 게시글 목록 조회
+     * 게시글 목록 조회 (mineYn 이면 내 글만, 항목마다 owner 표시)
      */
     @Transactional(readOnly = true)
-    public PageResponse<PostSummary> search(PostSearchCond cond, PageQuery pq) {
+    public PageResponse<PostSummary> search(Long mbrSn, PostSearchCond cond, PageQuery pq) {
         String bbsCd = cond.getBbsCd() == null || cond.getBbsCd().isBlank() ? null : cond.getBbsCd();
         if (bbsCd != null && !BoardType.exists(bbsCd)) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
@@ -67,7 +81,8 @@ public class PostService {
                 : escapeLike(cond.getKeyword().trim());
 
         PageHelper.startPage(pq.pageOrDefault(), pq.sizeOr(PAGE_SIZE));
-        List<PostSummary> rows = postMapper.selectList(bbsCd, keyword, popularSort, PostStatus.NORMAL.getCode());
+        List<PostSummary> rows = postMapper.selectList(bbsCd, keyword, popularSort, PostStatus.NORMAL.getCode(), mbrSn,
+                cond.isMineYn());
         /** 인기순 정렬에서는 인기글 배지 미표시 */
         if (popularSort) {
             rows.forEach(row -> row.setPopular(false));
@@ -76,11 +91,62 @@ public class PostService {
     }
 
     /**
-     * 오늘의 건강팁 조회
+     * 오늘의 건강팁 조회 : 관리자 지정 글 + 빈 자리는 자동 선정 (FN-ADM-023-01·03)
      */
     @Transactional(readOnly = true)
     public List<PostSummary> getHealthTips() {
-        return postMapper.selectHealthTips(BoardType.PET_INFO.getCode(), PostStatus.NORMAL.getCode());
+        return getHealthTipSlots().stream().map(HealthTipSlot::post).toList();
+    }
+
+    /**
+     * 오늘의 건강팁 노출 자리 조회
+     * - 지정 글(정상 펫정보, 자리 1~3)은 그 자리에, 빈 자리는 자동 선정 글로 앞에서부터 채움
+     * - 자동 선정 : 지정 안 된 정상 펫정보 글 중 건강 키워드가 든 글, 좋아요순 (결정 B-23)
+     */
+    @Transactional(readOnly = true)
+    public List<HealthTipSlot> getHealthTipSlots() {
+        String bbsCd = BoardType.PET_INFO.getCode();
+        String pstSttsCd = PostStatus.NORMAL.getCode();
+        Map<Long, PostSummary> designated = new HashMap<>();
+        for (PostSummary summary : postMapper.selectHealthTips(bbsCd, pstSttsCd)) {
+            designated.put(summary.getPstSn(), summary);
+        }
+
+        HealthTipSlot[] slots = new HealthTipSlot[HEALTH_TIP_SLOTS];
+        for (HealthTipDesignation designation : postMapper.selectHealthTipDesignations(bbsCd, pstSttsCd)) {
+            int index = designation.getHlthInfoExpsrSeq() - 1;
+            PostSummary summary = designated.get(designation.getPstSn());
+            if (index >= 0 && index < HEALTH_TIP_SLOTS && slots[index] == null && summary != null) {
+                slots[index] = new HealthTipSlot(designation.getHlthInfoExpsrSeq(), summary);
+            }
+        }
+
+        long empty = Arrays.stream(slots).filter(Objects::isNull).count();
+        List<String> keywords = healthKeywords();
+        if (empty > 0 && !keywords.isEmpty()) {
+            Iterator<PostSummary> autos = postMapper.selectAutoHealthTips(bbsCd, pstSttsCd, keywords, (int) empty)
+                    .iterator();
+            for (int i = 0; i < HEALTH_TIP_SLOTS && autos.hasNext(); i++) {
+                if (slots[i] == null) {
+                    slots[i] = new HealthTipSlot(null, autos.next());
+                }
+            }
+        }
+        return Arrays.stream(slots).filter(Objects::nonNull).toList();
+    }
+
+    /**
+     * 건강 키워드 : 쉼표로 나눠 앞뒤 공백을 지우고 LIKE 이스케이프, 중복 제거
+     */
+    private List<String> healthKeywords() {
+        return postMapper.selectHealthKeywords().stream()
+                .filter(Objects::nonNull)
+                .flatMap(line -> Arrays.stream(line.split(",")))
+                .map(String::strip)
+                .filter(keyword -> !keyword.isEmpty())
+                .map(this::escapeLike)
+                .distinct()
+                .toList();
     }
 
     /**
@@ -103,9 +169,9 @@ public class PostService {
      */
     @Transactional
     public PostResponse getPost(Long mbrSn, Long pstSn) {
-        Post post = getNormalOrThrow(pstSn);
-        /** 같은 회원·같은 날 이력이 이미 있으면 0건 */
-        if (postMapper.insertViewIgnore(pstSn, mbrSn) > 0) {
+        Post post = getPetStoryOrThrow(pstSn);
+        /** 작성자 본인 조회는 조회수에 넣지 않는다. 같은 회원·같은 날 이력이 이미 있으면 0건 */
+        if (!mbrSn.equals(post.getMbrSn()) && postMapper.insertViewIgnore(pstSn, mbrSn) > 0) {
             postMapper.updateInqCnt(pstSn);
             post.setInqCnt(post.getInqCnt() + 1);
         }
@@ -117,6 +183,7 @@ public class PostService {
      */
     @Transactional
     public PostResponse create(Long mbrSn, PostCreateRequest req) {
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         checkBoard(req.bbsCd());
         List<MultipartFile> images = attached(req.images());
         if (images.size() > maxImages()) {
@@ -135,8 +202,9 @@ public class PostService {
 
         int sortSeq = 0;
         for (MultipartFile image : images) {
-            insertImage(post.getPstSn(), fileStore.storePublic(image, actorId(mbrSn)), sortSeq++, mbrSn);
+            insertImage(post.getPstSn(), fileStore.store(image, FileCategory.COMMUNITY_POST, FileOwner.member(mbrSn), actorId(mbrSn)), sortSeq++, mbrSn);
         }
+        missionReflector.reflectAfterCommit(mbrSn, CareMission.PET_STORY_POST);
         return toResponse(mbrSn, getNormalOrThrow(post.getPstSn()));
     }
 
@@ -145,8 +213,9 @@ public class PostService {
      */
     @Transactional
     public PostResponse update(Long mbrSn, Long pstSn, PostUpdateRequest req) {
-        Post post = getNormalOrThrow(pstSn);
+        Post post = getPetStoryOrThrow(pstSn);
         ownerAuthorizer.checkOwner(mbrSn, post.getMbrSn());
+        profanityFilter.check("pstTtl", req.pstTtl(), "pstCn", req.pstCn());
         if (req.bbsCd() != null) {
             checkBoard(req.bbsCd());
         }
@@ -175,7 +244,7 @@ public class PostService {
         }
         int sortSeq = remaining.stream().mapToInt(PostImage::getSortSeq).max().orElse(-1) + 1;
         for (MultipartFile image : images) {
-            insertImage(pstSn, fileStore.storePublic(image, actorId(mbrSn)), sortSeq++, mbrSn);
+            insertImage(pstSn, fileStore.store(image, FileCategory.COMMUNITY_POST, FileOwner.member(mbrSn), actorId(mbrSn)), sortSeq++, mbrSn);
         }
         return toResponse(mbrSn, getNormalOrThrow(pstSn));
     }
@@ -185,7 +254,7 @@ public class PostService {
      */
     @Transactional
     public void delete(Long mbrSn, Long pstSn) {
-        Post post = getNormalOrThrow(pstSn);
+        Post post = getPetStoryOrThrow(pstSn);
         ownerAuthorizer.checkOwner(mbrSn, post.getMbrSn());
         if (postMapper.updateStatus(pstSn, PostStatus.NORMAL.getCode(), PostStatus.DELETED.getCode(),
                 actorId(mbrSn)) == 0) {
@@ -227,6 +296,17 @@ public class PostService {
     private Post getNormalOrThrow(Long pstSn) {
         Post post = postMapper.selectPost(pstSn, PostStatus.NORMAL.getCode());
         if (post == null) {
+            throw new CustomException(ErrorCode.POST_NOT_FOUND);
+        }
+        return post;
+    }
+
+    /**
+     * 정상 상태 펫이야기 게시글 조회 (실종센터 글은 /api/lost-reports 로만 다룸)
+     */
+    private Post getPetStoryOrThrow(Long pstSn) {
+        Post post = getNormalOrThrow(pstSn);
+        if (!BoardType.exists(post.getBbsCd())) {
             throw new CustomException(ErrorCode.POST_NOT_FOUND);
         }
         return post;
@@ -298,7 +378,7 @@ public class PostService {
     private PostResponse toResponse(Long mbrSn, Post post) {
         List<PostImageSummary> imgs = postMapper.selectImages(post.getPstSn()).stream()
                 .map(PostImageSummary::from).toList();
-        return PostResponse.from(post, postMapper.selectMbrNcnm(post.getMbrSn()),
+        return PostResponse.from(post, postMapper.selectAuthor(post.getMbrSn()),
                 postMapper.countComments(post.getPstSn()), imgs, postMapper.existsLike(post.getPstSn(), mbrSn),
                 mbrSn.equals(post.getMbrSn()));
     }

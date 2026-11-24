@@ -1,0 +1,256 @@
+package com.nyangmeong.health.service;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.nyangmeong.global.auth.PetAuthorizer;
+import com.nyangmeong.global.error.CustomException;
+import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.health.domain.DailyHealthRecord;
+import com.nyangmeong.health.domain.DailyRecordIndicator;
+import com.nyangmeong.health.domain.HealthCodeGroup;
+import com.nyangmeong.health.dto.DailyHealthRecordCreateRequest;
+import com.nyangmeong.health.dto.DailyHealthRecordResponse;
+import com.nyangmeong.health.dto.DailyHealthRecordSearchCond;
+import com.nyangmeong.health.dto.DailyHealthRecordSummary;
+import com.nyangmeong.health.dto.DailyHealthRecordUpdateRequest;
+import com.nyangmeong.health.mapper.DailyHealthRecordMapper;
+import com.nyangmeong.pet.domain.CareMission;
+import com.nyangmeong.pet.service.CareMissionService;
+import com.nyangmeong.pet.service.PetService;
+
+import lombok.RequiredArgsConstructor;
+
+/**
+ * [일상 건강기록 서비스]
+ * - 일상 건강기록 목록·등록·수정·삭제 (SCR-HLT-002, FN-HLT-002-09~13)
+ * - 날짜별 합계는 묶지 않고 프론트가 묶음 (docs/api/health.md)
+ */
+@Service
+@RequiredArgsConstructor
+public class DailyHealthRecordService {
+
+    /** 체중 기록 상한(kg, ※신규 정책) */
+    private static final BigDecimal MAX_WEIGHT_KG = new BigDecimal("200");
+
+    /** 산책 기록 1회 상한(분, ※신규 정책) */
+    private static final BigDecimal MAX_WALK_MIN = new BigDecimal("120");
+
+    /** 음수량 1회 상한 배율(체중 1kg당 ml, ※신규 정책) */
+    private static final BigDecimal MAX_WATER_ML_PER_KG = new BigDecimal("100");
+
+    /** 식사량 1회 상한 배율(체중 1kg당 g, ※신규 정책) */
+    private static final BigDecimal MAX_MEAL_G_PER_KG = new BigDecimal("50");
+
+    /** 기록 시각 허용 여유(분). 사용자 PC 시계와 서버 시계 차이 (※신규 정책: 지난 일만 기록) */
+    private static final long RCD_DT_CLOCK_SKEW_MIN = 5;
+
+    private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+
+    private static final Map<DailyRecordIndicator, CareMission> MISSIONS = new EnumMap<>(DailyRecordIndicator.class);
+
+    static {
+        MISSIONS.put(DailyRecordIndicator.WEIGHT, CareMission.WEIGHT_RECORD);
+        MISSIONS.put(DailyRecordIndicator.MEAL, CareMission.MEAL_RECORD);
+        MISSIONS.put(DailyRecordIndicator.WATER, CareMission.WATER_RECORD);
+        MISSIONS.put(DailyRecordIndicator.STOOL, CareMission.STOOL_RECORD);
+        MISSIONS.put(DailyRecordIndicator.WALK, CareMission.WALK_RECORD);
+    }
+
+    private final DailyHealthRecordMapper dailyHealthRecordMapper;
+    private final PetAuthorizer petAuthorizer;
+    private final CareMissionService careMissionService;
+    private final PetService petService;
+
+    /**
+     * 일상 건강기록 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<DailyHealthRecordSummary> search(Long mbrSn, Long petSn, DailyHealthRecordSearchCond cond) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        if (cond.getDailyRcdIdctCd() != null && DailyRecordIndicator.of(cond.getDailyRcdIdctCd()).isEmpty()) {
+            throw invalid();
+        }
+        if (cond.getFromYmd() != null && cond.getToYmd() != null && cond.getFromYmd().isAfter(cond.getToYmd())) {
+            throw invalid();
+        }
+        cond.setPetSn(petSn);
+        return dailyHealthRecordMapper.selectList(cond);
+    }
+
+    /**
+     * 일상 건강기록 등록
+     */
+    @Transactional
+    public DailyHealthRecordResponse create(Long mbrSn, Long petSn, DailyHealthRecordCreateRequest req) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        DailyRecordIndicator indicator = DailyRecordIndicator.of(req.dailyRcdIdctCd())
+                .orElseThrow(() -> invalid("dailyRcdIdctCd"));
+        checkValue(mbrSn, petSn, indicator, req.rcdNvl(), req.crsdSttsCd());
+        checkRecordTime(req.rcdDt());
+        String actorId = String.valueOf(mbrSn);
+
+        DailyHealthRecord record = new DailyHealthRecord();
+        record.setPetSn(petSn);
+        record.setDailyRcdIdctCd(indicator.getCode());
+        record.setRcdNvl(req.rcdNvl());
+        record.setCrsdSttsCd(req.crsdSttsCd());
+        record.setRcdDt(req.rcdDt());
+        record.setRgtrId(actorId);
+        record.setMdfrId(actorId);
+        dailyHealthRecordMapper.insertRecord(record);
+
+        careMissionService.reflect(petSn, MISSIONS.get(indicator), mbrSn);
+        syncWeight(indicator, petSn, mbrSn);
+        return DailyHealthRecordResponse.from(dailyHealthRecordMapper.selectSummary(record.getDailyHlthRcdSn()));
+    }
+
+    /**
+     * 일상 건강기록 수정
+     * - 보낸 값만 수정, 지표와 맞지 않는 필드는 400
+     */
+    @Transactional
+    public DailyHealthRecordResponse update(Long mbrSn, Long petSn, Long dailyHlthRcdSn,
+            DailyHealthRecordUpdateRequest req) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        DailyHealthRecord record = getOwn(petSn, dailyHlthRcdSn);
+        DailyRecordIndicator indicator = DailyRecordIndicator.of(record.getDailyRcdIdctCd())
+                .orElseThrow(this::invalid);
+
+        if (indicator.isStool()) {
+            if (req.rcdNvl() != null) {
+                throw invalid();
+            }
+            if (req.crsdSttsCd() != null) {
+                checkStoolStatus(req.crsdSttsCd());
+                record.setCrsdSttsCd(req.crsdSttsCd());
+            }
+        } else {
+            if (req.crsdSttsCd() != null) {
+                throw invalid();
+            }
+            if (req.rcdNvl() != null) {
+                checkNumber(mbrSn, petSn, indicator, req.rcdNvl());
+                record.setRcdNvl(req.rcdNvl());
+            }
+        }
+        if (req.rcdDt() != null) {
+            checkRecordTime(req.rcdDt());
+            record.setRcdDt(req.rcdDt());
+        }
+        dailyHealthRecordMapper.updateRecord(record, String.valueOf(mbrSn));
+        syncWeight(indicator, petSn, mbrSn);
+        return DailyHealthRecordResponse.from(dailyHealthRecordMapper.selectSummary(dailyHlthRcdSn));
+    }
+
+    /**
+     * 일상 건강기록 삭제
+     */
+    @Transactional
+    public void delete(Long mbrSn, Long petSn, Long dailyHlthRcdSn) {
+        petAuthorizer.checkCaregiver(mbrSn, petSn);
+        DailyHealthRecord record = getOwn(petSn, dailyHlthRcdSn);
+        dailyHealthRecordMapper.deleteRecord(dailyHlthRcdSn, String.valueOf(mbrSn));
+        DailyRecordIndicator.of(record.getDailyRcdIdctCd()).ifPresent(indicator -> syncWeight(indicator, petSn, mbrSn));
+    }
+
+    /**
+     * 경로 반려동물의 일상 건강기록 조회
+     */
+    private DailyHealthRecord getOwn(Long petSn, Long dailyHlthRcdSn) {
+        DailyHealthRecord record = dailyHealthRecordMapper.selectRecord(petSn, dailyHlthRcdSn);
+        if (record == null) {
+            throw new CustomException(ErrorCode.DAILY_HEALTH_RECORD_NOT_FOUND);
+        }
+        return record;
+    }
+
+    /**
+     * 등록 값 검사
+     * - 배변상태 : 상태 코드만, 그 밖 : 수치만
+     */
+    private void checkValue(Long mbrSn, Long petSn, DailyRecordIndicator indicator, BigDecimal rcdNvl,
+            String crsdSttsCd) {
+        if (indicator.isStool()) {
+            if (rcdNvl != null) {
+                throw invalid("rcdNvl");
+            }
+            if (crsdSttsCd == null) {
+                throw invalid("crsdSttsCd");
+            }
+            checkStoolStatus(crsdSttsCd);
+            return;
+        }
+        if (crsdSttsCd != null) {
+            throw invalid("crsdSttsCd");
+        }
+        if (rcdNvl == null) {
+            throw invalid("rcdNvl");
+        }
+        checkNumber(mbrSn, petSn, indicator, rcdNvl);
+    }
+
+    private void checkStoolStatus(String crsdSttsCd) {
+        if (!dailyHealthRecordMapper.existsChildCode(HealthCodeGroup.STOOL_STATUS.getCode(), crsdSttsCd)) {
+            throw invalid("crsdSttsCd");
+        }
+    }
+
+    /**
+     * 수치 검사
+     * - 0 초과, 체중은 200kg 이하, 산책은 1회 120분 이하
+     * - 음수량은 1회 프로필 체중×100ml 이하, 식사량은 1회 프로필 체중×50g 이하
+     */
+    private void checkNumber(Long mbrSn, Long petSn, DailyRecordIndicator indicator, BigDecimal rcdNvl) {
+        if (rcdNvl.signum() <= 0) {
+            throw invalid("rcdNvl");
+        }
+        if (indicator == DailyRecordIndicator.WEIGHT && rcdNvl.compareTo(MAX_WEIGHT_KG) > 0) {
+            throw invalid("rcdNvl");
+        }
+        if (indicator == DailyRecordIndicator.WALK && rcdNvl.compareTo(MAX_WALK_MIN) > 0) {
+            throw invalid("rcdNvl");
+        }
+        BigDecimal perKg = switch (indicator) {
+            case WATER -> MAX_WATER_ML_PER_KG;
+            case MEAL -> MAX_MEAL_G_PER_KG;
+            default -> null;
+        };
+        if (perKg != null && rcdNvl.compareTo(petService.getPet(mbrSn, petSn).petBdwg().multiply(perKg)) > 0) {
+            throw invalid("rcdNvl");
+        }
+    }
+
+    /**
+     * 체중 기록이 바뀌면 남은 최신 체중으로 프로필 동기화(남은 기록이 없으면 하지 않음)
+     */
+    private void syncWeight(DailyRecordIndicator indicator, Long petSn, Long mbrSn) {
+        if (indicator != DailyRecordIndicator.WEIGHT) {
+            return;
+        }
+        BigDecimal latest = dailyHealthRecordMapper.selectLatestWeight(petSn, DailyRecordIndicator.WEIGHT.getCode());
+        if (latest != null) {
+            petService.syncWeight(petSn, latest, mbrSn);
+        }
+    }
+
+    /**
+     * 기록 시각은 지금(+여유)까지만 허용 (※신규 정책: 예정은 캘린더에서 등록)
+     */
+    private void checkRecordTime(LocalDateTime rcdDt) {
+        if (rcdDt != null && rcdDt.isAfter(LocalDateTime.now(ZONE).plusMinutes(RCD_DT_CLOCK_SKEW_MIN))) {
+            throw invalid("rcdDt");
+        }
+    }
+
+    private CustomException invalid(String... fields) {
+        return new CustomException(ErrorCode.INVALID_INPUT_VALUE, fields);
+    }
+}

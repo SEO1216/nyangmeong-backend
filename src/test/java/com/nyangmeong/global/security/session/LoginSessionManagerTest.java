@@ -63,6 +63,18 @@ class LoginSessionManagerTest {
         }
 
         @Override
+        public int updateDiscardAllByMbrSn(Long mbrSn) {
+            int count = 0;
+            for (RefreshToken r : rows) {
+                if (r.getMbrSn().equals(mbrSn) && r.getDscdDt() == null) {
+                    r.setDscdDt(LocalDateTime.now());
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        @Override
         public int updateDiscardByHash(String rfrshTknHash) {
             return rows.stream().filter(r -> r.getRfrshTknHash().equals(rfrshTknHash) && r.getDscdDt() == null)
                     .findFirst().map(this::discard).orElse(0);
@@ -164,6 +176,27 @@ class LoginSessionManagerTest {
     }
 
     @Test
+    void 동시_회전에서_진_요청은_UNAUTHORIZED이고_쿠키를_지우지_않는다() {
+        String refresh = issue(7L);
+        /** 조회는 통과했지만 폐기 직전에 다른 요청이 먼저 폐기한 상황 */
+        FakeRefreshTokenMapper racing = new FakeRefreshTokenMapper() {
+            @Override
+            public int updateDiscard(Long rfrshTknSn) {
+                return 0;
+            }
+        };
+        racing.rows.addAll(mapper.rows);
+        JwtProperties properties = new JwtProperties();
+        LoginSessionManager racingManager = new LoginSessionManager(racing, provider, properties,
+                new TokenCookies(properties), hashUtil);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertUnauthorized(() -> racingManager.rotate(withRefresh(refresh), response));
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
+        assertThat(racing.rows).hasSize(1);
+    }
+
+    @Test
     void 폐기한_세션은_다시_회전할_수_없다() {
         String refresh = issue(7L);
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -195,5 +228,17 @@ class LoginSessionManagerTest {
 
         assertThat(noCookie.getHeaders(HttpHeaders.SET_COOKIE)).hasSize(2).allMatch(h -> h.contains("Max-Age=0"));
         assertThat(invalid.getHeaders(HttpHeaders.SET_COOKIE)).hasSize(2).allMatch(h -> h.contains("Max-Age=0"));
+    }
+
+    @Test
+    void 회원의_모든_세션을_폐기하고_다른_회원은_그대로다() {
+        manager.issue(7L, new MockHttpServletResponse());
+        manager.issue(7L, new MockHttpServletResponse());
+        manager.issue(8L, new MockHttpServletResponse());
+
+        manager.revokeAll(7L);
+
+        assertThat(mapper.rows).filteredOn(r -> r.getMbrSn().equals(7L)).allMatch(r -> r.getDscdDt() != null);
+        assertThat(mapper.rows).filteredOn(r -> r.getMbrSn().equals(8L)).allMatch(r -> r.getDscdDt() == null);
     }
 }

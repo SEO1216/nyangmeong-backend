@@ -6,15 +6,23 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.nyangmeong.global.auth.BrupRole;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.response.PageQuery;
+import com.nyangmeong.global.response.PageResponse;
 import com.nyangmeong.pet.domain.PointDealType;
 import com.nyangmeong.pet.domain.PointLedger;
+import com.nyangmeong.pet.dto.AdminPointLedgerSummary;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.dto.PointResponse;
 import com.nyangmeong.pet.mapper.CareMissionMapper;
@@ -83,12 +91,50 @@ public class PointService {
     }
 
     /**
+     * 포인트 내역이 있는 연월 (FN-MYP-020-02)
+     * - 미래 달 제외
+     */
+    @Transactional(readOnly = true)
+    public List<PointLedgerMonthSummary> searchLedgerMonths(Long mbrSn) {
+        LocalDateTime toDt = YearMonth.now(ZONE).plusMonths(1).atDay(1).atStartOfDay();
+        return pointMapper.selectLedgerMonths(mbrSn, toDt).stream().map(PointLedgerMonthSummary::new).toList();
+    }
+
+    /**
+     * 관리자 회원 상세 포인트 원장 조회
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminPointLedgerSummary> searchLedgersForAdmin(Long mbrSn, PageQuery pq) {
+        if (pointMapper.selectHldPnt(mbrSn) == null) {
+            throw new CustomException(ErrorCode.MEMBER_NOT_FOUND);
+        }
+        PageHelper.startPage(pq.pageOrDefault(), pq.sizeOrDefault());
+        return PageResponse.of(new PageInfo<>(pointMapper.selectAdminLedgerList(mbrSn)));
+    }
+
+    /**
      * 포인트 사용
+     * - 같은 멱등 요청 ID로 같은 사용(회원·거래 종류·금액·메모)이면 건너뜀, 내용이 다르면 IDEMPOTENCY_KEY_REUSED
      */
     @Transactional
     public void use(Long mbrSn, long amount, String idmptDmndId, String memoCn) {
-        record(mbrSn, -Math.toIntExact(amount), PointDealType.ITEM_PURCHASE, null, memoCn, idmptDmndId,
-                String.valueOf(mbrSn));
+        int delta = -Math.toIntExact(amount);
+        PointLedger prev = pointMapper.selectLedgerByIdmptDmndId(idmptDmndId);
+        if (prev == null) {
+            recordLedger(mbrSn, delta, PointDealType.ITEM_PURCHASE, null, memoCn, idmptDmndId,
+                    String.valueOf(mbrSn));
+            return;
+        }
+        if (!isSameUse(prev, mbrSn, delta, memoCn)) {
+            throw new CustomException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+        }
+    }
+
+    private static boolean isSameUse(PointLedger prev, Long mbrSn, int delta, String memoCn) {
+        return Objects.equals(prev.getMbrSn(), mbrSn)
+                && PointDealType.ITEM_PURCHASE.getCode().equals(prev.getPntDlngTypeCd())
+                && Objects.equals(prev.getDlngPnt(), delta)
+                && Objects.equals(prev.getMemoCn(), memoCn);
     }
 
     /**
@@ -123,13 +169,30 @@ public class PointService {
     }
 
     /**
-     * 포인트 증감과 원장 기록
+     * 관리자 포인트 조정 (SCR-ADM-072, 잔액이 음수가 되면 POINT_NOT_ENOUGH)
+     * - 요청 검증·감사 로그는 AdminPointService
+     * @return 등록한 원장 번호
+     */
+    @Transactional
+    public Long adjustByAdmin(Long actorSn, Long mbrSn, int delta, String memoCn) {
+        return recordLedger(mbrSn, delta, PointDealType.ADMIN_ADJUST, null, memoCn, "ADJ-" + UUID.randomUUID(),
+                String.valueOf(actorSn)).getPntGnlgrSn();
+    }
+
+    /**
+     * 포인트 증감과 원장 기록 (같은 멱등 요청 ID가 있으면 건너뜀)
      */
     private boolean record(Long mbrSn, int delta, PointDealType type, Long dayMsnSn, String memoCn,
             String idmptDmndId, String actorId) {
         if (pointMapper.existsLedger(idmptDmndId)) {
             return false;
         }
+        recordLedger(mbrSn, delta, type, dayMsnSn, memoCn, idmptDmndId, actorId);
+        return true;
+    }
+
+    private PointLedger recordLedger(Long mbrSn, int delta, PointDealType type, Long dayMsnSn, String memoCn,
+            String idmptDmndId, String actorId) {
         if (pointMapper.updateHldPnt(mbrSn, delta, actorId) == 0) {
             throw new CustomException(ErrorCode.POINT_NOT_ENOUGH);
         }
@@ -142,6 +205,6 @@ public class PointService {
         ledger.setMemoCn(memoCn);
         ledger.setIdmptDmndId(idmptDmndId);
         pointMapper.insertLedger(ledger);
-        return true;
+        return ledger;
     }
 }

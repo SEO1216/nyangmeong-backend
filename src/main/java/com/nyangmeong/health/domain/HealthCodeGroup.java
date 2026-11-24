@@ -6,7 +6,14 @@ package com.nyangmeong.health.domain;
  */
 public enum HealthCodeGroup {
     CHECKUP_TYPE("HLTG01"),
-    BADGE_COLOR("HLTG21");
+    REPEAT_PREVENTION_ARTICLE("HLTG07"),
+    STOOL_STATUS("HLTG10"),
+    OBSERVATION_REGION("HLTG16"),
+    OBSERVATION_CHANGE("HLTG17"),
+    IMAGE_KIND("HLTG23"),
+    SHOOTING_REGION("HLTG24"),
+    BADGE_COLOR("HLTG21"),
+    DASHBOARD_ITEM("HLTG25");
 
     private final String code;
 

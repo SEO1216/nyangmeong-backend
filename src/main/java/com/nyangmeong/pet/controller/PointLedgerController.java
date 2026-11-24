@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.nyangmeong.global.aitool.AiTool;
+import com.nyangmeong.global.aitool.AiToolKind;
 import com.nyangmeong.global.response.ApiResponse;
 import com.nyangmeong.global.security.domain.LoginMember;
+import com.nyangmeong.pet.dto.PointLedgerMonthSummary;
 import com.nyangmeong.pet.dto.PointLedgerSummary;
 import com.nyangmeong.pet.service.PointService;
 
@@ -32,10 +35,18 @@ public class PointLedgerController {
     private final PointService pointService;
 
     @Operation(summary = "월 포인트 내역")
+    @AiTool(name = "list_point_ledgers", domain = "pet", kind = AiToolKind.READ)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PointLedgerSummary>>> searchLedgers(
             @AuthenticationPrincipal LoginMember me,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth) {
         return ResponseEntity.ok(ApiResponse.success(pointService.searchLedgers(me.id(), yearMonth)));
+    }
+
+    @Operation(summary = "포인트 내역이 있는 연월(월 선택 창)")
+    @GetMapping("/months")
+    public ResponseEntity<ApiResponse<List<PointLedgerMonthSummary>>> searchLedgerMonths(
+            @AuthenticationPrincipal LoginMember me) {
+        return ResponseEntity.ok(ApiResponse.success(pointService.searchLedgerMonths(me.id())));
     }
 }

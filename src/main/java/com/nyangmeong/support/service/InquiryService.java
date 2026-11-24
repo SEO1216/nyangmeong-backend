@@ -11,12 +11,16 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.nyangmeong.global.error.CustomException;
 import com.nyangmeong.global.error.ErrorCode;
+import com.nyangmeong.global.file.FileCategory;
+import com.nyangmeong.global.file.FileOwner;
 import com.nyangmeong.global.file.FileStore;
+import com.nyangmeong.global.file.StoredFile;
 import com.nyangmeong.global.notification.EventPublisher;
 import com.nyangmeong.global.notification.NotificationEvent;
 import com.nyangmeong.global.notification.NotificationType;
 import com.nyangmeong.global.response.PageQuery;
 import com.nyangmeong.global.response.PageResponse;
+import com.nyangmeong.global.validation.ProfanityFilter;
 import com.nyangmeong.pet.service.PixelCharacterService;
 import com.nyangmeong.support.domain.Inquiry;
 import com.nyangmeong.support.domain.InquiryPhoto;
@@ -49,6 +53,7 @@ public class InquiryService {
     private final FileStore fileStore;
     private final PixelCharacterService pixelCharacterService;
     private final EventPublisher eventPublisher;
+    private final ProfanityFilter profanityFilter;
 
     /**
      * 내 문의 목록 조회
@@ -76,10 +81,25 @@ public class InquiryService {
     }
 
     /**
+     * 본인 문의의 첨부 이미지 조회 : 그 문의의 삭제되지 않은 첨부가 아니면 FILE_NOT_FOUND
+     */
+    @Transactional(readOnly = true)
+    public StoredFile getImage(Long mbrSn, Long otoInqrySn, Long atchFileSn) {
+        getOwnedOrThrow(mbrSn, otoInqrySn);
+        boolean attached = inquiryMapper.selectPhotos(otoInqrySn).stream()
+                .anyMatch(photo -> photo.getAtchFileSn().equals(atchFileSn));
+        if (!attached) {
+            throw new CustomException(ErrorCode.FILE_NOT_FOUND);
+        }
+        return fileStore.load(atchFileSn);
+    }
+
+    /**
      * 문의 작성
      */
     @Transactional
     public InquiryResponse create(Long mbrSn, InquiryCreateRequest req) {
+        profanityFilter.check("inqryTtl", req.inqryTtl(), "inqryCn", req.inqryCn());
         checkType(req.inqryTypeCd());
         boolean characterError = req.pixelCharSn() != null;
         if (characterError && !InquiryType.PIXEL_CHARACTER.is(req.inqryTypeCd())
@@ -110,7 +130,7 @@ public class InquiryService {
             insertPhoto(inquiry.getOtoInqrySn(), atchFileSn, sortSeq++);
         }
         for (MultipartFile image : images) {
-            insertPhoto(inquiry.getOtoInqrySn(), fileStore.store(image, String.valueOf(mbrSn)), sortSeq++);
+            insertPhoto(inquiry.getOtoInqrySn(), fileStore.store(image, FileCategory.SUPPORT_INQUIRY, FileOwner.member(mbrSn), String.valueOf(mbrSn)), sortSeq++);
         }
         return toResponse(inquiryMapper.selectInquiry(inquiry.getOtoInqrySn()));
     }
@@ -121,6 +141,7 @@ public class InquiryService {
     @Transactional
     public InquiryResponse update(Long mbrSn, Long otoInqrySn, InquiryUpdateRequest req) {
         Inquiry inquiry = getOwnedOrThrow(mbrSn, otoInqrySn);
+        profanityFilter.check("inqryTtl", req.inqryTtl(), "inqryCn", req.inqryCn());
         if (!InquiryStatus.RECEIVED.is(inquiry.getInqryPrcsSttsCd())) {
             throw new CustomException(ErrorCode.INQUIRY_NOT_EDITABLE);
         }
@@ -157,7 +178,7 @@ public class InquiryService {
         }
         int sortSeq = remaining.stream().mapToInt(InquiryPhoto::getSortSeq).max().orElse(-1) + 1;
         for (MultipartFile image : images) {
-            insertPhoto(otoInqrySn, fileStore.store(image, String.valueOf(mbrSn)), sortSeq++);
+            insertPhoto(otoInqrySn, fileStore.store(image, FileCategory.SUPPORT_INQUIRY, FileOwner.member(mbrSn), String.valueOf(mbrSn)), sortSeq++);
         }
         return toResponse(inquiryMapper.selectInquiry(otoInqrySn));
     }
@@ -233,11 +254,26 @@ public class InquiryService {
     }
 
     /**
+     * 문의 삭제 (본인의 접수 상태 문의만, 캐릭터 오류 문의 제외)
+     */
+    @Transactional
+    public void delete(Long mbrSn, Long otoInqrySn) {
+        Inquiry inquiry = getOwnedOrThrow(mbrSn, otoInqrySn);
+        if (!InquiryStatus.RECEIVED.is(inquiry.getInqryPrcsSttsCd()) || inquiry.getPixelCharSn() != null) {
+            throw new CustomException(ErrorCode.INQUIRY_NOT_DELETABLE);
+        }
+        /** 접수 상태 조건을 UPDATE 에도 걸어 답변 등록과의 경합 차단 */
+        if (inquiryMapper.updateInquiryDeleted(otoInqrySn, InquiryStatus.RECEIVED.getCode()) == 0) {
+            throw new CustomException(ErrorCode.INQUIRY_NOT_DELETABLE);
+        }
+        inquiryMapper.updateAllPhotosDeleted(otoInqrySn);
+    }
+
+    /**
      * 응답 변환 (유형·상태 이름과 첨부 포함)
      */
     private InquiryResponse toResponse(Inquiry inquiry) {
-        List<InquiryImageSummary> imgs = inquiryMapper.selectPhotos(inquiry.getOtoInqrySn()).stream()
-                .map(InquiryImageSummary::from).toList();
+        List<InquiryImageSummary> imgs = inquiryMapper.selectImageSummaries(inquiry.getOtoInqrySn());
         return InquiryResponse.from(inquiry, inquiryMapper.selectCodeName(inquiry.getInqryTypeCd()),
                 inquiryMapper.selectCodeName(inquiry.getInqryPrcsSttsCd()), imgs);
     }

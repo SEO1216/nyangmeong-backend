@@ -6,47 +6,53 @@
 
 | 메서드 | 경로 | 설명 | 기능 ID | 담당 | 요청 DTO | 응답 DTO |
 | --- | --- | --- | --- | --- | --- | --- |
+| GET | /care-schedules | 케어 캘린더 일정 목록(여러 반려동물, 화면당 호출 수를 반려동물 수와 관계없이 고정). `?petSns=&fromYmd=&toYmd=&schdlKndCd=&ckupTypeCd=&size=` — `petSns`는 쉼표로 구분한 반려동물 번호(`1,2,3`, 최대 50개, 형식 `^$\|^\d+(,\d+)*$`). 생략하거나 빈 문자열이면 로그인 회원이 양육(주양육자·공동양육자, 연동 중, 삭제 안 됨)하는 반려동물 전체. 볼 수 없는 번호는 오류 없이 빠지고 남은 반려동물이 없으면 빈 목록. 형식 오류·51개 이상은 400 `INVALID_INPUT_VALUE`. **`size`는 반려동물마다 N건**(전체 N건 아님). 나머지 조건과 정렬은 `/pets/{petSn}/care-schedules`와 같고, 그 1마리 주소도 그대로 둔다. AI 도구 `list_my_care_schedules`(1마리 주소는 AI 도구가 아니다. 대화창은 이 도구로 한 마리도 읽는다, 2026-11-11) | HLT-003-29·31·40 | JAJ | - | List<CareScheduleSummary> |
+| GET | /members/me/dashboard-widgets | 건강기록 대시보드 고른 항목·순서. 저장한 적 없으면 `savedYn=false`와 13개 전부(기본 순서, `indctYn=true`)를 주고 프론트가 튜토리얼을 연다 | 새 기능(ID 없음, ※신규 정책) | JAJ | - | HealthDashboardWidgetResponse |
 | GET | /pets/{petSn}/care-completions | 케어 완료 기록 목록(기록 내용). `?careArtclSn=&fromYmd=&toYmd=` | HLT-003-12 | JAJ | - | List<CareCompletionSummary> |
-| GET | /pets/{petSn}/care-items | 케어 항목 목록(토탈 케어리스트, 오늘 투약 횟수 포함). `?mainExpsrYn=&careArtclNm=` | HLT-003-12·13, AIM-012-08 | JAJ | - | List<CareItemSummary> |
+| GET | /pets/{petSn}/care-items | 케어 항목 목록(토탈 케어리스트, 오늘 투약 횟수 포함). `?careArtclNm=`. 숨긴 항목도 담고 행마다 `indctYn`(케어리스트 표시여부)·오늘 케어미션 여부·포인트·완료 여부(※신규 정책) | HLT-003-12, AIM-012-08 | JAJ | - | List<CareItemSummary> |
+| GET | /pets/{petSn}/care-items/mission-progress | 케어리스트 진행 상자의 오늘 케어미션 완료 수/전체 수와 주양육자 여부. 양육자 누구나(공동양육자 포함), 포인트는 담지 않는다. 전체 수는 그날 출제된 미션 전체(마이페이지 포인트 화면과 같은 수), 출제 전이면 0/0 | 새 기능(ID 없음, ※신규 정책) | JAJ | - | CareMissionProgressResponse |
 | GET | /pets/{petSn}/care-schedules | 케어 캘린더 일정 목록. `?fromYmd=&toYmd=&schdlKndCd=&ckupTypeCd=&size=` — 월간·날짜 상세·다가오는 일정·다음 예정일·가까운 예정 일정 후보 | HLT-003-29~31·39·40, HLT-011-04, HLT-002-46 | JAJ | - | List<CareScheduleSummary> |
-| GET | /pets/{petSn}/checkup-attachments | 검진기록 첨부 목록(최신순). `?ckupRcdSn=&atchTypeCd=&page=&size=` | HLT-005-01·02, HLT-011-09 | JAJ | - | Page<CheckupAttachmentSummary> |
+| GET | /pets/{petSn}/checkup-attachments | 검진기록 첨부 목록(최신순). `?ckupRcdSn=&atchTypeCd=&page=&size=` — `ckupRcdSn` 생략 시 반려동물 전체(완료 검진기록, 연결 일정이 삭제된 것 포함) | HLT-005-01·02, HLT-011-09 | JAJ | - | Page<CheckupAttachmentSummary> |
 | GET | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 파일 다운로드·이미지 미리보기(보호 파일, 파일 자체 반환) | HLT-005-01, HLT-011-09 | JAJ | - | 파일 |
-| GET | /pets/{petSn}/checkups | 검진기록 목록(최신순). `?year=&ckupTypeCd=&page=&size=` — 리스트·필터 칩 건수·타임라인·예방/정기검진 이력 | HLT-002-05·06·14, HLT-011-03·04 | JAJ | - | Page<CheckupSummary> |
+| GET | /pets/{petSn}/checkups | 검진기록 목록(최신순). `?year=&ckupTypeCd=&page=&size=` (year 생략 시 전체 연도) — 리스트·필터 칩 건수·타임라인·예방/정기검진 이력 | HLT-002-05·06·14, HLT-011-03·04 | JAJ | - | Page<CheckupSummary> |
 | GET | /pets/{petSn}/checkups/{ckupRcdSn} | 검진상세 기본정보 | HLT-005-01·15 | JAJ | - | CheckupResponse |
 | GET | /pets/{petSn}/daily-health-records | 일상 건강기록 목록. `?dailyRcdIdctCd=&fromYmd=&toYmd=&size=` — 그래프(최근 14개)·오늘의 기록·날짜별 표·최신 체중 | HLT-002-09·10·12·13, HLT-011-02 | JAJ | - | List<DailyHealthRecordSummary> |
-| GET | /pets/{petSn}/etc-inspections | 기타검사 목록. `?ckupRcdSn=` | HLT-005-02 | JAJ | - | List<EtcInspectionSummary> |
-| GET | /pets/{petSn}/inspection-values | 혈액검사 수치 목록. `?ckupRcdSn=&inspArtclCd=` — 검진상세 결과·최근 검사·수치 추이 | HLT-005-02, HLT-011-02·06·07 | JAJ | - | List<InspectionValueSummary> |
+| GET | /pets/{petSn}/health-indicators | 메인 건강 지표. 기준일(KST 오늘)·조회 시각과 위젯 5종(체중·식사량·음수량·산책·혈액검사 CREA) 값. 기록 없는 지표는 null, 비교 대상 없으면 대비 값 null. 권장 범위는 쓰지 않음. 남의 반려동물 403, 없는 반려동물 404 | MAN-005·006 | JAJ | - | HealthIndicatorResponse |
+| GET | /pets/{petSn}/etc-inspections | 기타검사 목록. `?ckupRcdSn=` — `ckupRcdSn` 필수 | HLT-005-02 | JAJ | - | List<EtcInspectionSummary> |
+| GET | /pets/{petSn}/inspection-values | 혈액검사 수치 목록. `?ckupRcdSn=&inspArtclCd=` — 검진상세 결과·최근 검사·수치 추이. `ckupRcdSn` 생략 시 반려동물 전체(완료 검진기록, 연결 일정이 삭제된 것 포함). 전체 조회는 검진일 오름차순 | HLT-005-02, HLT-011-02·06·07 | JAJ | - | List<InspectionValueSummary> |
 | GET | /pets/{petSn}/observation-cycles | 관찰 회차 목록(관찰일 순). `?obsrvArtclSn=` | HLT-002-17~19 | JAJ | - | List<ObservationCycleSummary> |
-| GET | /pets/{petSn}/observation-cycles/{obsrvCyclSn}/photo | 관찰 사진 원본·썸네일(보호 파일, 파일 자체 반환) | HLT-002-17·19, HLT-011-10 | JAJ | - | 파일 |
+| GET | /pets/{petSn}/observation-cycles/{obsrvCyclSn}/photo | 관찰 사진 원본(보호 파일, 파일 자체 반환) | HLT-002-17·19, HLT-011-10 | JAJ | - | 파일 |
 | GET | /pets/{petSn}/observation-items | 관찰 항목 목록(첫·최근 회차 요약 포함). `?obsrvSttsCd=` | HLT-002-15, HLT-011-10 | JAJ | - | List<ObservationItemSummary> |
-| GET | /pets/{petSn}/prescriptions | 처방약 목록(복용 중 우선·최신순). `?ckupRcdSn=&prscSttsCd=` | HLT-005-03, HLT-011-02·08 | JAJ | - | List<PrescriptionSummary> |
-| GET | /pets/{petSn}/repeat-preventions | 반복 예방 관리 목록. `?ckupRcdSn=` | HLT-005-05 | JAJ | - | List<RepeatPreventionSummary> |
+| GET | /pets/{petSn}/prescriptions | 처방약 목록(복용 중 우선·최신순). `?ckupRcdSn=&prscSttsCd=` — `ckupRcdSn` 생략 시 반려동물 전체(완료 검진기록, 연결 일정이 삭제된 것 포함) | HLT-005-03, HLT-011-02·08 | JAJ | - | List<PrescriptionSummary> |
+| GET | /pets/{petSn}/repeat-preventions | 반복 예방 관리 목록. `?ckupRcdSn=` — `ckupRcdSn` 생략 시 반려동물 전체(완료 검진기록, 연결 일정이 삭제된 것 포함). 전체 조회는 시작일 최신순·`hsptlNm` 포함 | HLT-005-05, HLT-011-03 | JAJ | - | List<RepeatPreventionSummary> |
 | POST | /pets/{petSn}/care-completions | 케어 완료 체크(투약 항목은 1회 체크). 다음 예정일 재계산. 중복 체크는 `UK_CARE_CMPTN_HSTRY_1`(항목+완료일)로 막는다. 같은 항목·같은 날 다시 보내면 200과 기존 기록(처음은 201), `idmptDmndId`는 받지 않는다 | HLT-003-12 | JAJ | CareCompletionCreateRequest | CareCompletionResponse |
 | POST | /pets/{petSn}/care-items | 케어 항목 추가(마지막으로 한 날은 완료 기록으로 함께 저장). AI 대화 등록도 같은 API | HLT-003-21~24·38, AIM-012-07·09·13 | JAJ | CareItemCreateRequest | CareItemResponse |
 | POST | /pets/{petSn}/care-schedules | 일정 등록(종류별 필수값 서버 재검증, 출처 SCHDL_SRC_CD). AI 대화 등록도 같은 API | HLT-003-32~37, AIM-012-09·12~14 | JAJ | CareScheduleCreateRequest | CareScheduleResponse |
 | POST | /pets/{petSn}/checkup-attachments | 첨부 등록(multipart, 유형·영상 종류·촬영 부위) | HLT-005-01 | JAJ | CheckupAttachmentCreateRequest | CheckupAttachmentResponse |
-| POST | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn}/analyses | 검사결과지 PDF 분석 요청(인식 결과만 반환, 저장 안 함, 중복 요청 차단). 요청 안에서 동기로 분석하고 제한 시간(설정값, 영수증 OCR의 `app.ocr.timeout`과 같은 방식)을 넘기면 일시 오류로 돌려준다. 성공·실패 모두 200, 결과는 `anlysRslt`로 구분(JAJ 확인) | HLT-005-04, HLT-007-06 | JAJ | - | InspectionAnalysisResponse |
 | POST | /pets/{petSn}/checkups | 검진기록 직접 등록(같은 날짜 병원 일정 자동 연결·없으면 생성, 가까운 일정 옮겨 연결 선택) | HLT-002-26~29·31·46 | JAJ | CheckupCreateRequest | CheckupResponse |
-| POST | /pets/{petSn}/daily-health-records | 오늘 기록 추가(식사량·음수량·산책·체중·배변상태) | HLT-002-11 | JAJ | DailyHealthRecordCreateRequest | DailyHealthRecordResponse |
+| POST | /pets/{petSn}/daily-health-records | 오늘 기록 추가(식사량·음수량·산책·체중·배변상태). 체중은 0 초과 200 이하(※신규 정책). 산책은 0 초과 120 이하(※신규 정책). 음수량은 1회 프로필 체중(kg)×100 이하, 식사량은 1회 프로필 체중(kg)×50 이하(※신규 정책). 기록 시각은 지금(Asia/Seoul)+5분까지, 넘으면 400 `rcdDt`(※신규 정책: 지난 일만 기록, 예정은 캘린더) | HLT-002-11 | JAJ | DailyHealthRecordCreateRequest | DailyHealthRecordResponse |
 | POST | /pets/{petSn}/etc-inspections | 기타검사 입력(검사명·결과 500자·메모 200자) | HLT-005-11~14 | JAJ | EtcInspectionCreateRequest | EtcInspectionResponse |
 | POST | /pets/{petSn}/inspection-values | 검사 수치 여러 행 저장(혈액검사 고정, 이미 등록된 항목 제외, 삭제된 같은 항목은 복구) | HLT-007-02~05 | JAJ | InspectionValueCreateRequest | List<InspectionValueResponse> |
 | POST | /pets/{petSn}/observation-cycles | 관찰 회차 추가(multipart 사진, 종료 항목 불가) | HLT-002-20~25·32 | JAJ | ObservationCycleCreateRequest | ObservationCycleResponse |
-| POST | /pets/{petSn}/observation-items | 관찰 항목 등록(항목 + 1회차, multipart 사진) | HLT-002-20~25·32 | JAJ | ObservationItemCreateRequest | ObservationItemResponse |
+| POST | /pets/{petSn}/observation-items | 관찰 항목 등록(항목 + 1회차, multipart 사진). AI 카드 도구 `draft_observation_item`(`docs/api/ai.md`) | HLT-002-20~25·32 | JAJ | ObservationItemCreateRequest | ObservationItemResponse |
 | POST | /pets/{petSn}/observation-items/{obsrvArtclSn}/end | 관찰 종료(상태 전이, 기록 유지) | HLT-002-16 | JAJ | - | - |
 | POST | /pets/{petSn}/prescriptions | 처방약 추가(주기 체크 ON이면 투약 케어 항목 생성) | HLT-005-03 | JAJ | PrescriptionCreateRequest | PrescriptionResponse |
+| POST | /pets/{petSn}/prescriptions/bulk-save | 처방약 일괄 저장(검진기록 1개, prscSn 있으면 전체 덮어쓰기 수정·없으면 추가, 하나라도 실패하면 전부 저장 안 함, 삭제는 DELETE /{prscSn}, 투약 케어 항목은 추가·수정과 같은 규칙, 200) | HLT-005-03 | JAJ | PrescriptionBulkSaveRequest | List<PrescriptionResponse> |
 | POST | /pets/{petSn}/repeat-preventions | 반복 예방 등록(정기관리 케어 항목 자동 추가) | HLT-005-05 | JAJ | RepeatPreventionCreateRequest | RepeatPreventionResponse |
-| PUT | /pets/{petSn}/care-item-exposures | 메인 표시(★) 항목과 순서 전체 저장(MAIN_EXPSR_YN·MAIN_SORT_SEQ, 최대 6). 메인페이지 MAN-009도 같은 API | HLT-003-13 | JAJ | CareItemExposureSaveRequest | List<CareItemSummary> |
+| PUT | /members/me/dashboard-widgets | 건강기록 대시보드 고른 항목 전체 저장. 13개 코드를 보일 순서대로 한 번씩(배열 순서가 `SORT_SEQ`). 모르는 코드·중복 코드·빠진 코드는 400 `INVALID_INPUT_VALUE`. 저장 뒤 조회와 같은 응답 | 새 기능(ID 없음, ※신규 정책) | JAJ | HealthDashboardWidgetSaveRequest | HealthDashboardWidgetResponse |
+| PUT | /pets/{petSn}/care-items/indications | 케어리스트에 보일 항목 전체 저장(반려동물 단위, 5개 이상). 보낸 항목만 보이고 나머지는 숨김, 처방·반복 예방 연동 항목은 빠져도 보임. 저장 뒤 GET care-items와 같은 응답. 「케어 항목 관리」 모달 [저장]은 POST → PATCH → 이 PUT → DELETE 순서 | HLT-003-12(※신규 정책) | JAJ | CareItemIndicationSaveRequest | List<CareItemSummary> |
 | PATCH | /pets/{petSn}/care-items/{careArtclSn} | 케어 항목 수정(사용자 항목 전체, 기본 정기관리 항목은 주기만) | HLT-003-12 | JAJ | CareItemUpdateRequest | CareItemResponse |
-| PATCH | /pets/{petSn}/care-schedules/{schdlSn} | 일정 수정(반려동물 변경 시 연결 검진기록·자동 생성 케어 항목 이동, ★ 해제) | HLT-003-32~37 | JAJ | CareScheduleUpdateRequest | CareScheduleResponse |
+| PATCH | /pets/{petSn}/care-schedules/{schdlSn} | 일정 수정(반려동물 변경 시 연결 검진기록·자동 생성 케어 항목 이동, 옮긴 항목은 새 반려동물에서 고른 적 없는 상태(※신규 정책). 병원 일정의 병원명·검진유형을 바꾸면 연결 검진기록 전부에 반영(※신규 정책)) | HLT-003-32~37 | JAJ | CareScheduleUpdateRequest | CareScheduleResponse |
 | PATCH | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 1건 파일 교체·유형 수정(multipart) | HLT-005-01 | JAJ | CheckupAttachmentUpdateRequest | CheckupAttachmentResponse |
-| PATCH | /pets/{petSn}/checkups/{ckupRcdSn} | 검진기록 수정(내용·메모 인라인, 검진일·반려동물 변경 시 일정 재연결·케어 항목 이동) | HLT-002-26~29, HLT-005-01 | JAJ | CheckupUpdateRequest | CheckupResponse |
-| PATCH | /pets/{petSn}/daily-health-records/{dailyHlthRcdSn} | 일상 기록 인라인 수정(시각·값) | HLT-002-13 | JAJ | DailyHealthRecordUpdateRequest | DailyHealthRecordResponse |
+| PATCH | /pets/{petSn}/checkups/{ckupRcdSn} | 검진기록 수정(내용·메모 인라인, 병원명·검진유형은 연결 일정에도 반영(※신규 정책). 검진일·반려동물은 일정 수정에서만 바꾼다(※신규 정책)) | HLT-002-26~29, HLT-005-01 | JAJ | CheckupUpdateRequest | CheckupResponse |
+| PATCH | /pets/{petSn}/daily-health-records/{dailyHlthRcdSn} | 일상 기록 인라인 수정(시각·값). 체중은 0 초과 200 이하(※신규 정책). 산책은 0 초과 120 이하(※신규 정책). 음수량은 1회 프로필 체중(kg)×100 이하, 식사량은 1회 프로필 체중(kg)×50 이하(※신규 정책). 기록 시각은 지금(Asia/Seoul)+5분까지, 넘으면 400 `rcdDt`(※신규 정책: 지난 일만 기록, 예정은 캘린더) | HLT-002-13 | JAJ | DailyHealthRecordUpdateRequest | DailyHealthRecordResponse |
 | PATCH | /pets/{petSn}/etc-inspections/{etcInspSn} | 기타검사 수정 | HLT-005-02·11~14 | JAJ | EtcInspectionUpdateRequest | EtcInspectionResponse |
-| PATCH | /pets/{petSn}/inspection-values/{inspNvlSn} | 검사 수치 1행 수정(항목 변경 불가) | HLT-007-02·03 | JAJ | InspectionValueUpdateRequest | InspectionValueResponse |
+| PATCH | /pets/{petSn}/inspection-values/{inspNvlSn} | 검사 수치 1행 수정(항목 변경 불가). refRange를 보내면 덮어씀, {null,null}이면 참고범위 비움, 안 보내면 유지 | HLT-007-02·03 | JAJ | InspectionValueUpdateRequest | InspectionValueResponse |
 | PATCH | /pets/{petSn}/observation-cycles/{obsrvCyclSn} | 관찰 회차 수정(multipart) | HLT-002-19 | JAJ | ObservationCycleUpdateRequest | ObservationCycleResponse |
 | PATCH | /pets/{petSn}/prescriptions/{prscSn} | 처방약 수정(투약 항목 목표 횟수·종료일 연동, 종료·OFF면 투약 항목 삭제) | HLT-005-03 | JAJ | PrescriptionUpdateRequest | PrescriptionResponse |
-| DELETE | /pets/{petSn}/care-completions/{careCmptnHstrySn} | 완료 기록 취소·투약 마지막 1회 취소. 다음 예정일 재계산 | HLT-003-12 | JAJ | - | - |
-| DELETE | /pets/{petSn}/care-items/{careArtclSn} | 사용자 추가 케어 항목 삭제(기본 항목 불가) | HLT-003-12 | JAJ | - | - |
+| DELETE | /pets/{petSn}/care-completions/{careCmptnHstrySn} | 그날 완료 기록 취소(기록 내용 아이콘, 투약은 그날 체크 전부). 다음 예정일 재계산 | HLT-003-12 | JAJ | - | - |
+| DELETE | /pets/{petSn}/care-items/{careArtclSn} | 사용자 추가 케어 항목 삭제(기본 항목 불가). 보이는 항목(`indctYn=true`)을 지워 그 반려동물의 보이는 항목이 5개 미만이 되면 400 `INVALID_INPUT_VALUE`, `data[0].field`=`indctYn`(※신규 정책, 화면 문구 「케어리스트에는 항목을 5개 이상 남겨 주세요.」). 숨긴 항목 삭제는 막지 않는다 | HLT-003-12 | JAJ | - | - |
+| DELETE | /pets/{petSn}/care-items/{careArtclSn}/today-completion/last | 투약 항목 오늘 마지막 1회 취소(케어리스트 [마지막 1회 취소]). 투약 아니면 400, 오늘 기록 없으면 404 | HLT-003-12 | JAJ | - | - |
 | DELETE | /pets/{petSn}/care-schedules/{schdlSn} | 일정 삭제(연결 검진기록은 유지) | HLT-003-33 | JAJ | - | - |
 | DELETE | /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn} | 첨부 삭제 | HLT-005-01 | JAJ | - | - |
 | DELETE | /pets/{petSn}/checkups/{ckupRcdSn} | 검진기록 삭제(자동 생성 케어 항목 삭제, 완료 기록·병원 일정 유지) | HLT-002-05 | JAJ | - | - |
@@ -63,7 +69,7 @@
 쓰는 API: POST /pets/{petSn}/care-completions
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| careArtclSn | Long | Y | 이 반려동물의 케어 항목. 투약 항목은 1회 체크마다 1건(n/N회). 완료일은 요청에 없음(issues 4) | CARE_CMPTN_HSTRY.CARE_ARTCL_SN, HLT-003-12 |
+| careArtclSn | Long | Y | 이 반려동물의 케어 항목. 항목·날짜당 1건이고 투약 항목은 체크마다 회차를 올림(n/N회). 완료일은 요청에 없음(issues 4) | CARE_CMPTN_HSTRY.CARE_ARTCL_SN, HLT-003-12 |
 
 ### CareCompletionResponse
 쓰는 API: POST /pets/{petSn}/care-completions
@@ -86,7 +92,8 @@
 | careArtclNm | String | Y | | CARE_ARTCL.CARE_ARTCL_NM, HLT-003-12 |
 | rprsIconId | String | Y | 기록 내용의 항목 아이콘(클릭 시 취소) | CARE_ARTCL.RPRS_ICON_ID, HLT-003-12 |
 | cmptnYmd | LocalDate | Y | 날짜별로 쌓아 표시 | CARE_CMPTN_HSTRY.CMPTN_YMD, HLT-003-12 |
-| cmptnCycl | Integer | N | | CARE_CMPTN_HSTRY.CMPTN_CYCL |
+| cmptnCycl | Integer | N | 투약 항목은 1일 복용 횟수를 채운 날만 나온다 | CARE_CMPTN_HSTRY.CMPTN_CYCL |
+| cmptnDt | LocalDateTime | Y | 완료 시각(화면 「08:12」). 마지막으로 체크한 시각: 투약은 마지막 회차, 취소 뒤 다시 체크하면 다시 체크한 시각. 숨긴 항목의 기록도 나온다 | CARE_CMPTN_HSTRY.MDFCN_DT |
 
 ### CareItemCreateRequest
 쓰는 API: POST /pets/{petSn}/care-items
@@ -95,18 +102,12 @@
 | careArtclNm | String | Y | 최대 40자. 같은 이름 허용(HLT-003-21, AIM-012-08) | CARE_ARTCL.CARE_ARTCL_NM (HLT-003-21) |
 | rprsIconId | String | N | 최대 20자. 미입력 시 기본 아이콘 | CARE_ARTCL.RPRS_ICON_ID (미입력 시 기본 아이콘, HLT-003-22·AIM-012-13) |
 | careZoneCd | String | Y | HLTG13 공통코드. 매일 = 일상관리, 주기 = 정기관리 | CARE_ARTCL.CARE_ZONE_CD (반복 유형 매일/주기, HLT-003-23) |
-| careCycleCd | String | N | HLTG15 공통코드(1주·2주·한달·1년·직접입력). 정기관리면 필수 | CARE_ARTCL.CARE_CYCLE_CD (주기 선택 시 필수, HLT-003-24) |
-| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 최대 4자리 | CARE_ARTCL.CYCLE_DRCT_INPT_DAY_CNT (직접입력 시 필수) |
-| lastCmptnYmd | LocalDate | N | 정기관리만. 오늘 이후 날짜 불가(HLT-003-38). 미입력 시 등록일 기준으로 예정일 계산 | CARE_CMPTN_HSTRY.CMPTN_YMD (HLT-003-38, 미입력 시 등록일 기준) |
-
-### CareItemExposureSaveRequest
-쓰는 API: PUT /pets/{petSn}/care-item-exposures
-| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
-| --- | --- | --- | --- | --- |
-| careArtclSns | List<Long> | Y | 최대 6개(HLT-003-13). 목록 순서 = 메인 정렬 순서, 목록에 없는 항목은 메인 표시 해제. 빈 목록 허용 여부는 명세에 없음 | CARE_ARTCL.CARE_ARTCL_SN — 목록 순서 = MAIN_SORT_SEQ, 목록에 없는 항목은 MAIN_EXPSR_YN='N', 최대 6개(HLT-003-13) |
+| careCycleCd | String | N | HLTG15 공통코드(1주·2주·한달·1년·직접입력). 정기관리면 필수. 일상관리면 보내지 않는다 | CARE_ARTCL.CARE_CYCLE_CD (주기 선택 시 필수, HLT-003-24) |
+| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 1~365. 일상관리면 보내지 않는다(0을 보내면 400) | CARE_ARTCL.CYCLE_DRCT_INPT_DAY_CNT (직접입력 시 필수) |
+| lastCmptnYmd | LocalDate | N | 정기관리만(일상관리면 보내지 않는다). 보내면 그날 완료 기록 1건을 만든다. 오늘 이후 날짜는 400 `CARE_COMPLETION_FUTURE_DATE`(HLT-003-38). 미입력 시 등록일 기준으로 예정일 계산 | CARE_CMPTN_HSTRY.CMPTN_YMD (HLT-003-38, 미입력 시 등록일 기준) |
 
 ### CareItemResponse
-쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}; POST /pets/{petSn}/care-items (GET care-items 응답 행과 같은 필드 → CareItemSummary와 같은 모양)
+쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}; POST /pets/{petSn}/care-items (GET care-items 응답 행과 같은 필드 → CareItemSummary와 같은 모양. 단 `indctYn`·`todayMsnYn`·`msnPnt`·`msnCmptnYn`은 목록·표시 저장 응답에만)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | careArtclSn | Long | Y | | CARE_ARTCL.CARE_ARTCL_SN |
@@ -118,18 +119,16 @@
 | rprsIconId | String | Y | | CARE_ARTCL.RPRS_ICON_ID |
 | nxtmPrnmntYmd | LocalDate | N | | CARE_ARTCL.NXTM_PRNMNT_YMD |
 | lastCmptnYmd | LocalDate | N | | CARE_ARTCL.LAST_CMPTN_YMD |
-| mainExpsrYn | boolean | Y | | CARE_ARTCL.MAIN_EXPSR_YN |
-| mainSortSeq | Integer | N | | CARE_ARTCL.MAIN_SORT_SEQ |
 | bscArtclYn | boolean | Y | | CARE_ARTCL.BSC_ARTCL_YN |
 | prscSn | Long | N | | CARE_ARTCL.PRSC_SN (처방약 연동 뱃지·출처 보기) |
 | reptPrvntMngSn | Long | N | | CARE_ARTCL.REPT_PRVNT_MNG_SN (출처 보기) |
 | ckupRcdSn | Long | N | 자동 생성 항목의 출처 검진기록([출처 보기] → 검진상세) | PRSC.CKUP_RCD_SN 또는 REPT_PRVNT_MNG.CKUP_RCD_SN, HLT-003-12 (추가) |
 | mdcnEndYmd | LocalDate | N | | PRSC.MDCN_END_YMD (HLT-003-12 복용 종료일 표시) |
 | dayMdcnNmtm | Integer | N | | PRSC.DAY_MDCN_NMTM (투약 n/N회의 N) |
-| todayCmptnCnt | Integer | N | | HLT-003-12·13 (오늘 CARE_CMPTN_HSTRY 건수) |
+| todayCmptnCnt | Integer | N | | HLT-003-12 (오늘 CARE_CMPTN_HSTRY 건수) |
 
 ### CareItemSummary
-쓰는 API: GET /pets/{petSn}/care-items; PUT /pets/{petSn}/care-item-exposures (응답 행)
+쓰는 API: GET /pets/{petSn}/care-items
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | careArtclSn | Long | Y | | CARE_ARTCL.CARE_ARTCL_SN |
@@ -141,15 +140,31 @@
 | rprsIconId | String | Y | | CARE_ARTCL.RPRS_ICON_ID |
 | nxtmPrnmntYmd | LocalDate | N | 상태 배지(오늘/D-n/+n일)는 화면이 계산 | CARE_ARTCL.NXTM_PRNMNT_YMD |
 | lastCmptnYmd | LocalDate | N | | CARE_ARTCL.LAST_CMPTN_YMD |
-| mainExpsrYn | boolean | Y | | CARE_ARTCL.MAIN_EXPSR_YN |
-| mainSortSeq | Integer | N | | CARE_ARTCL.MAIN_SORT_SEQ |
 | bscArtclYn | boolean | Y | | CARE_ARTCL.BSC_ARTCL_YN |
 | prscSn | Long | N | | CARE_ARTCL.PRSC_SN (처방약 연동 뱃지·출처 보기) |
 | reptPrvntMngSn | Long | N | | CARE_ARTCL.REPT_PRVNT_MNG_SN (출처 보기) |
 | ckupRcdSn | Long | N | 자동 생성 항목의 출처 검진기록([출처 보기] → 검진상세) | PRSC.CKUP_RCD_SN 또는 REPT_PRVNT_MNG.CKUP_RCD_SN, HLT-003-12 (추가) |
 | mdcnEndYmd | LocalDate | N | | PRSC.MDCN_END_YMD (HLT-003-12 복용 종료일 표시) |
 | dayMdcnNmtm | Integer | N | | PRSC.DAY_MDCN_NMTM (투약 n/N회의 N) |
-| todayCmptnCnt | Integer | N | | HLT-003-12·13 (오늘 CARE_CMPTN_HSTRY 건수) |
+| todayCmptnCnt | Integer | N | | HLT-003-12 (오늘 CARE_CMPTN_HSTRY 건수) |
+| indctYn | Boolean | Y | 케어리스트 표시여부(※신규 정책). 고른 적 없으면 기본 항목은 추천 5개(화장실 청소·양치·빗질·놀이·귀 청소)만, 직접 추가 항목은 true. 처방·반복 예방 연동 항목은 항상 true. 케어리스트는 true만, 「케어 항목 관리」 모달은 전부 그린다 | CARE_ARTCL.INDCT_YN (NULL = 고른 적 없음) |
+| todayMsnYn | boolean | Y | 오늘 케어미션으로 나온 기본 항목이면 true | DAY_MSN(해당 반려동물, 오늘) ↔ 기본 항목 |
+| msnPnt | Integer | N | 오늘 케어미션 배점 포인트. 주양육자에게만, 공동양육자와 미션 아닌 항목은 null(※신규 정책) | DAY_MSN.SCOR_PNT |
+| msnCmptnYn | boolean | Y | 오늘 케어미션 완료 여부. 미션 아닌 항목은 false | DAY_MSN.CMPTN_YN |
+
+### CareItemIndicationSaveRequest
+쓰는 API: PUT /pets/{petSn}/care-items/indications (※신규 정책)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| careArtclSns | List<Long> | Y | 케어리스트에 보일 항목 번호 전체. 빠진 항목은 숨긴다. 처방·반복 예방 연동 항목은 빠져도 오류 없이 보인다. 보일 항목(보낸 항목 + 연동 항목)이 5개 미만이면 400 `INVALID_INPUT_VALUE` `data[0].field`=`indctYn`, 그 반려동물의 항목이 아니거나 삭제된 항목·중복 번호는 400 `INVALID_INPUT_VALUE` `data[0].field`=`careArtclSns`. 「케어 항목 관리」 모달에서 지울 항목은 넣지 않는다 | CARE_ARTCL.INDCT_YN |
+
+### CareMissionProgressResponse
+쓰는 API: GET /pets/{petSn}/care-items/mission-progress (※신규 정책)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| prmyYn | boolean | Y | 요청 회원이 그 반려동물의 주양육자인지(공동양육자면 포인트 문구 대신 「공동양육 중인 아이라 포인트는 주양육자에게 적립돼요」) | 양육 역할 |
+| cmptnCnt | int | Y | 오늘 완료한 미션 수(진행 상자 a) | DAY_MSN.CMPTN_YN |
+| totCnt | int | Y | 오늘 출제된 미션 수(진행 상자 b). 출제 전이면 0 | DAY_MSN |
 
 ### CareItemUpdateRequest
 쓰는 API: PATCH /pets/{petSn}/care-items/{careArtclSn}
@@ -159,7 +174,7 @@
 | rprsIconId | String | N | 최대 20자. 기본 항목은 변경 불가 | CARE_ARTCL.RPRS_ICON_ID, HLT-003-12 |
 | careZoneCd | String | N | HLTG13. 기본 항목은 변경 불가 | CARE_ARTCL.CARE_ZONE_CD, HLT-003-12 |
 | careCycleCd | String | N | HLTG15. 기본 정기관리 항목은 이 값과 직접입력 일수만 변경 가능 | CARE_ARTCL.CARE_CYCLE_CD, HLT-003-12 |
-| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 최대 4자리 | CARE_ARTCL.CYCLE_DRCT_INPT_DAY_CNT, HLT-003-24 |
+| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 1~365 | CARE_ARTCL.CYCLE_DRCT_INPT_DAY_CNT, HLT-003-24 |
 
 ### CareScheduleCreateRequest
 쓰는 API: POST /pets/{petSn}/care-schedules (AI 대화 등록도 같은 API)
@@ -173,7 +188,7 @@
 | schdlNm | String | N | 최대 40자. 병원 외 종류면 필수(서버 재검증) | SCHDL.SCHDL_NM (병원 외 종류면 필수, AIM-012-12) |
 | memoCn | String | N | 최대 500자. 일정 메모(검진 메모와 별개) | SCHDL.MEMO_CN (HLT-003-36) |
 | cldrBadgeColrCd | String | N | HLTG21 공통코드 | SCHDL.CLDR_BADGE_COLR_CD (미지정 시 종류 기본 색상, HLT-003-36) |
-| schdlSrcCd | String | N | HLTG22 공통코드 | SCHDL.SCHDL_SRC_CD (AI 대화 등록은 'AI 생성', AIM-012-13) |
+| schdlSrcCd | String | N | HLTG22 공통코드. AI 대화 등록은 `HLTC0067`(AI 생성). 케어미션(일정 등록)은 직접 등록만 반영하고 AI 생성은 반영하지 않는다 | SCHDL.SCHDL_SRC_CD (AI 대화 등록은 'AI 생성', AIM-012-13) |
 
 ### CareScheduleResponse
 쓰는 API: PATCH /pets/{petSn}/care-schedules/{schdlSn}; POST /pets/{petSn}/care-schedules
@@ -192,7 +207,7 @@
 | schdlSrcCd | String | N | | SCHDL.SCHDL_SRC_CD (AIM-012-13) |
 
 ### CareScheduleSummary
-쓰는 API: GET /pets/{petSn}/care-schedules (월간·날짜 상세·다가오는 일정·다음 예정일·가까운 예정 일정 후보)
+쓰는 API: GET /pets/{petSn}/care-schedules (월간·날짜 상세·다가오는 일정·다음 예정일·가까운 예정 일정 후보); GET /care-schedules (여러 반려동물, 케어 캘린더 월간·날짜 상세·다가오는 일정)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | schdlSn | Long | Y | | SCHDL.SCHDL_SN |
@@ -208,12 +223,13 @@
 | memoCn | String | N | 날짜 인라인 상세에만 표시 | SCHDL.MEMO_CN, HLT-003-36 |
 | cldrBadgeColrCd | String | N | HLTG21. 일정 행 색상 칩 | SCHDL.CLDR_BADGE_COLR_CD, HLT-003-31 |
 | ckupRcdCnt | Integer | Y | 연결된 검진기록 수. 0이면 [검진기록 없음], 가까운 예정 일정 후보는 0건인 병원 일정 | HLT-002-05·46, HLT-003-31 (CKUP_RCD.SCHDL_SN 건수) |
+| ckupRcdSn | Long | N | 연결 검진기록이 1건이면 그 번호, 0건·2건 이상이면 null → 검진상세 바로 이동 | CKUP_RCD.CKUP_RCD_SN (※신규 정책) |
 
 ### CareScheduleUpdateRequest
 쓰는 API: PATCH /pets/{petSn}/care-schedules/{schdlSn}
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| petSn | Long | N | 옮길 반려동물. 연결 검진기록·자동 생성 케어 항목·완료 기록·반복 예방 관리도 함께 이동, 옮긴 항목의 ★ 해제(`issues.md` API의 AI매니저·건강기록 9번) | SCHDL.PET_SN, HLT-003-37 |
+| petSn | Long | N | 옮길 반려동물. 연결 검진기록·자동 생성 케어 항목·완료 기록·반복 예방 관리도 함께 이동 (`issues.md` API의 AI매니저·건강기록 9번) | SCHDL.PET_SN, HLT-003-37 |
 | schdlKndCd | String | N | HLTG19. 종류를 바꾸면 이전 종류의 입력값은 유지하지 않음 | SCHDL.SCHDL_KND_CD, HLT-003-34·35 |
 | schdlDt | LocalDateTime | N | | SCHDL.SCHDL_DT, HLT-003-32 |
 | hrInptYn | Boolean | N | | SCHDL.HR_INPT_YN, HLT-003-32 |
@@ -255,7 +271,7 @@
 | --- | --- | --- | --- | --- |
 | ckupRcdAtchSn | Long | Y | 파일은 GET …/checkup-attachments/{ckupRcdAtchSn} | CKUP_RCD_ATCH.CKUP_RCD_ATCH_SN |
 | ckupRcdSn | Long | Y | [전체 보기] → 그 검진상세 | CKUP_RCD_ATCH.CKUP_RCD_SN, HLT-011-09 |
-| atchTypeCd | String | Y | HLTG20. 검사결과지 PDF만 [PDF 분석] | CKUP_RCD_ATCH.ATCH_TYPE_CD, HLT-005-04 |
+| atchTypeCd | String | Y | HLTG20. 검사결과지 PDF만 [PDF 분석]. 분석은 화면이 Python `POST /ai/checkups/lab-results`로 직접 요청한다(Java API 없음) | CKUP_RCD_ATCH.ATCH_TYPE_CD, HLT-005-04 |
 | atchTypeCdNm | String | Y | | COM_CD.COM_CD_NM, HLT-005-01 |
 | imgKndCd | String | N | HLTG23 | CKUP_RCD_ATCH.IMG_KND_CD |
 | imgKndCdNm | String | N | 영상검사 칩의 영상 종류 | COM_CD.COM_CD_NM, HLT-005-02 |
@@ -280,13 +296,13 @@
 | --- | --- | --- | --- | --- |
 | ckupYmd | LocalDate | Y | 기본값 오늘, 미래 날짜 허용. 같은 날짜 병원 일정에 자동 연결(2건 이상이면 먼저 등록된 일정), 없으면 새로 만듦 | HLT-002-27·30, SCHDL.SCHDL_DT (CKUP_RCD에 검진일 컬럼 없음, `issues.md` API의 AI매니저·건강기록 1번) |
 | hsptlNm | String | Y | 최대 80자(직접 입력은 명세에 길이 없음, issues 11) | CKUP_RCD.HSPTL_NM, HLT-002-28 |
-| ckupTypeCd | String | Y | HLTG01 공통코드(정기검진·예방접종·질병진료·검사·기타 진료) | CKUP_RCD.CKUP_TYPE_CD, HLT-002-28 |
+| ckupTypeCd | String | Y | HLTG01 공통코드(정기검진·예방접종·질병진료·검사·기타진료) | CKUP_RCD.CKUP_TYPE_CD, HLT-002-28 |
 | ckupCn | String | N | 최대 500자 | CKUP_RCD.CKUP_CN, HLT-002-29 |
 | ckupMemoCn | String | N | 최대 200자. 일정 메모와 별개 | CKUP_RCD.CKUP_MEMO_CN, HLT-002-29 |
 | schdlSn | Long | N | [옮겨 연결하기]를 고른 경우만. 같은 반려동물·검진기록 미연결 병원 일정, 검진일 앞뒤 7일. 일정 날짜를 검진일로 옮기고 연결 | CKUP_RCD.SCHDL_SN, HLT-002-46 |
 
 ### CheckupResponse
-쓰는 API: GET /pets/{petSn}/checkups/{ckupRcdSn}; PATCH /pets/{petSn}/checkups/{ckupRcdSn}; POST /pets/{petSn}/checkups; POST /receipts/{recptSn}/checkups (expense? API도 이 DTO를 씀)
+쓰는 API: GET /pets/{petSn}/checkups/{ckupRcdSn}; PATCH /pets/{petSn}/checkups/{ckupRcdSn}; POST /pets/{petSn}/checkups; POST /receipts/{recptSn}/checkups?petSn= (`docs/api/receipt.md`, 영수증 [직접 입력])
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | ckupRcdSn | Long | Y | | CKUP_RCD.CKUP_RCD_SN |
@@ -296,6 +312,7 @@
 | hsptlNm | String | Y | | CKUP_RCD.HSPTL_NM, HLT-005-01 (추가) |
 | ckupTypeCd | String | Y | HLTG01 | CKUP_RCD.CKUP_TYPE_CD, HLT-005-01 (추가) |
 | ckupTypeCdNm | String | Y | | COM_CD.COM_CD_NM, HLT-005-01 (추가) |
+| schdlDelYn | Boolean | Y | 연결 일정이 삭제됐으면 true → "연결된 일정 삭제됨" | SCHDL.DEL_YN, HLT-005-01 (※신규 정책) |
 | ckupCn | String | N | | CKUP_RCD.CKUP_CN, HLT-005-01 (추가) |
 | ckupMemoCn | String | N | | CKUP_RCD.CKUP_MEMO_CN, HLT-005-01 (추가) |
 | recptSn | Long | N | 영수증으로 등록한 기록이면 연결된 영수증 | CKUP_RCD.RECPT_SN, HLT-002-31·45 (추가) |
@@ -311,15 +328,14 @@
 | ckupTypeCd | String | Y | HLTG01. 예방접종·정기검진 이력 구분 | CKUP_RCD.CKUP_TYPE_CD, HLT-002-06, HLT-011-04 |
 | ckupTypeCdNm | String | Y | | COM_CD.COM_CD_NM, HLT-011-03 |
 | schdlDelYn | boolean | Y | 연결 일정이 삭제됐으면 true → "연결된 일정 삭제됨" | SCHDL.DEL_YN, HLT-002-05 (issues 12) |
+| ckupCn | String | N | 진료 내용. 타임라인 상세 줄(첫 줄) | CKUP_RCD.CKUP_CN, HLT-011-03 |
 
 ### CheckupUpdateRequest
 쓰는 API: PATCH /pets/{petSn}/checkups/{ckupRcdSn}
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| petSn | Long | N | 옮길 반려동물. 그 반려동물의 같은 날짜 병원 일정으로 재연결(없으면 생성), 자동 생성 케어 항목·완료 기록·반복 예방 관리도 이동, ★ 해제(`issues.md` API의 AI매니저·건강기록 9번) | SCHDL.PET_SN, HLT-002-26 |
-| ckupYmd | LocalDate | N | 바꾸면 같은 반려동물·같은 날짜 병원 일정으로 재연결(없으면 생성). 앞뒤 7일 확인 없음 | HLT-005-01, SCHDL.SCHDL_DT (`issues.md` API의 AI매니저·건강기록 1번) |
-| hsptlNm | String | N | 최대 80자. 일정의 병원명은 바꾸지 않음 | CKUP_RCD.HSPTL_NM, HLT-005-01 |
-| ckupTypeCd | String | N | HLTG01. 일정의 검진유형은 바꾸지 않음 | CKUP_RCD.CKUP_TYPE_CD, HLT-005-01 |
+| hsptlNm | String | N | 최대 80자. 연결 일정의 병원명에도 반영(※신규 정책) | CKUP_RCD.HSPTL_NM, HLT-005-01 |
+| ckupTypeCd | String | N | HLTG01. 연결 일정의 검진유형에도 반영(※신규 정책) | CKUP_RCD.CKUP_TYPE_CD, HLT-005-01 |
 | ckupCn | String | N | 최대 500자 | CKUP_RCD.CKUP_CN, HLT-005-01 |
 | ckupMemoCn | String | N | 최대 200자 | CKUP_RCD.CKUP_MEMO_CN, HLT-005-01 |
 
@@ -328,8 +344,8 @@
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | dailyRcdIdctCd | String | Y | HLTG09 공통코드(체중·식사량·음수량·배변상태·산책) | DAILY_HLTH_RCD.DAILY_RCD_IDCT_CD, HLT-002-11 |
-| rcdDt | LocalDateTime | Y | 화면은 시간만 입력, 날짜는 오늘("오늘 기록하기") | DAILY_HLTH_RCD.RCD_DT, HLT-002-11 |
-| rcdNvl | BigDecimal | N | 식사량 g·음수량 ml·산책 분·체중 kg. 배변상태가 아니면 필수. 정수 5자리·소수 3자리 | DAILY_HLTH_RCD.RCD_NVL, HLT-002-11 |
+| rcdDt | LocalDateTime | Y | 화면은 시간만 입력, 날짜는 오늘("오늘 기록하기"). 지금(Asia/Seoul)+5분보다 늦으면 400 `rcdDt`(※신규 정책, 5분은 PC·서버 시계 차이 여유) | DAILY_HLTH_RCD.RCD_DT, HLT-002-11 |
+| rcdNvl | BigDecimal | N | 식사량 g·음수량 ml·산책 분·체중 kg. 배변상태가 아니면 필수. 0 초과, 정수 5자리·소수 둘째 자리까지(셋째 자리부터 400). 체중은 200 이하, 산책은 120 이하, 음수량은 프로필 체중(`PET.PET_BDWG`)×100 이하, 식사량은 프로필 체중×50 이하(※신규 정책, 넘으면 400 `rcdNvl`) | DAILY_HLTH_RCD.RCD_NVL, HLT-002-11 |
 | crsdSttsCd | String | N | HLTG10 공통코드(정상·딱딱함·무름·설사·변비). 배변상태면 필수 | DAILY_HLTH_RCD.CRSD_STTS_CD, HLT-002-11 |
 
 ### DailyHealthRecordResponse
@@ -354,12 +370,54 @@
 | crsdSttsCdNm | String | N | 표·타일의 배변상태 이름 | COM_CD.COM_CD_NM, HLT-002-12·13 (추가) |
 | rcdDt | LocalDateTime | Y | | DAILY_HLTH_RCD.RCD_DT |
 
+### HealthDashboardWidgetResponse
+쓰는 API: GET·PUT /members/me/dashboard-widgets
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| savedYn | boolean | Y | 저장한 행이 있으면 true. false면 프론트가 튜토리얼을 연다 | MBR_DSHBD_WDGT |
+| widgets | List<HealthDashboardWidgetSummary> | Y | 항목 13개를 보일 순서대로. 저장한 적 없으면 기본 순서·`indctYn=true` | MBR_DSHBD_WDGT, COM_CD(HLTG25) |
+
+### HealthDashboardWidgetSaveRequest
+쓰는 API: PUT /members/me/dashboard-widgets
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| widgets | List<Widget> | Y | 비어 있으면 400. HLTG25 코드 13개를 보일 순서대로 한 번씩 | MBR_DSHBD_WDGT |
+
+Widget: `dshbdWdgtCd`(필수, 8자 이하, HLTG25 코드), `indctYn`(필수, boolean, 표시여부)
+
+### HealthDashboardWidgetSummary
+쓰는 API: GET·PUT /members/me/dashboard-widgets (widgets 행)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| dshbdWdgtCd | String | Y | HLTG25 공통코드(HLTC0084~HLTC0096) | MBR_DSHBD_WDGT.DSHBD_WDGT_CD |
+| dshbdWdgtCdNm | String | Y | 항목 이름(체중, 식사량, 음수량, 산책, 배변 상태, 검진기록, 검사 수치, 처방·투약, 첨부 자료, 지속 관찰, 알레르기·기저질환, 예방접종·정기검진, 케어리스트) | COM_CD.COM_CD_NM |
+| indctYn | boolean | Y | 표시여부 | MBR_DSHBD_WDGT.INDCT_YN |
+| sortSeq | Integer | Y | 정렬 순서(작은 값이 먼저) | MBR_DSHBD_WDGT.SORT_SEQ |
+
+### HealthIndicatorResponse
+쓰는 API: GET /pets/{petSn}/health-indicators (메인 건강 지표 위젯, 2026-11-04 추가)
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| baseYmd | LocalDate | Y | 기준일(KST 오늘) | MAN-005 |
+| inqDt | LocalDateTime | Y | 조회 시각(화면의 "최근 업데이트 시각") | MAN-005 |
+| weight | WeightIndicator | N | 체중. 기록이 없으면 null | DAILY_HLTH_RCD(HLTC0014), MAN-006 |
+| meal | DailySumIndicator | N | 식사량(HLTC0015). 기록이 없으면 null | DAILY_HLTH_RCD, MAN-006 |
+| water | DailySumIndicator | N | 음수량(HLTC0016). 기록이 없으면 null | DAILY_HLTH_RCD, MAN-006 |
+| walk | DailySumIndicator | N | 산책(HLTC0018). 기록이 없으면 null | DAILY_HLTH_RCD, MAN-006 |
+| creatinine | CreatinineIndicator | N | 혈액검사 CREA(HLTC0030). 수치가 없으면 null | INSP_NVL, MAN-006 |
+
+WeightIndicator: `latestNvl`(최신값), `prevDiff`(직전 기록 대비, 직전 기록이 없으면 null), `points[{rcdDt, rcdNvl}]`(최근 5건, 오래된 순)
+
+DailySumIndicator: `todaySum`(오늘 일 합계, 오늘 기록이 없으면 null), `prevDaySum`(오늘 이전 가장 최근 기록일 합계), `prevDiff`(둘 중 하나라도 null이면 null), `points[{rcdYmd, sumNvl}]`(기록 있는 최근 5일, 오래된 순, 오늘 이후 기록 제외)
+
+CreatinineIndicator: `latestNvl`, `unitNm`, `refLlmtNvl`, `refUplmtNvl`(최신 검사 기준), `prevDiff`(지난 검사 대비), `points[{schdlDt, rsltNvl, unitNm, refLlmtNvl, refUplmtNvl}]`(최근 5회, 검진 일정일시 오래된 순)
+
 ### DailyHealthRecordUpdateRequest
 쓰는 API: PATCH /pets/{petSn}/daily-health-records/{dailyHlthRcdSn}
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| rcdDt | LocalDateTime | N | 인라인 편집의 시각 | DAILY_HLTH_RCD.RCD_DT, HLT-002-13 |
-| rcdNvl | BigDecimal | N | 정수 5자리·소수 3자리 | DAILY_HLTH_RCD.RCD_NVL, HLT-002-13 |
+| rcdDt | LocalDateTime | N | 인라인 편집의 시각. 지금(Asia/Seoul)+5분보다 늦으면 400 `rcdDt`(※신규 정책) | DAILY_HLTH_RCD.RCD_DT, HLT-002-13 |
+| rcdNvl | BigDecimal | N | 0 초과, 정수 5자리·소수 둘째 자리까지(셋째 자리부터 400). 체중은 200 이하, 산책은 120 이하, 음수량은 프로필 체중(`PET.PET_BDWG`)×100 이하, 식사량은 프로필 체중×50 이하(※신규 정책, 넘으면 400 `rcdNvl`) | DAILY_HLTH_RCD.RCD_NVL, HLT-002-13 |
 | crsdSttsCd | String | N | HLTG10. 배변상태 기록만 | DAILY_HLTH_RCD.CRSD_STTS_CD, HLT-002-13 |
 
 ### EtcInspectionCreateRequest
@@ -399,34 +457,12 @@
 | inspRsltCn | String | N | 1~500자. 비울 수 없음(필수 항목) | ETC_INSP.INSP_RSLT_CN, HLT-005-12 |
 | memoCn | String | N | 최대 200자 | ETC_INSP.MEMO_CN, HLT-005-13 |
 
-### InspectionAnalysisItem
-쓰는 API: POST /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn}/analyses (InspectionAnalysisResponse.items의 요소. 중첩 record)
-| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
-| --- | --- | --- | --- | --- |
-| inspArtclCd | String | N | HLTG12. 12종 중 인식한 항목 | INSP_NVL.INSP_ARTCL_CD, HLT-007-04 |
-| inspArtclDrctInptNm | String | N | 12종에 없는 항목명 | INSP_NVL.INSP_ARTCL_DRCT_INPT_NM, HLT-007-04 |
-| rsltNvl | BigDecimal | N | 인식 실패·저품질이면 null | INSP_NVL.RSLT_NVL, HLT-007-04 |
-| unitNm | String | N | 인식 실패면 null | INSP_NVL.UNIT_NM, HLT-007-04 |
-| refLlmtNvl | BigDecimal | N | | INSP_NVL.REF_LLMT_NVL, HLT-007-04 |
-| refUplmtNvl | BigDecimal | N | | INSP_NVL.REF_UPLMT_NVL, HLT-007-04 |
-| registered | Boolean | Y | 같은 검진기록에 이미 있는 항목이면 true → "이미 등록됨", 저장 대상 제외 | HLT-007-04 |
-
-### InspectionAnalysisResponse
-쓰는 API: POST /pets/{petSn}/checkup-attachments/{ckupRcdAtchSn}/analyses (저장 안 함)
-| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
-| --- | --- | --- | --- | --- |
-| ckupRcdAtchSn | Long | Y | 분석한 첨부 | CKUP_RCD_ATCH.CKUP_RCD_ATCH_SN, HLT-005-04 |
-| ckupRcdSn | Long | Y | 저장할 검진기록(SCR-HLT-007 진입) | CKUP_RCD_ATCH.CKUP_RCD_SN, HLT-005-04 |
-| anlysRslt | String | Y | 분석 결과 구분: 성공 / 인식 실패 / 일시 오류(제한 시간 초과·외부 API 오류). 실패도 200으로 주고 이 값으로 문구를 고른다. 값 표현은 영수증의 `ocrPrcsSttsCd`(AIMG01)처럼 공통코드로 둘지 JAJ가 정한다(2026-10-22 제안) | HLT-005-04, HLT-007-06 |
-| items | List<InspectionAnalysisItem> | Y | 혈액검사 항목만. 0건이면 빈 목록 | HLT-007-04·05 |
-| excludedArtclNms | List<String> | N | 혈액검사가 아니라서 뺀 항목 이름(안내용, issues 10) | HLT-007-05 |
-
 ### InspectionValueCreateRequest
 쓰는 API: POST /pets/{petSn}/inspection-values (혈액검사 고정)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | ckupRcdSn | Long | Y | 이 반려동물의 검진기록 | INSP_NVL.CKUP_RCD_SN, HLT-007-03 |
-| values | List<InspectionValueItemRequest> | Y | 1행 이상. 같은 검진기록에 이미 있는 항목은 저장에서 제외, 삭제된 같은 항목은 복구(issues 1) | HLT-007-02·03, HLT-005-02 |
+| values | List<InspectionValueItemRequest> | Y | 1행 이상. 같은 검진기록에 이미 있는 항목은 저장에서 제외, 삭제된 같은 항목은 복구(issues 1). 잘못된 행은 400 `INVALID_INPUT_VALUE` data의 `field`가 `values[i].<칸>`(요청 검증·서비스 검사 모두. 서비스: 코드 없음·12종 아님·직접입력명과 다른 코드 `inspArtclCd`, 참고범위 한쪽만이면 빈 쪽, 하한 > 상한이면 두 칸, 단위 공백 `unitNm`). AI 도구 `draft_inspection_values` | HLT-007-02·03, HLT-005-02 |
 
 ### InspectionValueItemRequest
 쓰는 API: POST /pets/{petSn}/inspection-values (InspectionValueCreateRequest.values의 요소. 중첩 record)
@@ -434,10 +470,10 @@
 | --- | --- | --- | --- | --- |
 | inspArtclCd | String | N | HLTG12 공통코드(12종). 이 값과 직접입력명 중 하나는 필수 | INSP_NVL.INSP_ARTCL_CD, HLT-007-02 |
 | inspArtclDrctInptNm | String | N | 최대 40자. 12종에 없을 때 직접입력 | INSP_NVL.INSP_ARTCL_DRCT_INPT_NM, HLT-007-02 |
-| rsltNvl | BigDecimal | Y | 정수 11자리·소수 4자리 | INSP_NVL.RSLT_NVL, HLT-007-02 |
+| rsltNvl | BigDecimal | Y | 0 이상, 정수 7자리·소수 둘째 자리까지(음수·8자리 이상·셋째 자리부터 400, ※신규 정책: 검사 수치 0 이상 · 정수 7자리) | INSP_NVL.RSLT_NVL, HLT-007-02 |
 | unitNm | String | Y | 최대 20자 | INSP_NVL.UNIT_NM, HLT-007-02 |
-| refLlmtNvl | BigDecimal | N | 상한과 함께 입력하거나 둘 다 비움 | INSP_NVL.REF_LLMT_NVL, HLT-007-02 |
-| refUplmtNvl | BigDecimal | N | 하한과 함께 입력하거나 둘 다 비움 | INSP_NVL.REF_UPLMT_NVL, HLT-007-02 |
+| refLlmtNvl | BigDecimal | N | 0 이상, 정수 7자리·소수 둘째 자리까지(※신규 정책: 검사 수치 0 이상 · 정수 7자리). 상한과 함께 입력하거나 둘 다 비움. 하한 ≤ 상한 | INSP_NVL.REF_LLMT_NVL, HLT-007-02 |
+| refUplmtNvl | BigDecimal | N | 0 이상, 정수 7자리·소수 둘째 자리까지(※신규 정책: 검사 수치 0 이상 · 정수 7자리). 하한과 함께 입력하거나 둘 다 비움. 하한 ≤ 상한 | INSP_NVL.REF_UPLMT_NVL, HLT-007-02 |
 | memoCn | String | N | 최대 200자 | INSP_NVL.MEMO_CN, HLT-007-02 |
 
 ### InspectionValueResponse
@@ -476,10 +512,9 @@
 쓰는 API: PATCH /pets/{petSn}/inspection-values/{inspNvlSn} (검사 항목 변경 불가)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
-| rsltNvl | BigDecimal | N | 정수 11자리·소수 4자리 | INSP_NVL.RSLT_NVL, HLT-007-02 |
+| rsltNvl | BigDecimal | N | 0 이상, 정수 7자리·소수 둘째 자리까지(음수·8자리 이상·셋째 자리부터 400, ※신규 정책: 검사 수치 0 이상 · 정수 7자리) | INSP_NVL.RSLT_NVL, HLT-007-02 |
 | unitNm | String | N | 최대 20자. 비울 수 없음(필수 항목) | INSP_NVL.UNIT_NM, HLT-007-02 |
-| refLlmtNvl | BigDecimal | N | 수정 결과 하한·상한 중 한쪽만 있으면 거부 | INSP_NVL.REF_LLMT_NVL, HLT-007-02 |
-| refUplmtNvl | BigDecimal | N | 수정 결과 하한·상한 중 한쪽만 있으면 거부 | INSP_NVL.REF_UPLMT_NVL, HLT-007-02 |
+| refRange | RefRange | N | 참고범위 묶음(객체: refLlmtNvl, refUplmtNvl, 각 0 이상, 정수 7자리·소수 둘째 자리까지, ※신규 정책: 검사 수치 0 이상 · 정수 7자리). 둘 다 값 또는 둘 다 null, 하한 ≤ 상한. 보내면 두 값으로 덮어씀({null,null}이면 비움), 안 보내면 유지 | INSP_NVL.REF_LLMT_NVL·REF_UPLMT_NVL, HLT-007-02 |
 | memoCn | String | N | 최대 200자 | INSP_NVL.MEMO_CN, HLT-007-02 |
 
 ### ObservationCycleCreateRequest
@@ -488,8 +523,8 @@
 | --- | --- | --- | --- | --- |
 | obsrvArtclSn | Long | Y | 이 반려동물의 관찰 항목. 종료된 항목은 불가 | OBSRV_CYCL.OBSRV_ARTCL_SN, HLT-002-19 |
 | file | MultipartFile | Y | 사진 1장. jpg·jpeg·png·webp, 10MB 이하, 확장자·실제 형식 이중 검증 | OBSRV_CYCL.ATCH_FILE_SN, HLT-002-22 |
-| obsrvDt | LocalDateTime | Y | 관찰일. 오늘 이후 불가. 화면은 날짜만 입력(issues 8) | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
-| obsrvSz | BigDecimal | N | mm. 정수 5자리·소수 3자리 | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
+| obsrvDt | LocalDateTime | Y | 관찰일. 오늘(Asia/Seoul, 날짜 기준)까지, 내일부터 400 `obsrvDt`. 화면은 날짜만 입력(issues 8) | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
+| obsrvSz | BigDecimal | N | mm. 정수 5자리·소수 둘째 자리까지(셋째 자리부터 400) | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
 | obsrvChgCd | String | N | HLTG17 공통코드(작아짐·그대로·커짐) | OBSRV_CYCL.OBSRV_CHG_CD, HLT-002-23 |
 | memoCn | String | N | 최대 200자 | OBSRV_CYCL.MEMO_CN, HLT-002-24 |
 
@@ -524,10 +559,11 @@
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | file | MultipartFile | N | 사진 교체. jpg·jpeg·png·webp, 10MB 이하, 확장자·실제 형식 이중 검증 | OBSRV_CYCL.ATCH_FILE_SN, HLT-002-22 |
-| obsrvDt | LocalDateTime | N | 오늘 이후 불가 | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
-| obsrvSz | BigDecimal | N | mm | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
+| obsrvDt | LocalDateTime | N | 오늘(Asia/Seoul, 날짜 기준)까지, 내일부터 400 `obsrvDt` | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
+| obsrvSz | BigDecimal | N | mm. 정수 5자리·소수 둘째 자리까지(셋째 자리부터 400) | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
 | obsrvChgCd | String | N | HLTG17 | OBSRV_CYCL.OBSRV_CHG_CD, HLT-002-23 |
-| memoCn | String | N | 최대 200자 | OBSRV_CYCL.MEMO_CN, HLT-002-24 |
+| memoCn | String | N | 최대 200자. 빈 문자열이면 비움 | OBSRV_CYCL.MEMO_CN, HLT-002-24 |
+| clearFields | List<String> | N | 비울 필드 이름(`obsrvSz`·`obsrvChgCd`·`memoCn`). 반복 키 또는 쉼표로 보냄. 빈 칸은 "안 보냄"과 구분되지 않아 따로 받는다. 그 밖의 이름은 400(`clearFields[i]`), 같은 필드에 값과 함께 보내면 400(`clearFieldsDistinct`). 사진은 비울 수 없다(교체만) | HLT-002-19·23·24 |
 
 ### ObservationItemCreateRequest
 쓰는 API: POST /pets/{petSn}/observation-items (multipart/form-data, 모달 A 항목 + 1회차)
@@ -537,8 +573,8 @@
 | obsrvRegnCd | String | Y | HLTG16 공통코드(머리·얼굴·목·등·배·앞다리·뒷다리·꼬리·기타) | OBSRV_ARTCL.OBSRV_REGN_CD, HLT-002-21 |
 | obsrvRegnDtlNm | String | N | 최대 40자 | OBSRV_ARTCL.OBSRV_REGN_DTL_NM, HLT-002-21 |
 | file | MultipartFile | Y | 1회차 사진 1장. jpg·jpeg·png·webp, 10MB 이하, 확장자·실제 형식 이중 검증 | OBSRV_CYCL.ATCH_FILE_SN, HLT-002-22 |
-| obsrvDt | LocalDateTime | Y | 1회차 관찰일. 오늘 이후 불가(issues 8) | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
-| obsrvSz | BigDecimal | N | mm. 1회차는 변화(obsrvChgCd) 입력 없음 | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
+| obsrvDt | LocalDateTime | Y | 1회차 관찰일. 오늘(Asia/Seoul, 날짜 기준)까지, 내일부터 400 `obsrvDt`(issues 8) | OBSRV_CYCL.OBSRV_DT, HLT-002-32 |
+| obsrvSz | BigDecimal | N | mm. 정수 5자리·소수 둘째 자리까지(셋째 자리부터 400). 1회차는 변화(obsrvChgCd) 입력 없음 | OBSRV_CYCL.OBSRV_SZ, HLT-002-23 |
 | memoCn | String | N | 최대 200자 | OBSRV_CYCL.MEMO_CN, HLT-002-24 |
 
 ### ObservationItemResponse
@@ -580,8 +616,27 @@
 | prscSttsCd | String | Y | HLTG06 공통코드(복용중·종료) | PRSC.PRSC_STTS_CD, HLT-005-03 |
 | careRfltYn | Boolean | N | 주기 체크. true면 투약 케어 항목 생성. 미전송 시 기본값은 명세에 없음(issues 13) | PRSC.CARE_RFLT_YN, HLT-005-03 |
 
+### PrescriptionBulkSaveRequest
+쓰는 API: POST /pets/{petSn}/prescriptions/bulk-save
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| ckupRcdSn | Long | Y | 이 반려동물의 검진기록 | PRSC.CKUP_RCD_SN, HLT-005-03 |
+| values | List<PrescriptionItemRequest> | Y | 1개 이상. 한 트랜잭션으로 저장하고 하나라도 실패하면 전부 저장하지 않음. 같은 prscSn이 두 번 있으면 400 | HLT-005-03 |
+
+### PrescriptionItemRequest
+쓰는 API: POST /pets/{petSn}/prescriptions/bulk-save (PrescriptionBulkSaveRequest.values의 요소. 중첩 record). prscSn 밖의 값·검증은 PrescriptionCreateRequest와 같다
+| 필드 | 타입 | 필수 | 검증·설명 | 근거 |
+| --- | --- | --- | --- | --- |
+| prscSn | Long | N | 있으면 그 처방약을 전체 값으로 덮어써 수정, 없으면 추가. 이 반려동물·이 검진기록의 처방약이 아니면 404 PRESCRIPTION_NOT_FOUND | PRSC.PRSC_SN, HLT-005-03 |
+| mdcnNm | String | Y | 최대 40자 | PRSC.MDCN_NM, HLT-005-03 |
+| mdcnBgngYmd | LocalDate | Y | | PRSC.MDCN_BGNG_YMD, HLT-005-03 |
+| mdcnEndYmd | LocalDate | Y | 시작일 이후만 | PRSC.MDCN_END_YMD, HLT-005-03 |
+| dayMdcnNmtm | Integer | Y | 최대 4자리. 투약 항목의 하루 목표 횟수 | PRSC.DAY_MDCN_NMTM, HLT-005-03 |
+| prscSttsCd | String | Y | HLTG06 공통코드(복용중·종료) | PRSC.PRSC_STTS_CD, HLT-005-03 |
+| careRfltYn | Boolean | N | 주기 체크. 복용중이고 true면 투약 케어 항목 생성, 그 밖에는 삭제. 미전송은 OFF(추가와 같음) | PRSC.CARE_RFLT_YN, HLT-005-03 |
+
 ### PrescriptionResponse
-쓰는 API: PATCH /pets/{petSn}/prescriptions/{prscSn}; POST /pets/{petSn}/prescriptions
+쓰는 API: PATCH /pets/{petSn}/prescriptions/{prscSn}; POST /pets/{petSn}/prescriptions; POST /pets/{petSn}/prescriptions/bulk-save (bulk-save는 List)
 | 필드 | 타입 | 필수 | 검증·설명 | 근거 |
 | --- | --- | --- | --- | --- |
 | prscSn | Long | Y | | PRSC.PRSC_SN |
@@ -625,7 +680,7 @@
 | ckupRcdSn | Long | Y | 이 반려동물의 검진기록 | REPT_PRVNT_MNG.CKUP_RCD_SN, HLT-005-05 |
 | reptPrvntArtclCd | String | Y | HLTG07 공통코드(심장사상충 예방·구충제) | REPT_PRVNT_MNG.REPT_PRVNT_ARTCL_CD, HLT-005-05 |
 | reptCycleCd | String | Y | HLTG15 공통코드(1주·2주·한달·1년·직접입력) | REPT_PRVNT_MNG.REPT_CYCLE_CD, HLT-005-05 |
-| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 최대 4자리 | REPT_PRVNT_MNG.CYCLE_DRCT_INPT_DAY_CNT, HLT-005-05 |
+| cycleDrctInptDayCnt | Integer | N | 직접입력이면 필수. 1~365 | REPT_PRVNT_MNG.CYCLE_DRCT_INPT_DAY_CNT, HLT-005-05 |
 | bgngYmd | LocalDate | Y | 기본값 오늘. 케어 항목의 첫 예정일 | REPT_PRVNT_MNG.BGNG_YMD, HLT-005-05 |
 
 ### RepeatPreventionResponse
@@ -634,6 +689,7 @@
 | --- | --- | --- | --- | --- |
 | reptPrvntMngSn | Long | Y | | REPT_PRVNT_MNG.REPT_PRVNT_MNG_SN |
 | ckupRcdSn | Long | Y | | REPT_PRVNT_MNG.CKUP_RCD_SN |
+| hsptlNm | String | N | 반려동물 전체 조회에서만. 출처 검진기록 병원명 | CKUP_RCD.HSPTL_NM, HLT-011-03 |
 | reptPrvntArtclCd | String | Y | HLTG07 | REPT_PRVNT_MNG.REPT_PRVNT_ARTCL_CD |
 | reptCycleCd | String | Y | HLTG15 | REPT_PRVNT_MNG.REPT_CYCLE_CD |
 | cycleDrctInptDayCnt | Integer | N | | REPT_PRVNT_MNG.CYCLE_DRCT_INPT_DAY_CNT |
